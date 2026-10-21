@@ -47,6 +47,14 @@ class Recording(UUIDPrimaryKey, Timestamps, Base):
     # Momento en que el usuario confirmó tener autorización de los participantes.
     consent_confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Bytes recibidos (suma de segmentos o bloques).
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    # Nombre original del archivo importado (solo informativo; nunca se usa como ruta).
+    source_filename: Mapped[str | None] = mapped_column(String(255))
+    # Audio listo para procesar (extraído de una importación o, en la Fase 3, normalizado).
+    audio_object_key: Mapped[str | None] = mapped_column(String(500))
+    # Motivo estable del fallo cuando status = failed (p. ej. "malware_detected").
+    error_code: Mapped[str | None] = mapped_column(String(64))
 
     segments: Mapped[list["AudioSegment"]] = relationship(
         back_populates="recording", order_by="(AudioSegment.track, AudioSegment.seq)"

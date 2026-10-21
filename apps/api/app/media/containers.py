@@ -3,6 +3,8 @@ del cliente, que es manipulable)."""
 
 # Contenedores que produce MediaRecorder según el navegador.
 SEGMENT_CONTAINERS = {"webm", "ogg", "mp4"}
+# Importación: además, audio clásico. MP4/MOV (vídeo) se identifican como "mp4" (ftyp).
+IMPORT_CONTAINERS = SEGMENT_CONTAINERS | {"wav", "mp3", "aac"}
 
 EXTENSIONS = {"webm": "webm", "ogg": "ogg", "mp4": "m4a", "wav": "wav", "mp3": "mp3", "aac": "aac"}
 MIME_TYPES = {

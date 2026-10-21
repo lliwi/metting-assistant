@@ -48,7 +48,14 @@ from app.models import User, UserStatus  # noqa: E402
 from app.notifications.email import Email, get_email_outbox  # noqa: E402
 from app.orgs.service import create_personal_organization  # noqa: E402
 from app.recordings.events import get_async_redis, get_event_redis  # noqa: E402
+from app.recordings.router import get_task_queue  # noqa: E402
 from app.storage import get_storage  # noqa: E402
+
+
+class _NoTasks:
+    def prepare_import(self, recording_id: object) -> None:
+        pass
+
 
 API_ROOT = Path(__file__).resolve().parents[1]
 PASSWORD = "correct horse battery staple"
@@ -135,6 +142,13 @@ class MemoryStorage:
     def get(self, key: str) -> bytes:
         return self.objects[key][0]
 
+    def put_file(self, key: str, path: str, content_type: str) -> None:
+        with open(path, "rb") as f:
+            self.objects[key] = (f.read(), content_type)
+
+    def delete(self, key: str) -> None:
+        self.objects.pop(key, None)
+
     def exists(self, key: str) -> bool:
         return key in self.objects
 
@@ -158,6 +172,7 @@ def app(
     app.dependency_overrides[get_email_outbox] = lambda: outbox
     app.dependency_overrides[get_rate_limiter] = lambda: RateLimiter(redis)
     app.dependency_overrides[get_storage] = lambda: storage
+    app.dependency_overrides[get_task_queue] = lambda: _NoTasks()
     app.dependency_overrides[get_event_redis] = lambda: redis
     app.dependency_overrides[get_async_redis] = lambda: fakeredis.aioredis.FakeRedis(
         server=fake_redis_server

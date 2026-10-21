@@ -20,10 +20,23 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.rate_limit import RateLimiter, get_rate_limiter
 from app.core.request_context import ClientInfo, get_client_info
-from app.models import AudioSegment, Membership, Recording, RecordingStatus, User
+from app.media.containers import (
+    EXTENSIONS,
+    IMPORT_CONTAINERS,
+    MIME_TYPES,
+    SEGMENT_CONTAINERS,
+    sniff_container,
+)
+from app.models import (
+    AudioSegment,
+    Membership,
+    Recording,
+    RecordingSource,
+    RecordingStatus,
+    User,
+)
 from app.orgs.permissions import Action, authorize
 from app.recordings import events
-from app.recordings.media import EXTENSIONS, MIME_TYPES, SEGMENT_CONTAINERS, sniff_container
 from app.recordings.schemas import (
     CompleteRequest,
     MissingSegment,
@@ -44,11 +57,50 @@ Storage = Annotated[ObjectStorage, Depends(get_storage)]
 EventRedis = Annotated[Redis, Depends(events.get_event_redis)]
 
 NOT_FOUND = AppError("not_found", "Grabación no encontrada", 404)
+
+
+class TaskQueue:
+    """Encolado de trabajos del worker (sustituible en tests)."""
+
+    def prepare_import(self, recording_id: uuid.UUID) -> None:
+        from app.worker.tasks import prepare_import_task
+
+        prepare_import_task.delay(str(recording_id))
+
+
+def get_task_queue() -> TaskQueue:
+    return TaskQueue()
+
+
+Tasks = Annotated[TaskQueue, Depends(get_task_queue)]
 MAX_MISSING_REPORTED = 500
 
 
 def _recording_out(rec: Recording) -> RecordingOut:
-    return RecordingOut.model_validate(rec, from_attributes=True)
+    return RecordingOut(
+        id=rec.id,
+        organization_id=rec.organization_id,
+        owner_id=rec.owner_id,
+        title=rec.title,
+        language=rec.language,
+        status=rec.status,
+        source=rec.source,
+        duration_ms=rec.duration_ms,
+        size_bytes=rec.size_bytes,
+        track_count=rec.track_count,
+        source_filename=rec.source_filename,
+        audio_ready=rec.audio_object_key is not None,
+        error_code=rec.error_code,
+        created_at=rec.created_at,
+        completed_at=rec.completed_at,
+    )
+
+
+def _safe_filename(name: str | None) -> str | None:
+    if not name:
+        return None
+    # Solo el nombre: nunca rutas del cliente.
+    return name.replace("\\", "/").rsplit("/", 1)[-1].strip()[:255] or None
 
 
 def _tracks(db: Session, rec: Recording) -> list[TrackSummary]:
@@ -117,8 +169,11 @@ def create_recording(
         title=body.title.strip(),
         language=body.language,
         status=RecordingStatus.UPLOADING,
+        source=RecordingSource(body.source),
+        source_filename=_safe_filename(body.filename) if body.source == "import" else None,
         track_count=1,
         duration_ms=0,
+        size_bytes=0,
         consent_confirmed_at=now(),
     )
     db.add(rec)
@@ -131,7 +186,7 @@ def create_recording(
         organization_id=rec.organization_id,
         resource_type="recording",
         resource_id=rec.id,
-        metadata={"consent": True},
+        metadata={"consent": True, "source": body.source},
     )
     db.commit()
     db.refresh(rec)
@@ -223,9 +278,13 @@ def upload_segment(
         )
 
     rec = load_own_uploading(db, user, recording_id)
+    imported = rec.source is RecordingSource.IMPORT
     if track >= rec.track_count:
         raise AppError("unknown_track", "La pista no existe; ábrela antes de subir audio", 409)
-    if duration_ms > settings.segment_max_duration_ms:
+    if imported:
+        # Bloques de un archivo: la duración real la mide el worker con ffprobe.
+        duration_ms = 0
+    elif duration_ms > settings.segment_max_duration_ms:
         raise AppError("segment_too_long", "El segmento es demasiado largo", 422)
     if rec.duration_ms + duration_ms > settings.recording_max_duration_minutes * 60_000:
         raise AppError("duration_limit", "Se ha alcanzado la duración máxima de la grabación", 409)
@@ -238,15 +297,20 @@ def upload_segment(
     if hashlib.sha256(data).hexdigest() != sha256:
         # Corrupción en tránsito: el cliente conserva su copia y reintenta.
         raise AppError("checksum_mismatch", "El checksum no coincide", 422)
-    container = sniff_container(data[:16])
-    if container not in SEGMENT_CONTAINERS:
-        raise AppError("unsupported_media", "Formato de audio no admitido", 415)
+    if imported and rec.size_bytes + len(data) > settings.import_max_bytes:
+        raise AppError("import_too_large", "El archivo supera el tamaño máximo", 413)
 
-    key = (
-        f"orgs/{rec.organization_id}/recordings/{rec.id}/tracks/{track}/"
-        f"{seq:05d}-{segment_id}.{EXTENSIONS[container]}"
-    )
-    storage.put(key, data, MIME_TYPES[container])
+    base = f"orgs/{rec.organization_id}/recordings/{rec.id}/tracks/{track}/{seq:05d}-{segment_id}"
+    if imported and seq > 0:
+        # Bloque intermedio de un archivo: no es decodificable por sí solo.
+        key, mime_type = f"{base}.part", "application/octet-stream"
+    else:
+        container = sniff_container(data[:16])
+        allowed = IMPORT_CONTAINERS if imported else SEGMENT_CONTAINERS
+        if container not in allowed:
+            raise AppError("unsupported_media", "Formato de audio no admitido", 415)
+        key, mime_type = f"{base}.{EXTENSIONS[container]}", MIME_TYPES[container]
+    storage.put(key, data, mime_type)
 
     segment = AudioSegment(
         id=segment_id,
@@ -254,13 +318,14 @@ def upload_segment(
         track=track,
         seq=seq,
         duration_ms=duration_ms,
-        mime_type=MIME_TYPES[container],
+        mime_type=mime_type,
         size_bytes=len(data),
         sha256=sha256,
         object_key=key,
     )
     db.add(segment)
     rec.duration_ms += duration_ms
+    rec.size_bytes += len(data)
     try:
         db.commit()
     except IntegrityError:
@@ -285,6 +350,7 @@ def complete_recording(
     user: CurrentUser,
     db: DbSession,
     redis: EventRedis,
+    tasks: Tasks,
     client: Client,
 ) -> RecordingDetail:
     rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE, for_update=True)
@@ -332,6 +398,8 @@ def complete_recording(
         metadata={"segments": len(present), "duration_ms": rec.duration_ms},
     )
     db.commit()
+    if rec.source is RecordingSource.IMPORT:
+        tasks.prepare_import(rec.id)
     detail = _detail(db, rec)
     events.publish(redis, rec.id, {"type": "recording", **detail.model_dump(mode="json")})
     return detail

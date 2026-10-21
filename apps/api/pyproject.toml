@@ -48,6 +48,8 @@ ignore = ["S101"]
 [tool.ruff.lint.per-file-ignores]
 "migrations/**" = ["E501"]
 "tests/**" = ["S105", "S106"]
+# ffmpeg/ffprobe se resuelven desde el PATH de la imagen del worker.
+"app/media/ffmpeg.py" = ["S607"]
 
 [tool.mypy]
 python_version = "3.13"

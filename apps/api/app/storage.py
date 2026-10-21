@@ -21,6 +21,15 @@ class ObjectStorage:
             Bucket=self.bucket, Key=key, Body=body, ContentType=content_type, **extra
         )
 
+    def put_file(self, key: str, path: str, content_type: str) -> None:
+        extra: dict[str, str] = {"ServerSideEncryption": self.sse} if self.sse else {}
+        self.client.upload_file(
+            path, self.bucket, key, ExtraArgs={"ContentType": content_type, **extra}
+        )
+
+    def delete(self, key: str) -> None:
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+
     def get(self, key: str) -> bytes:
         body: bytes = self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
         return body

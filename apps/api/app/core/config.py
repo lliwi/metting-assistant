@@ -1,3 +1,4 @@
+import tempfile
 from enum import StrEnum
 from functools import lru_cache
 from typing import Self
@@ -36,6 +37,16 @@ class Settings(BaseSettings):
     segment_max_bytes: int = 10 * 1024 * 1024
     segment_max_duration_ms: int = 120_000
     recording_max_duration_minutes: int = 240
+
+    # Importación de archivos (subidos en bloques por el mismo endpoint de segmentos).
+    import_max_bytes: int = 2 * 1024**3
+    # Disco de trabajo del worker para unir bloques y extraer audio (no tmpfs: puede ser grande).
+    scratch_dir: str = Field(default_factory=tempfile.gettempdir)
+
+    # Antivirus de archivos importados. "clamd" en producción; "disabled" solo en desarrollo.
+    antivirus_mode: str = "clamd"
+    clamd_host: str = "clamav"
+    clamd_port: int = 3310
 
     # URL pública de la web: enlaces en emails y redirecciones tras OIDC.
     public_app_url: str = "http://localhost:8080"

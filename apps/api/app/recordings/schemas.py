@@ -13,6 +13,9 @@ class RecordingCreate(BaseModel):
     organization_id: uuid.UUID
     title: str = Field(min_length=1, max_length=300)
     language: Language = "es"
+    source: Literal["browser", "import"] = "browser"
+    # Nombre del archivo importado (informativo).
+    filename: str | None = Field(default=None, max_length=255)
     # El usuario debe confirmar que cuenta con autorización de los participantes.
     consent: Literal[True]
 
@@ -32,7 +35,12 @@ class RecordingOut(BaseModel):
     status: RecordingStatus
     source: RecordingSource
     duration_ms: int
+    size_bytes: int
     track_count: int
+    source_filename: str | None
+    # El audio está listo para transcribir (extraído de una importación).
+    audio_ready: bool
+    error_code: str | None
     created_at: datetime
     completed_at: datetime | None
 
