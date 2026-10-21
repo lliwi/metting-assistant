@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { UploadSync } from "@/components/recording/UploadSync";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { SiteHeader } from "@/components/SiteHeader";
 import { isLocale, locales } from "@/i18n/config";
@@ -45,6 +46,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
         </a>
         <AuthProvider>
           <SiteHeader dict={dict} lang={lang} />
+          <UploadSync />
           <main id="main" className="page">
             {children}
           </main>

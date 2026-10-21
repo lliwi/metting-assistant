@@ -10,8 +10,10 @@ from app.models.identity import (
     UserIdentity,
     UserStatus,
 )
+from app.models.recording import AudioSegment, Recording, RecordingSource, RecordingStatus
 
 __all__ = [
+    "AudioSegment",
     "AuditEvent",
     "AuditResult",
     "Base",
@@ -19,6 +21,9 @@ __all__ = [
     "MfaRecoveryCode",
     "Organization",
     "OrganizationInvitation",
+    "Recording",
+    "RecordingSource",
+    "RecordingStatus",
     "Role",
     "TokenPurpose",
     "User",

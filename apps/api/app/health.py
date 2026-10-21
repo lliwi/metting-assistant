@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.db import get_engine
+from app.storage import get_storage
 
 log = structlog.get_logger(__name__)
 router = APIRouter(tags=["health"])
@@ -26,9 +27,14 @@ def check_redis() -> None:
         client.close()
 
 
+def check_storage() -> None:
+    get_storage().check()
+
+
 READINESS_CHECKS: dict[str, Callable[[], None]] = {
     "database": check_database,
     "redis": check_redis,
+    "storage": check_storage,
 }
 
 

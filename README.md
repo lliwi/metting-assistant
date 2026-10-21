@@ -72,7 +72,7 @@ Revisa siempre la migración generada antes de aplicarla.
 cd apps/web
 npm ci
 API_PROXY_TARGET=http://localhost:8080 npm run dev   # http://localhost:3000, /api → stack
-npm run lint && npm run check:i18n && npm run typecheck && npm run build
+npm run lint && npm run check:i18n && npm test && npm run typecheck && npm run build
 npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que están al día)
 ```
 
@@ -87,3 +87,18 @@ npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que
 - Sesión en cookie `HttpOnly` (`ma_session`). Las peticiones que modifican estado envían
   `X-CSRF-Token` con el valor de la cookie `ma_csrf` (se rota al iniciar sesión: léela siempre).
 - Autorización por organización en `app/orgs/permissions.py`: quien no es miembro recibe 404.
+
+## Captura de audio
+
+- El navegador graba en segmentos de 30 s (`apps/web/src/lib/recorder/`). Cada segmento usa un
+  `MediaRecorder` nuevo para ser decodificable por sí solo; el siguiente arranca antes de parar
+  el anterior para no dejar huecos.
+- Cada segmento se guarda en IndexedDB **antes** de subirse y solo se borra cuando el servidor
+  confirma su SHA-256. La cola reintenta con backoff exponencial (máx. 60 s), se reanuda al
+  volver la red o al recargar, y espera si la sesión caduca.
+- `POST /v1/recordings/{id}/segments` es idempotente (id generado en el cliente + checksum) y
+  valida el contenedor real por sus bytes. `POST …/complete` recibe cuántos segmentos produjo
+  cada pista y responde 409 `missing_segments` si falta alguno.
+- Una captura interrumpida (micrófono, permiso, cierre) se reanuda en una pista nueva.
+- Garage no implementa SSE-S3: en on-premise el cifrado en reposo va en el volumen. Con S3
+  gestionado, usa `S3_SERVER_SIDE_ENCRYPTION=AES256` o `aws:kms`.

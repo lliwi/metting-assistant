@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { HomeGreeting } from "@/components/HomeGreeting";
@@ -16,15 +17,15 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
       <p className="lead">{dict.home.lead}</p>
 
       <div className="actions">
-        <button type="button" className="button primary" disabled aria-describedby="soon">
+        <Link className="button primary large" href={`/${lang}/record`}>
           {dict.home.newRecording}
-        </button>
+        </Link>
         <button type="button" className="button" disabled aria-describedby="soon">
           {dict.home.importAudio}
         </button>
       </div>
       <p id="soon" className="hint">
-        {dict.home.comingSoon}
+        {dict.home.importAudio}: {dict.home.comingSoon}
       </p>
 
       <p className="notice" role="note">

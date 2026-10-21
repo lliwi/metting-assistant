@@ -11,7 +11,9 @@
     "account": "Mi cuenta",
     "login": "Iniciar sesión",
     "register": "Crear cuenta",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "recordings": "Grabaciones",
+    "newRecording": "Nueva grabación"
   },
   "home": {
     "heading": "Tus reuniones, transcritas y resumidas",
@@ -148,6 +150,72 @@
     "email_required": "El proveedor no ha facilitado un email.",
     "invalid_id_token": "No se ha podido validar la respuesta del proveedor.",
     "token_exchange_failed": "No se ha podido validar la respuesta del proveedor.",
-    "provider_unavailable": "El proveedor no responde. Inténtalo más tarde."
+    "provider_unavailable": "El proveedor no responde. Inténtalo más tarde.",
+    "missing_segments": "Faltan segmentos por subir.",
+    "recording_closed": "La captura de esta grabación ya está cerrada.",
+    "duration_limit": "Se ha alcanzado la duración máxima de la grabación.",
+    "segment_too_large": "Un segmento supera el tamaño máximo.",
+    "unsupported_media": "Formato de audio no admitido.",
+    "empty_recording": "La grabación no tiene audio."
+  },
+  "recording": {
+    "newTitle": "Nueva grabación",
+    "titleLabel": "Título",
+    "defaultTitle": "Grabación del {date}",
+    "organization": "Organización",
+    "language": "Idioma del audio",
+    "languages": {
+      "es": "Español",
+      "ca": "Catalán",
+      "en": "Inglés"
+    },
+    "consentTitle": "Consentimiento de los participantes",
+    "consentText": "Antes de grabar, informa a todas las personas presentes y obtén su autorización. El audio y su transcripción se guardarán en la organización seleccionada.",
+    "consentCheck": "Confirmo que cuento con la autorización de todos los participantes para grabar.",
+    "start": "Empezar a grabar",
+    "requestingMic": "Solicitando acceso al micrófono…",
+    "micDenied": "No hay permiso para usar el micrófono. Actívalo en la configuración del navegador y vuelve a intentarlo.",
+    "micUnavailable": "No se ha encontrado ningún micrófono.",
+    "unsupported": "Este navegador no puede grabar audio.",
+    "iosNotice": "En iPhone y iPad mantén la pantalla encendida y la app en primer plano: el sistema puede detener la grabación si se bloquea o cambias de app.",
+    "keepOpen": "Mantén esta pestaña abierta mientras grabas. Si se cierra, el audio ya guardado no se pierde y podrás continuar.",
+    "recording": "Grabando",
+    "paused": "En pausa",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "finish": "Finalizar",
+    "elapsed": "Duración",
+    "level": "Nivel de entrada",
+    "online": "Conectado",
+    "offline": "Sin conexión: el audio se guarda en este dispositivo y se subirá al volver la red.",
+    "pendingSegments": "Pendientes de subir: {count}",
+    "allUploaded": "Todo el audio está subido",
+    "uploadingFinal": "Subiendo el audio restante… Puedes cerrar la página: se completará la próxima vez que abras la aplicación.",
+    "completed": "Grabación finalizada. La transcripción empezará en breve.",
+    "interrupted": "La captura se ha interrumpido (micrófono desconectado o permiso revocado). El audio grabado hasta ahora está a salvo.",
+    "continue": "Continuar grabación",
+    "resumeTitle": "Continuar «{title}»",
+    "openList": "Ver grabaciones",
+    "failedSegments": "{count} segmentos no se han podido subir ({error}).",
+    "retry": "Reintentar",
+    "missing": "Al servidor le faltan segmentos que ya no están en este dispositivo.",
+    "sessionExpired": "Tu sesión ha caducado. Inicia sesión de nuevo para seguir subiendo el audio (está guardado en este dispositivo).",
+    "notResumable": "Esta grabación ya no admite más audio.",
+    "discard": "Descartar",
+    "discardConfirm": "¿Descartar del dispositivo el audio que no se ha podido subir? No se podrá recuperar."
+  },
+  "recordings": {
+    "title": "Grabaciones",
+    "empty": "Todavía no hay grabaciones.",
+    "status": {
+      "uploading": "Captura abierta",
+      "pending": "Pendiente de procesar",
+      "processing": "Procesando",
+      "transcribed": "Transcrita",
+      "failed": "Fallida",
+      "cancelled": "Cancelada"
+    },
+    "localPending": "{count} segmentos en este dispositivo",
+    "finishNow": "Finalizar captura"
   }
 }

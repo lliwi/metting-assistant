@@ -1,0 +1,67 @@
+import uuid
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+from app.models import RecordingSource, RecordingStatus
+
+Language = Literal["es", "ca", "en"]
+
+
+class RecordingCreate(BaseModel):
+    organization_id: uuid.UUID
+    title: str = Field(min_length=1, max_length=300)
+    language: Language = "es"
+    # El usuario debe confirmar que cuenta con autorización de los participantes.
+    consent: Literal[True]
+
+
+class TrackSummary(BaseModel):
+    track: int
+    segments: int
+    duration_ms: int
+
+
+class RecordingOut(BaseModel):
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    owner_id: uuid.UUID | None
+    title: str
+    language: str
+    status: RecordingStatus
+    source: RecordingSource
+    duration_ms: int
+    track_count: int
+    created_at: datetime
+    completed_at: datetime | None
+
+
+class RecordingDetail(RecordingOut):
+    tracks: list[TrackSummary]
+
+
+class TrackOut(BaseModel):
+    track: int
+
+
+class SegmentOut(BaseModel):
+    id: uuid.UUID
+    track: int
+    seq: int
+    sha256: str
+    size_bytes: int
+    # True si ya existía (reintento idempotente).
+    duplicate: bool = False
+
+
+class CompleteRequest(BaseModel):
+    """Número de segmentos que el cliente ha producido en cada pista: el servidor comprueba
+    que los tiene todos antes de cerrar la captura."""
+
+    tracks: dict[int, int] = Field(min_length=1)
+
+
+class MissingSegment(BaseModel):
+    track: int
+    seq: int

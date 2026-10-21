@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     s3_bucket: str = "recordings"
     s3_access_key: SecretStr = SecretStr("")
     s3_secret_key: SecretStr = SecretStr("")
+    # Cifrado en reposo en el proveedor S3: "AES256" o "aws:kms". Vacío en Garage, que no
+    # implementa SSE-S3: en on-premise el cifrado va en el volumen (LUKS / disco cifrado).
+    s3_server_side_encryption: str = ""
+
+    # Captura por segmentos.
+    segment_max_bytes: int = 10 * 1024 * 1024
+    segment_max_duration_ms: int = 120_000
+    recording_max_duration_minutes: int = 240
 
     # URL pública de la web: enlaces en emails y redirecciones tras OIDC.
     public_app_url: str = "http://localhost:8080"

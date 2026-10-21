@@ -6,7 +6,7 @@ export type Schemas = components["schemas"];
 export type User = Schemas["UserOut"];
 
 const CSRF_COOKIE = "ma_csrf";
-const CSRF_HEADER = "X-CSRF-Token";
+export const CSRF_HEADER = "X-CSRF-Token";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 function readCookie(name: string): string | null {
@@ -15,7 +15,7 @@ function readCookie(name: string): string | null {
 }
 
 /** Siempre se lee de la cookie: el servidor rota el token al iniciar sesión. */
-async function csrfToken(): Promise<string> {
+export async function csrfToken(): Promise<string> {
   let token = readCookie(CSRF_COOKIE);
   if (!token) {
     await fetch("/api/v1/auth/csrf", { credentials: "same-origin" });

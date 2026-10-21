@@ -11,7 +11,9 @@
     "account": "El meu compte",
     "login": "Inicia la sessió",
     "register": "Crea un compte",
-    "logout": "Tanca la sessió"
+    "logout": "Tanca la sessió",
+    "recordings": "Enregistraments",
+    "newRecording": "Nou enregistrament"
   },
   "home": {
     "heading": "Les teves reunions, transcrites i resumides",
@@ -148,6 +150,72 @@
     "email_required": "El proveïdor no ha facilitat cap correu.",
     "invalid_id_token": "No s'ha pogut validar la resposta del proveïdor.",
     "token_exchange_failed": "No s'ha pogut validar la resposta del proveïdor.",
-    "provider_unavailable": "El proveïdor no respon. Torna-ho a provar més tard."
+    "provider_unavailable": "El proveïdor no respon. Torna-ho a provar més tard.",
+    "missing_segments": "Falten segments per pujar.",
+    "recording_closed": "La captura d'aquest enregistrament ja està tancada.",
+    "duration_limit": "S'ha arribat a la durada màxima de l'enregistrament.",
+    "segment_too_large": "Un segment supera la mida màxima.",
+    "unsupported_media": "Format d'àudio no admès.",
+    "empty_recording": "L'enregistrament no té àudio."
+  },
+  "recording": {
+    "newTitle": "Nou enregistrament",
+    "titleLabel": "Títol",
+    "defaultTitle": "Enregistrament del {date}",
+    "organization": "Organització",
+    "language": "Idioma de l'àudio",
+    "languages": {
+      "es": "Castellà",
+      "ca": "Català",
+      "en": "Anglès"
+    },
+    "consentTitle": "Consentiment dels participants",
+    "consentText": "Abans d'enregistrar, informa totes les persones presents i obtén-ne l'autorització. L'àudio i la transcripció es desaran a l'organització seleccionada.",
+    "consentCheck": "Confirmo que tinc l'autorització de tots els participants per enregistrar.",
+    "start": "Comença a enregistrar",
+    "requestingMic": "S'està sol·licitant accés al micròfon…",
+    "micDenied": "No hi ha permís per fer servir el micròfon. Activa'l a la configuració del navegador i torna-ho a provar.",
+    "micUnavailable": "No s'ha trobat cap micròfon.",
+    "unsupported": "Aquest navegador no pot enregistrar àudio.",
+    "iosNotice": "A l'iPhone i l'iPad mantén la pantalla encesa i l'app en primer pla: el sistema pot aturar l'enregistrament si es bloqueja o canvies d'app.",
+    "keepOpen": "Mantén aquesta pestanya oberta mentre enregistres. Si es tanca, l'àudio ja desat no es perd i podràs continuar.",
+    "recording": "Enregistrant",
+    "paused": "En pausa",
+    "pause": "Pausa",
+    "resume": "Reprèn",
+    "finish": "Finalitza",
+    "elapsed": "Durada",
+    "level": "Nivell d'entrada",
+    "online": "Connectat",
+    "offline": "Sense connexió: l'àudio es desa en aquest dispositiu i es pujarà quan torni la xarxa.",
+    "pendingSegments": "Pendents de pujar: {count}",
+    "allUploaded": "Tot l'àudio s'ha pujat",
+    "uploadingFinal": "S'està pujant l'àudio restant… Pots tancar la pàgina: es completarà la propera vegada que obris l'aplicació.",
+    "completed": "Enregistrament finalitzat. La transcripció començarà aviat.",
+    "interrupted": "La captura s'ha interromput (micròfon desconnectat o permís revocat). L'àudio enregistrat fins ara està a recer.",
+    "continue": "Continua l'enregistrament",
+    "resumeTitle": "Continua «{title}»",
+    "openList": "Mostra els enregistraments",
+    "failedSegments": "{count} segments no s'han pogut pujar ({error}).",
+    "retry": "Torna-ho a provar",
+    "missing": "Al servidor li falten segments que ja no són en aquest dispositiu.",
+    "sessionExpired": "La sessió ha caducat. Torna a iniciar la sessió per continuar pujant l'àudio (està desat en aquest dispositiu).",
+    "notResumable": "Aquest enregistrament ja no admet més àudio.",
+    "discard": "Descarta",
+    "discardConfirm": "Vols descartar del dispositiu l'àudio que no s'ha pogut pujar? No es podrà recuperar."
+  },
+  "recordings": {
+    "title": "Enregistraments",
+    "empty": "Encara no hi ha enregistraments.",
+    "status": {
+      "uploading": "Captura oberta",
+      "pending": "Pendent de processar",
+      "processing": "S'està processant",
+      "transcribed": "Transcrit",
+      "failed": "Ha fallat",
+      "cancelled": "Cancel·lat"
+    },
+    "localPending": "{count} segments en aquest dispositiu",
+    "finishNow": "Finalitza la captura"
   }
 }

@@ -47,6 +47,8 @@ from app.main import create_app  # noqa: E402
 from app.models import User, UserStatus  # noqa: E402
 from app.notifications.email import Email, get_email_outbox  # noqa: E402
 from app.orgs.service import create_personal_organization  # noqa: E402
+from app.recordings.events import get_async_redis, get_event_redis  # noqa: E402
+from app.storage import get_storage  # noqa: E402
 
 API_ROOT = Path(__file__).resolve().parents[1]
 PASSWORD = "correct horse battery staple"
@@ -114,15 +116,52 @@ def outbox() -> MemoryOutbox:
 
 
 @pytest.fixture
-def redis() -> fakeredis.FakeRedis:
-    return fakeredis.FakeRedis()
+def fake_redis_server() -> fakeredis.FakeServer:
+    return fakeredis.FakeServer()
 
 
 @pytest.fixture
-def app(outbox: MemoryOutbox, redis: fakeredis.FakeRedis) -> FastAPI:
+def redis(fake_redis_server: fakeredis.FakeServer) -> fakeredis.FakeRedis:
+    return fakeredis.FakeRedis(server=fake_redis_server)
+
+
+class MemoryStorage:
+    def __init__(self) -> None:
+        self.objects: dict[str, tuple[bytes, str]] = {}
+
+    def put(self, key: str, body: bytes, content_type: str) -> None:
+        self.objects[key] = (body, content_type)
+
+    def get(self, key: str) -> bytes:
+        return self.objects[key][0]
+
+    def exists(self, key: str) -> bool:
+        return key in self.objects
+
+    def check(self) -> None:
+        pass
+
+
+@pytest.fixture
+def storage() -> MemoryStorage:
+    return MemoryStorage()
+
+
+@pytest.fixture
+def app(
+    outbox: MemoryOutbox,
+    redis: fakeredis.FakeRedis,
+    fake_redis_server: fakeredis.FakeServer,
+    storage: MemoryStorage,
+) -> FastAPI:
     app = create_app()
     app.dependency_overrides[get_email_outbox] = lambda: outbox
     app.dependency_overrides[get_rate_limiter] = lambda: RateLimiter(redis)
+    app.dependency_overrides[get_storage] = lambda: storage
+    app.dependency_overrides[get_event_redis] = lambda: redis
+    app.dependency_overrides[get_async_redis] = lambda: fakeredis.aioredis.FakeRedis(
+        server=fake_redis_server
+    )
     return app
 
 

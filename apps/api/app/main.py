@@ -11,6 +11,7 @@ from app.core.errors import ErrorResponse, UnhandledErrorMiddleware, register_er
 from app.core.logging import configure_logging
 from app.core.root_path import RootPathMiddleware
 from app.orgs import router as orgs_router
+from app.recordings import router as recordings_router
 
 
 def create_app() -> FastAPI:
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router.router)
     app.include_router(oidc_router.router)
     app.include_router(orgs_router.router)
+    app.include_router(recordings_router.router)
     return app
 
 

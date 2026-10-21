@@ -35,6 +35,9 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
           (user ? (
             <ul>
               <li>
+                <Link href={`/${lang}/recordings`}>{dict.nav.recordings}</Link>
+              </li>
+              <li>
                 <Link href={`/${lang}/organizations`}>{dict.nav.organizations}</Link>
               </li>
               <li>
