@@ -3,11 +3,11 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, UUIDPrimaryKey
+from app.models.base import Base, UUIDPrimaryKey, str_enum
 
 
 class AuditResult(StrEnum):
@@ -35,16 +35,7 @@ class AuditEvent(UUIDPrimaryKey, Base):
     action: Mapped[str] = mapped_column(String(100))
     resource_type: Mapped[str | None] = mapped_column(String(50))
     resource_id: Mapped[str | None] = mapped_column(String(100))
-    result: Mapped[AuditResult] = mapped_column(
-        Enum(
-            AuditResult,
-            name="audit_result",
-            native_enum=False,
-            create_constraint=True,
-            length=16,
-            values_callable=lambda e: [m.value for m in e],
-        )
-    )
+    result: Mapped[AuditResult] = mapped_column(str_enum(AuditResult, "audit_result", length=16))
     # IP pseudonimizada (HMAC), nunca la IP en claro.
     ip_pseudonym: Mapped[str | None] = mapped_column(String(64))
     correlation_id: Mapped[str | None] = mapped_column(String(128))

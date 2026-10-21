@@ -3,27 +3,15 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, func, text
+from sqlalchemy import DateTime, ForeignKey, Index, LargeBinary, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, Timestamps, UUIDPrimaryKey
-
-
-def _str_enum(enum_cls: type[StrEnum], name: str) -> Enum:
-    # VARCHAR + CHECK en lugar de ENUM nativo: añadir valores no requiere ALTER TYPE.
-    return Enum(
-        enum_cls,
-        name=name,
-        native_enum=False,
-        create_constraint=True,
-        length=32,
-        values_callable=lambda e: [m.value for m in e],
-    )
+from app.models.base import Base, Timestamps, UUIDPrimaryKey, str_enum
 
 
 class UserStatus(StrEnum):
-    PENDING = "pending"
+    PENDING = "pending"  # email sin verificar
     ACTIVE = "active"
     DISABLED = "disabled"
 
@@ -41,11 +29,19 @@ class User(UUIDPrimaryKey, Timestamps, Base):
 
     email: Mapped[str] = mapped_column(String(320))
     name: Mapped[str] = mapped_column(String(200))
+    locale: Mapped[str] = mapped_column(String(8), default="es", server_default="es")
     status: Mapped[UserStatus] = mapped_column(
-        _str_enum(UserStatus, "user_status"), default=UserStatus.PENDING
+        str_enum(UserStatus, "user_status"), default=UserStatus.PENDING
     )
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # None = cuenta solo con proveedor externo (OIDC).
     password_hash: Mapped[str | None] = mapped_column(String(255))
+
     mfa_enabled: Mapped[bool] = mapped_column(default=False)
+    # Secreto TOTP cifrado con DATA_ENCRYPTION_KEY; nunca en claro.
+    totp_secret_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary)
+    # Último paso TOTP aceptado: impide reutilizar un código dentro de su ventana.
+    totp_last_used_step: Mapped[int | None]
 
     memberships: Mapped[list["Membership"]] = relationship(back_populates="user")
 
@@ -71,8 +67,45 @@ class Membership(Base):
     organization_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"), primary_key=True, index=True
     )
-    role: Mapped[Role] = mapped_column(_str_enum(Role, "membership_role"))
+    role: Mapped[Role] = mapped_column(str_enum(Role, "membership_role"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[User] = relationship(back_populates="memberships")
     organization: Mapped[Organization] = relationship(back_populates="memberships")
+
+
+class UserIdentity(UUIDPrimaryKey, Base):
+    """Vínculo con un proveedor externo (Google, Microsoft…) identificado por su `sub`."""
+
+    __tablename__ = "user_identities"
+    __table_args__ = (
+        Index("uq_user_identities_provider_subject", "provider", "subject", unique=True),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32))
+    subject: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(320))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class OrganizationInvitation(UUIDPrimaryKey, Base):
+    __tablename__ = "organization_invitations"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    email: Mapped[str] = mapped_column(String(320))
+    role: Mapped[Role] = mapped_column(str_enum(Role, "invitation_role"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    invited_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    organization: Mapped[Organization] = relationship()
