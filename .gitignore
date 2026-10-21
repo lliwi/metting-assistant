@@ -1,0 +1,20 @@
+# Secretos
+.env
+.env.*
+!.env.example
+certs/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+
+# Editor / SO
+.DS_Store
+.idea/
+.vscode/

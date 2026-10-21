@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "title": "Metting Agent",
+    "description": "Graba, transcribe y convierte tus reuniones en apuntes, actas y tareas."
+  },
+  "nav": {
+    "skipToContent": "Saltar al contenido",
+    "language": "Idioma"
+  },
+  "home": {
+    "heading": "Tus reuniones, transcritas y resumidas",
+    "lead": "Graba o importa audio, obtén la transcripción con marcas temporales y genera apuntes, actas y tareas con IA.",
+    "newRecording": "Nueva grabación",
+    "importAudio": "Importar audio",
+    "comingSoon": "Disponible próximamente",
+    "aiNotice": "El contenido generado por IA puede contener errores y requiere revisión humana."
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "title": "Metting Agent",
+    "description": "Enregistra, transcriu i converteix les teves reunions en apunts, actes i tasques."
+  },
+  "nav": {
+    "skipToContent": "Salta al contingut",
+    "language": "Idioma"
+  },
+  "home": {
+    "heading": "Les teves reunions, transcrites i resumides",
+    "lead": "Enregistra o importa àudio, obtén la transcripció amb marques de temps i genera apunts, actes i tasques amb IA.",
+    "newRecording": "Nou enregistrament",
+    "importAudio": "Importa àudio",
+    "comingSoon": "Disponible properament",
+    "aiNotice": "El contingut generat per IA pot contenir errors i requereix revisió humana."
+  }
+}

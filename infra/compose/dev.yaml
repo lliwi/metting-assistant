@@ -1,0 +1,35 @@
+# Override de desarrollo: recarga en caliente de la API y dependencias accesibles desde localhost
+# para ejecutar tests y la web con `npm run dev` fuera de Docker.
+services:
+  api:
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
+    volumes:
+      - ./apps/api/app:/app/app:ro
+      - ./apps/api/migrations:/app/migrations:ro
+
+  migrate:
+    environment:
+      ENVIRONMENT: development
+    volumes:
+      - ./apps/api/migrations:/app/migrations:ro
+
+  worker:
+    environment:
+      ENVIRONMENT: development
+    volumes:
+      - ./apps/api/app:/app/app:ro
+
+  postgres:
+    ports: ["127.0.0.1:${DEV_POSTGRES_PORT:-55432}:5432"]
+    networks: [internal, edge]
+
+  redis:
+    ports: ["127.0.0.1:${DEV_REDIS_PORT:-56379}:6379"]
+    networks: [internal, edge]
+
+  garage:
+    ports: ["127.0.0.1:${DEV_S3_PORT:-53900}:3900"]
+    networks: [internal, edge]
