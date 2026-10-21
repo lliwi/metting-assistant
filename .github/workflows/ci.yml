@@ -58,6 +58,14 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
+      - run: npm run check:i18n
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.19"
+      - name: Tipos de la API al día con el OpenAPI
+        run: |
+          ../../scripts/gen-api-types.sh
+          git diff --exit-code -- src/lib/api/schema.d.ts
       - run: npm run typecheck
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=high

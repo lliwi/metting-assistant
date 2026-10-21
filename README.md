@@ -27,6 +27,15 @@ docker compose -f compose.yaml -f infra/compose/dev.yaml up -d --build --wait
 
 - Aplicación: <http://localhost:8080>
 - API: <http://localhost:8080/api/docs>
+- Emails de desarrollo (Mailpit): <http://localhost:58025>
+
+Si tu `.env` es anterior a la Fase 1, añade `APP_SECRET_KEY`, `DATA_ENCRYPTION_KEY`, `PUBLIC_APP_URL` y `COOKIE_SECURE` (ver `.env.example`).
+
+### Login con Google / Microsoft
+
+Opcional. Registra la aplicación en el proveedor con la URI de retorno
+`${PUBLIC_APP_URL}/api/v1/auth/oidc/<google|microsoft>/callback` y rellena `GOOGLE_CLIENT_ID`/`SECRET`
+o `MICROSOFT_CLIENT_ID`/`SECRET`/`TENANT`. Los botones aparecen solos en el login cuando hay credenciales.
 
 `--wait` espera a los health checks. Las migraciones se ejecutan en el job `migrate` antes de que arranque la API y el worker.
 
@@ -62,8 +71,9 @@ Revisa siempre la migración generada antes de aplicarla.
 ```sh
 cd apps/web
 npm ci
-npm run dev        # http://localhost:3000
-npm run lint && npm run typecheck && npm run build
+API_PROXY_TARGET=http://localhost:8080 npm run dev   # http://localhost:3000, /api → stack
+npm run lint && npm run check:i18n && npm run typecheck && npm run build
+npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que están al día)
 ```
 
 > Next.js 16 tiene cambios incompatibles con versiones anteriores (`middleware` → `proxy`, `cacheComponents`).
@@ -74,3 +84,6 @@ npm run lint && npm run typecheck && npm run build
 - Todas las respuestas llevan `X-Correlation-ID` (se respeta el del cliente si es válido).
 - Errores con formato único: `{"error": {"code", "message", "details", "correlation_id"}}`.
 - `/healthz` (proceso vivo) y `/readyz` (dependencias accesibles).
+- Sesión en cookie `HttpOnly` (`ma_session`). Las peticiones que modifican estado envían
+  `X-CSRF-Token` con el valor de la cookie `ma_csrf` (se rota al iniciar sesión: léela siempre).
+- Autorización por organización en `app/orgs/permissions.py`: quien no es miembro recibe 404.

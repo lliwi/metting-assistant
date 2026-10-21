@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   output: "standalone",
   poweredByHeader: false,
+  // Con `npm run dev` no hay nginx delante: se reenvía /api al stack (API_PROXY_TARGET).
+  async rewrites() {
+    const target = process.env.API_PROXY_TARGET;
+    return target ? [{ source: "/api/:path*", destination: `${target}/api/:path*` }] : [];
+  },
   async headers() {
     return [
       {

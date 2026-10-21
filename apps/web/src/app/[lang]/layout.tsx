@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
+import { SiteHeader } from "@/components/SiteHeader";
 import { isLocale, locales } from "@/i18n/config";
 import { getDictionary } from "@/i18n/dictionaries";
 import "./globals.css";
@@ -41,7 +43,12 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
         <a className="skip-link" href="#main">
           {dict.nav.skipToContent}
         </a>
-        {children}
+        <AuthProvider>
+          <SiteHeader dict={dict} lang={lang} />
+          <main id="main" className="page">
+            {children}
+          </main>
+        </AuthProvider>
         <ServiceWorkerRegistration />
       </body>
     </html>
