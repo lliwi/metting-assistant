@@ -91,3 +91,74 @@ def extract_audio(source: Path, target: Path, timeout: int = 3600) -> None:
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         raise MediaError("unreadable_media", str(exc)) from exc
+
+
+def split_audio(path: Path, workdir: Path, piece_seconds: int) -> list[tuple[Path, int]]:
+    """Divide en trozos de `piece_seconds` (Opus mono 32 kbit/s). Devuelve (ruta, offset_ms)."""
+    pattern = workdir / "piece-%03d.ogg"
+    subprocess.run(  # noqa: S603 - argumentos fijos, sin shell
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            *SAFE_INPUT,
+            "-i",
+            str(path),
+            "-ac",
+            "1",
+            "-c:a",
+            "libopus",
+            "-b:a",
+            "32k",
+            "-f",
+            "segment",
+            "-segment_time",
+            str(piece_seconds),
+            "-reset_timestamps",
+            "1",
+            str(pattern),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=3600,
+    )
+    pieces = sorted(workdir.glob("piece-*.ogg"))
+    offsets, offset = [], 0
+    for piece in pieces:
+        offsets.append((piece, offset))
+        offset += probe(piece).duration_ms
+    return offsets
+
+
+def concat_audio(inputs: list[Path], target: Path, timeout: int = 3600) -> None:
+    """Une segmentos independientes en un único Opus mono. Todos deben estar en el mismo
+    directorio que `target` (la lista del demuxer usa nombres relativos)."""
+    listing = target.parent / "concat.txt"
+    listing.write_text("".join(f"file '{p.name}'\n" for p in inputs))
+    try:
+        subprocess.run(  # noqa: S603 - argumentos fijos, sin shell
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                *SAFE_INPUT,
+                "-f",
+                "concat",
+                "-i",
+                str(listing),
+                "-ac",
+                "1",
+                "-c:a",
+                "libopus",
+                "-b:a",
+                "48k",
+                "-y",
+                str(target),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        raise MediaError("unreadable_media", str(exc)) from exc

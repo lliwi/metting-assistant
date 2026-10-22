@@ -42,7 +42,7 @@ class RecordingTasks:
     def __init__(self) -> None:
         self.imports: list[uuid.UUID] = []
 
-    def prepare_import(self, recording_id: uuid.UUID) -> None:
+    def process(self, recording_id: uuid.UUID) -> None:
         self.imports.append(recording_id)
 
 

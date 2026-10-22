@@ -11,6 +11,7 @@ from app.models.identity import (
     UserStatus,
 )
 from app.models.recording import AudioSegment, Recording, RecordingSource, RecordingStatus
+from app.models.transcript import Transcript, TranscriptSegment
 
 __all__ = [
     "AudioSegment",
@@ -26,6 +27,8 @@ __all__ = [
     "RecordingStatus",
     "Role",
     "TokenPurpose",
+    "Transcript",
+    "TranscriptSegment",
     "User",
     "UserIdentity",
     "UserSession",

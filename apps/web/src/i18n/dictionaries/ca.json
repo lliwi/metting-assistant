@@ -162,7 +162,10 @@
     "unreadable_media": "No s'ha pogut llegir el fitxer. Comprova que no estigui malmès.",
     "scan_unavailable": "No s'ha pogut analitzar el fitxer amb l'antivirus. Torna-ho a provar més tard.",
     "corrupted_upload": "El fitxer s'ha malmès durant la pujada. Torna'l a importar.",
-    "import_too_large": "El fitxer supera la mida màxima."
+    "import_too_large": "El fitxer supera la mida màxima.",
+    "transcription_failed": "No s'ha pogut transcriure l'àudio.",
+    "not_reprocessable": "L'enregistrament no es pot tornar a transcriure ara.",
+    "transcript_not_found": "La transcripció encara no està disponible."
   },
   "recording": {
     "newTitle": "Nou enregistrament",
@@ -235,5 +238,18 @@
     "processing": "S'està analitzant el fitxer i extraient l'àudio…",
     "ready": "Fitxer importat. La transcripció començarà aviat.",
     "tooLarge": "El fitxer supera el màxim de 2 GB."
+  },
+  "detail": {
+    "transcript": "Transcripció",
+    "queued": "En cua per transcriure.",
+    "processing": "S'està transcrivint… Pot trigar uns minuts segons la durada.",
+    "uploading": "La captura continua oberta: finalitza-la per transcriure.",
+    "version": "Versió {version} · {provider} ({model})",
+    "lowConfidence": "Confiança baixa",
+    "reprocess": "Torna a transcriure",
+    "reprocessLanguage": "Idioma",
+    "reprocessQueued": "S'ha posat en cua una nova transcripció.",
+    "empty": "La transcripció no conté text (àudio en silenci?).",
+    "back": "Enregistraments"
   }
 }

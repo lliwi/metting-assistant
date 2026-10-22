@@ -33,6 +33,8 @@ from app.models import (
     Recording,
     RecordingSource,
     RecordingStatus,
+    Role,
+    Transcript,
     User,
 )
 from app.orgs.permissions import Action, authorize
@@ -43,9 +45,12 @@ from app.recordings.schemas import (
     RecordingCreate,
     RecordingDetail,
     RecordingOut,
+    ReprocessRequest,
     SegmentOut,
     TrackOut,
     TrackSummary,
+    TranscriptOut,
+    TranscriptSegmentOut,
 )
 from app.storage import ObjectStorage, get_storage
 
@@ -62,10 +67,10 @@ NOT_FOUND = AppError("not_found", "Grabación no encontrada", 404)
 class TaskQueue:
     """Encolado de trabajos del worker (sustituible en tests)."""
 
-    def prepare_import(self, recording_id: uuid.UUID) -> None:
-        from app.worker.tasks import prepare_import_task
+    def process(self, recording_id: uuid.UUID) -> None:
+        from app.worker.tasks import process_recording_task
 
-        prepare_import_task.delay(str(recording_id))
+        process_recording_task.delay(str(recording_id))
 
 
 def get_task_queue() -> TaskQueue:
@@ -398,8 +403,99 @@ def complete_recording(
         metadata={"segments": len(present), "duration_ms": rec.duration_ms},
     )
     db.commit()
-    if rec.source is RecordingSource.IMPORT:
-        tasks.prepare_import(rec.id)
+    tasks.process(rec.id)
+    detail = _detail(db, rec)
+    events.publish(redis, rec.id, {"type": "recording", **detail.model_dump(mode="json")})
+    return detail
+
+
+# --- Transcripción ------------------------------------------------------------------------
+
+
+@router.get("/recordings/{recording_id}/transcript")
+def get_transcript(
+    recording_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    version: Annotated[int | None, Query(ge=1)] = None,
+) -> TranscriptOut:
+    """Última versión de la transcripción (o la indicada)."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_READ)
+    stmt = select(Transcript).where(Transcript.recording_id == rec.id)
+    stmt = (
+        stmt.where(Transcript.version == version)
+        if version
+        else stmt.order_by(Transcript.version.desc()).limit(1)
+    )
+    transcript = db.scalars(stmt).first()
+    if transcript is None:
+        raise AppError("transcript_not_found", "La transcripción aún no está disponible", 404)
+    return TranscriptOut(
+        id=transcript.id,
+        recording_id=rec.id,
+        version=transcript.version,
+        language=transcript.language,
+        provider=transcript.provider,
+        model=transcript.model,
+        created_at=transcript.created_at,
+        segments=[
+            TranscriptSegmentOut(
+                idx=s.idx,
+                start_ms=s.start_ms,
+                end_ms=s.end_ms,
+                speaker=s.speaker,
+                text=s.text,
+                confidence=s.confidence,
+            )
+            for s in transcript.segments
+        ],
+    )
+
+
+@router.post("/recordings/{recording_id}/reprocess", status_code=status.HTTP_202_ACCEPTED)
+def reprocess_recording(
+    recording_id: uuid.UUID,
+    body: ReprocessRequest,
+    user: CurrentUser,
+    db: DbSession,
+    redis: EventRedis,
+    tasks: Tasks,
+    limiter: Limiter,
+    client: Client,
+) -> RecordingDetail:
+    """Vuelve a transcribir (p. ej. con otro idioma). Crea una versión nueva; la anterior se
+    conserva. Solo quien grabó o un administrador: tiene coste de procesamiento."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE, for_update=True)
+    _, membership = authorize(db, user.id, rec.organization_id, Action.RECORDING_READ)
+    if rec.owner_id != user.id and membership.role not in (Role.OWNER, Role.ADMIN):
+        raise AppError("forbidden", "Solo quien grabó o un administrador puede reprocesar", 403)
+    limiter.hit(f"reprocess:recording:{rec.id}", limit=5, window_seconds=3600)
+    if rec.status not in (RecordingStatus.TRANSCRIBED, RecordingStatus.FAILED):
+        raise AppError("not_reprocessable", "La grabación no se puede reprocesar ahora", 409)
+    has_audio = rec.audio_object_key is not None or (
+        rec.source is RecordingSource.BROWSER
+        and db.scalar(select(func.count()).where(AudioSegment.recording_id == rec.id))
+    )
+    if not has_audio:
+        raise AppError("not_reprocessable", "La grabación no tiene audio procesable", 409)
+
+    previous = rec.language
+    if body.language:
+        rec.language = body.language
+    rec.status = RecordingStatus.PENDING
+    rec.error_code = None
+    record_audit_event(
+        db,
+        action="recording.reprocess",
+        client=client,
+        actor_id=user.id,
+        organization_id=rec.organization_id,
+        resource_type="recording",
+        resource_id=rec.id,
+        metadata={"language_from": previous, "language_to": rec.language},
+    )
+    db.commit()
+    tasks.process(rec.id)
     detail = _detail(db, rec)
     events.publish(redis, rec.id, {"type": "recording", **detail.model_dump(mode="json")})
     return detail

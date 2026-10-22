@@ -48,8 +48,21 @@ x-api-env: &api-env
   ANTIVIRUS_MODE: ${ANTIVIRUS_MODE:-clamd}
   CLAMD_HOST: clamav
   SCRATCH_DIR: /scratch
-  ASR_PROVIDER: ${ASR_PROVIDER:-whisper}
-  LLM_PROVIDER: ${LLM_PROVIDER:-managed_provider}
+  ASR_PROVIDER: ${ASR_PROVIDER:-faster_whisper}
+  WHISPER_MODEL: ${WHISPER_MODEL:-small}
+  WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+  WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+  WHISPER_MODELS_DIR: /models
+  # Caché de Hugging Face en el volumen de modelos (el resto del sistema es de solo lectura).
+  HF_HOME: /models/huggingface
+  LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:4b}
+  OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-16384}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+  OPENAI_TRANSCRIPTION_MODEL: ${OPENAI_TRANSCRIPTION_MODEL:-whisper-1}
+  OPENAI_LLM_MODEL: ${OPENAI_LLM_MODEL:-}
 
 services:
   nginx:
@@ -138,6 +151,7 @@ services:
       context: ./apps/api
       target: worker
     image: metting-agent/worker:${IMAGE_TAG:-dev}
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2", "-Q", "default,media,llm,exports", "-n", "worker@%h"]
     environment: *api-env
     # egress: salida a proveedores externos de ASR/LLM; sin puertos publicados.
     networks: [internal, egress]
@@ -152,7 +166,7 @@ services:
       garage:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 | grep -q pong"]
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d worker@$$HOSTNAME --timeout 5 | grep -q pong"]
       interval: 30s
       timeout: 15s
       retries: 3
@@ -160,6 +174,35 @@ services:
     deploy:
       resources:
         limits: { cpus: "2", memory: 2G }
+
+  # Transcripción: separado porque Whisper satura la CPU (o la GPU). Escala por su cuenta.
+  worker-asr:
+    <<: *hardening
+    image: metting-agent/worker:${IMAGE_TAG:-dev}
+    pull_policy: never
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=1", "-Q", "asr", "-n", "asr@%h"]
+    environment: *api-env
+    # egress: descarga de modelos Whisper y APIs externas (Ollama, OpenAI).
+    networks: [internal, egress]
+    volumes:
+      - worker_scratch:/scratch
+      - whisper_models:/models
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      garage:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d asr@$$HOSTNAME --timeout 5 | grep -q pong"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits: { cpus: "8", memory: 6G }
 
   postgres:
     <<: *stateful
@@ -260,4 +303,5 @@ volumes:
   garage_meta:
   garage_data:
   worker_scratch:
+  whisper_models:
   clamav_db:

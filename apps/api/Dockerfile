@@ -25,6 +25,6 @@ FROM runtime AS worker
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir /scratch && chown 10001 /scratch
+    && mkdir /scratch /models && chown 10001 /scratch /models
 USER 10001
 CMD ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2", "-Q", "default,media,asr,llm,exports"]

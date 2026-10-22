@@ -162,7 +162,10 @@
     "unreadable_media": "No se ha podido leer el archivo. Comprueba que no esté dañado.",
     "scan_unavailable": "No se ha podido analizar el archivo con el antivirus. Inténtalo más tarde.",
     "corrupted_upload": "El archivo se ha dañado durante la subida. Vuelve a importarlo.",
-    "import_too_large": "El archivo supera el tamaño máximo."
+    "import_too_large": "El archivo supera el tamaño máximo.",
+    "transcription_failed": "No se ha podido transcribir el audio.",
+    "not_reprocessable": "La grabación no se puede volver a transcribir ahora.",
+    "transcript_not_found": "La transcripción aún no está disponible."
   },
   "recording": {
     "newTitle": "Nueva grabación",
@@ -235,5 +238,18 @@
     "processing": "Analizando el archivo y extrayendo el audio…",
     "ready": "Archivo importado. La transcripción empezará en breve.",
     "tooLarge": "El archivo supera el máximo de 2 GB."
+  },
+  "detail": {
+    "transcript": "Transcripción",
+    "queued": "En cola para transcribir.",
+    "processing": "Transcribiendo… Puede tardar unos minutos según la duración.",
+    "uploading": "La captura sigue abierta: finalízala para transcribir.",
+    "version": "Versión {version} · {provider} ({model})",
+    "lowConfidence": "Baja confianza",
+    "reprocess": "Volver a transcribir",
+    "reprocessLanguage": "Idioma",
+    "reprocessQueued": "Se ha puesto en cola una nueva transcripción.",
+    "empty": "La transcripción no contiene texto (¿audio en silencio?).",
+    "back": "Grabaciones"
   }
 }

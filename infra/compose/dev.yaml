@@ -29,6 +29,13 @@ services:
     volumes:
       - ./apps/api/app:/app/app:ro
 
+  worker-asr:
+    environment:
+      ENVIRONMENT: development
+      ANTIVIRUS_MODE: disabled
+    volumes:
+      - ./apps/api/app:/app/app:ro
+
   postgres:
     ports: ["127.0.0.1:${DEV_POSTGRES_PORT:-55432}:5432"]
     networks: [internal, edge]

@@ -3,11 +3,13 @@ from typing import Any
 
 import structlog
 
+from app.ai.asr import AsrError, get_asr_provider
 from app.core.rate_limit import get_redis
 from app.db import get_sessionmaker
 from app.media.antivirus import ScannerUnavailable, get_scanner
 from app.media.ffmpeg import MediaError
-from app.media.imports import mark_failed, prepare_import
+from app.media.imports import mark_failed
+from app.media.pipeline import process_recording
 from app.notifications.email import deliver_via_smtp
 from app.storage import get_storage
 from app.worker.celery_app import celery_app
@@ -33,21 +35,31 @@ def send_email(to: str, subject: str, body: str) -> None:
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
-    name="app.worker.tasks.media.prepare_import", bind=True, max_retries=10
+    name="app.worker.tasks.asr.process_recording", bind=True, max_retries=10
 )
-def prepare_import_task(self: Any, recording_id: str) -> None:
+def process_recording_task(self: Any, recording_id: str) -> None:
+    """Prepara el audio (importación o captura del navegador) y lo transcribe."""
     rid = uuid.UUID(recording_id)
     with get_sessionmaker()() as db:
         try:
-            prepare_import(db, get_storage(), get_scanner(), get_redis(), rid)
-        except ScannerUnavailable as exc:
-            # Sin antivirus no se acepta el archivo: se reintenta y, al final, se rechaza.
-            if self.request.retries >= self.max_retries:
-                db.rollback()
-                mark_failed(db, get_redis(), rid, "scan_unavailable")
-                return
-            log.warning("antivirus_unavailable", recording_id=recording_id, error=str(exc))
-            raise self.retry(exc=exc, countdown=min(600, 30 * 2**self.request.retries)) from exc
+            process_recording(
+                db, get_storage(), get_scanner(), get_asr_provider(), get_redis(), rid
+            )
+        except (ScannerUnavailable, AsrError) as exc:
+            transient = isinstance(exc, ScannerUnavailable) or exc.transient
+            db.rollback()
+            if transient and self.request.retries < self.max_retries:
+                log.warning("processing_retry", recording_id=recording_id, error=str(exc))
+                raise self.retry(exc=exc, countdown=min(600, 30 * 2**self.request.retries)) from exc
+            log.error("processing_failed", recording_id=recording_id, error=str(exc))
+            # Sin antivirus no se acepta el archivo; un ASR que falla siempre no se reintenta.
+            code = (
+                "scan_unavailable"
+                if isinstance(exc, ScannerUnavailable)
+                else "transcription_failed"
+            )
+            mark_failed(db, get_redis(), rid, code)
         except MediaError as exc:
+            log.error("processing_failed", recording_id=recording_id, error=str(exc))
             db.rollback()
             mark_failed(db, get_redis(), rid, exc.code)

@@ -20,20 +20,29 @@ from app.storage import ObjectStorage
 
 log = structlog.get_logger(__name__)
 
+REJECTED = "recording.import_rejected"
+
 
 def audio_key(rec: Recording) -> str:
     return f"orgs/{rec.organization_id}/recordings/{rec.id}/audio/source.ogg"
 
 
-def mark_failed(db: Session, redis: Redis, recording_id: uuid.UUID, code: str) -> None:
+def mark_failed(
+    db: Session,
+    redis: Redis,
+    recording_id: uuid.UUID,
+    code: str,
+    *,
+    action: str = "recording.processing_failed",
+) -> None:
     rec = db.get(Recording, recording_id, with_for_update=True)
-    if rec is None or rec.status is not RecordingStatus.PENDING:
+    if rec is None or rec.status not in (RecordingStatus.PENDING, RecordingStatus.PROCESSING):
         return
     rec.status = RecordingStatus.FAILED
     rec.error_code = code
     record_audit_event(
         db,
-        action="recording.import_rejected",
+        action=action,
         result=AuditResult.FAILURE,
         organization_id=rec.organization_id,
         resource_type="recording",
@@ -85,15 +94,15 @@ def prepare_import(
             log.warning(
                 "malware_detected", recording_id=str(recording_id), signature=result.signature
             )
-            mark_failed(db, redis, recording_id, "malware_detected")
+            mark_failed(db, redis, recording_id, "malware_detected", action=REJECTED)
             return
 
         info = probe(source)
         if not info.has_audio:
-            mark_failed(db, redis, recording_id, "no_audio")
+            mark_failed(db, redis, recording_id, "no_audio", action=REJECTED)
             return
         if info.duration_ms > settings.recording_max_duration_minutes * 60_000:
-            mark_failed(db, redis, recording_id, "duration_limit")
+            mark_failed(db, redis, recording_id, "duration_limit", action=REJECTED)
             return
 
         output = Path(tmp) / "audio.ogg"

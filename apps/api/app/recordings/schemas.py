@@ -73,3 +73,27 @@ class CompleteRequest(BaseModel):
 class MissingSegment(BaseModel):
     track: int
     seq: int
+
+
+class TranscriptSegmentOut(BaseModel):
+    idx: int
+    start_ms: int
+    end_ms: int
+    speaker: str | None
+    text: str
+    confidence: float | None
+
+
+class TranscriptOut(BaseModel):
+    id: uuid.UUID
+    recording_id: uuid.UUID
+    version: int
+    language: str
+    provider: str
+    model: str
+    created_at: datetime
+    segments: list[TranscriptSegmentOut]
+
+
+class ReprocessRequest(BaseModel):
+    language: Language | None = None

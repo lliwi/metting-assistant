@@ -79,6 +79,23 @@ npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que
 > Next.js 16 tiene cambios incompatibles con versiones anteriores (`middleware` → `proxy`, `cacheComponents`).
 > Consulta `apps/web/node_modules/next/dist/docs/` antes de usar una API.
 
+## Transcripción e IA
+
+| Uso | Proveedor por defecto | Alternativa |
+| --- | --- | --- |
+| Transcripción (ASR) | `faster_whisper` local en `worker-asr` (el audio no sale) | `openai`: API de OpenAI o servidor compatible (`OPENAI_BASE_URL`) |
+| Resúmenes, actas, tareas | `ollama` (`OLLAMA_BASE_URL`, `gemma3:4b`) | `openai` (`OPENAI_LLM_MODEL`) |
+
+- Ollama no transcribe audio: los modelos de texto (gemma3) se usan solo para generar documentos.
+- `WHISPER_MODEL`: `small` es un buen equilibrio en CPU; `medium`/`large-v3` son más precisos
+  y más lentos. El modelo se descarga la primera vez al volumen `whisper_models`.
+- `OLLAMA_NUM_CTX` (16384 por defecto): Ollama usa 4096 tokens si no se indica, insuficiente
+  para una reunión de una hora.
+- Comprobar la configuración: `docker compose exec worker-asr python -m app.ai.check`.
+- Al cerrar una grabación se encola `process_recording` (cola `asr`): une la captura del
+  navegador (o prepara la importación), transcribe y guarda una versión nueva. Reprocesar
+  (`POST /v1/recordings/{id}/reprocess`) crea otra versión sin borrar las anteriores.
+
 ## Convenciones de la API
 
 - Todas las respuestas llevan `X-Correlation-ID` (se respeta el del cliente si es válido).

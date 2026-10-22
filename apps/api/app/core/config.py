@@ -1,7 +1,7 @@
 import tempfile
 from enum import StrEnum
 from functools import lru_cache
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -80,8 +80,29 @@ class Settings(BaseSettings):
     # "common" admite cuentas de cualquier tenant y personales; un GUID restringe a un tenant.
     microsoft_tenant: str = "common"
 
-    asr_provider: str = "whisper"
-    llm_provider: str = "managed_provider"
+    # --- Transcripción (ASR) ---------------------------------------------------------------
+    # "faster_whisper": local en el worker (el audio no sale). "openai": API de OpenAI o un
+    # servidor compatible (OPENAI_BASE_URL).
+    asr_provider: Literal["faster_whisper", "openai"] = "faster_whisper"
+    whisper_model: str = "small"  # tiny | base | small | medium | large-v3 | turbo
+    whisper_device: str = "cpu"  # cpu | cuda
+    whisper_compute_type: str = "int8"  # int8 (CPU) | float16 (GPU)
+    whisper_models_dir: str = Field(default_factory=lambda: f"{tempfile.gettempdir()}/whisper")
+    whisper_beam_size: int = 5
+
+    # --- Modelos de lenguaje (resúmenes, actas, tareas) ------------------------------------
+    llm_provider: Literal["ollama", "openai"] = "ollama"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "gemma3:4b"
+    # Ollama usa 4096 tokens por defecto; una hora de reunión ronda los 15 000.
+    ollama_num_ctx: int = 16384
+    ollama_timeout_seconds: int = 600
+
+    # --- OpenAI (opcional: ASR y/o LLM) -----------------------------------------------------
+    openai_api_key: SecretStr = SecretStr("")
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_transcription_model: str = "whisper-1"
+    openai_llm_model: str = ""
 
     cors_origins: list[str] = Field(default_factory=list)
 
@@ -98,6 +119,12 @@ class Settings(BaseSettings):
             for name in ("app_secret_key", "data_encryption_key")
             if not getattr(self, name).get_secret_value()
         ]
+        if "openai" in (self.asr_provider, self.llm_provider) and not (
+            self.openai_api_key.get_secret_value()
+        ):
+            missing.append("openai_api_key")
+        if self.llm_provider == "openai" and not self.openai_llm_model:
+            missing.append("openai_llm_model")
         if missing:
             raise ValueError(f"Faltan secretos obligatorios: {', '.join(missing)}")
         return self

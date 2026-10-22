@@ -1,0 +1,206 @@
+"""Transcripción de audio. Cada proveedor devuelve segmentos con marcas en milisegundos."""
+
+import math
+import tempfile
+import time
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Protocol
+
+import structlog
+
+from app.core.config import get_settings
+from app.media.ffmpeg import split_audio
+
+log = structlog.get_logger(__name__)
+
+
+class AsrError(Exception):
+    """`transient` = reintentar más tarde (red, cuota); si no, el audio no es procesable."""
+
+    def __init__(self, message: str, *, transient: bool) -> None:
+        super().__init__(message)
+        self.transient = transient
+
+
+@dataclass(frozen=True)
+class AsrSegment:
+    start_ms: int
+    end_ms: int
+    text: str
+    confidence: float | None = None
+
+
+@dataclass(frozen=True)
+class AsrResult:
+    language: str
+    segments: list[AsrSegment]
+    provider: str
+    model: str
+    processing_ms: int
+
+
+class AsrProvider(Protocol):
+    def transcribe(self, path: Path, language: str | None) -> AsrResult: ...
+
+
+def _confidence(avg_logprob: float | None) -> float | None:
+    if avg_logprob is None:
+        return None
+    return round(min(1.0, max(0.0, math.exp(avg_logprob))), 3)
+
+
+# --- faster-whisper (local) ----------------------------------------------------------------
+
+
+@lru_cache(maxsize=1)
+def _load_whisper(model: str, device: str, compute_type: str, download_root: str) -> Any:
+    from faster_whisper import WhisperModel  # import pesado: solo en el worker que transcribe
+
+    log.info("whisper_model_loading", model=model, device=device, compute_type=compute_type)
+    return WhisperModel(
+        model, device=device, compute_type=compute_type, download_root=download_root
+    )
+
+
+class FasterWhisperProvider:
+    name = "faster_whisper"
+
+    def __init__(
+        self, model: str, device: str, compute_type: str, models_dir: str, beam_size: int
+    ) -> None:
+        self.model = model
+        self.device = device
+        self.compute_type = compute_type
+        self.models_dir = models_dir
+        self.beam_size = beam_size
+
+    def transcribe(self, path: Path, language: str | None) -> AsrResult:
+        started = time.monotonic()
+        try:
+            whisper = _load_whisper(self.model, self.device, self.compute_type, self.models_dir)
+            segments, info = whisper.transcribe(
+                str(path),
+                language=language,
+                beam_size=self.beam_size,
+                # El VAD descarta silencios: menos alucinaciones y más rápido.
+                vad_filter=True,
+                condition_on_previous_text=False,
+            )
+            result = [
+                AsrSegment(
+                    start_ms=int(s.start * 1000),
+                    end_ms=int(s.end * 1000),
+                    text=s.text.strip(),
+                    confidence=_confidence(s.avg_logprob),
+                )
+                for s in segments
+                if s.text.strip()
+            ]
+        except OSError as exc:  # descarga del modelo, disco
+            raise AsrError(str(exc), transient=True) from exc
+        except Exception as exc:
+            raise AsrError(str(exc), transient=False) from exc
+        return AsrResult(
+            language=info.language,
+            segments=result,
+            provider=self.name,
+            model=self.model,
+            processing_ms=int((time.monotonic() - started) * 1000),
+        )
+
+
+# --- OpenAI (o servidor compatible) --------------------------------------------------------
+
+# La API rechaza archivos de más de 25 MB: se trocea por tiempo con margen.
+OPENAI_MAX_BYTES = 24 * 1024 * 1024
+OPENAI_PIECE_SECONDS = 20 * 60
+
+
+class OpenAIAsrProvider:
+    name = "openai"
+
+    def __init__(self, client: Any, model: str) -> None:
+        self.client = client
+        self.model = model
+
+    def transcribe(self, path: Path, language: str | None) -> AsrResult:
+        import openai
+
+        started = time.monotonic()
+        with tempfile.TemporaryDirectory(dir=path.parent) as tmp:
+            pieces = (
+                [(path, 0)]
+                if path.stat().st_size <= OPENAI_MAX_BYTES
+                else split_audio(path, Path(tmp), OPENAI_PIECE_SECONDS)
+            )
+            segments: list[AsrSegment] = []
+            detected = language or ""
+            for piece, offset in pieces:
+                try:
+                    with piece.open("rb") as f:
+                        response = self.client.audio.transcriptions.create(
+                            model=self.model,
+                            file=f,
+                            language=language or openai.NOT_GIVEN,
+                            response_format="verbose_json",
+                            timestamp_granularities=["segment"],
+                        )
+                except (
+                    openai.APIConnectionError,
+                    openai.RateLimitError,
+                    openai.InternalServerError,
+                ) as exc:
+                    raise AsrError(str(exc), transient=True) from exc
+                except openai.APIError as exc:
+                    raise AsrError(str(exc), transient=False) from exc
+                detected = detected or getattr(response, "language", "") or ""
+                for s in getattr(response, "segments", None) or []:
+                    text = (s.text or "").strip()
+                    if text:
+                        segments.append(
+                            AsrSegment(
+                                start_ms=offset + int(s.start * 1000),
+                                end_ms=offset + int(s.end * 1000),
+                                text=text,
+                                confidence=_confidence(getattr(s, "avg_logprob", None)),
+                            )
+                        )
+        return AsrResult(
+            language=_iso_language(detected),
+            segments=segments,
+            provider=self.name,
+            model=self.model,
+            processing_ms=int((time.monotonic() - started) * 1000),
+        )
+
+
+_LANGUAGE_NAMES = {"spanish": "es", "catalan": "ca", "english": "en"}
+
+
+def _iso_language(value: str) -> str:
+    """La API de OpenAI devuelve el idioma por nombre ("spanish"); se normaliza a ISO 639-1."""
+    value = value.lower()
+    return _LANGUAGE_NAMES.get(value, value[:8])
+
+
+def get_asr_provider() -> AsrProvider:
+    settings = get_settings()
+    if settings.asr_provider == "openai":
+        from openai import OpenAI
+
+        client = OpenAI(
+            api_key=settings.openai_api_key.get_secret_value(),
+            base_url=settings.openai_base_url,
+            timeout=600,
+            max_retries=2,
+        )
+        return OpenAIAsrProvider(client, settings.openai_transcription_model)
+    return FasterWhisperProvider(
+        settings.whisper_model,
+        settings.whisper_device,
+        settings.whisper_compute_type,
+        settings.whisper_models_dir,
+        settings.whisper_beam_size,
+    )

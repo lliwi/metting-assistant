@@ -75,7 +75,9 @@ function List({ dict, lang, user }: Props & { user: User }) {
                 <li key={r.id} className="list-row">
                   <div>
                     <div>
-                      <strong>{r.title}</strong>
+                      <Link href={`/${lang}/recordings/${r.id}`}>
+                        <strong>{r.title}</strong>
+                      </Link>
                     </div>
                     <div className="hint">
                       {dateFormat.format(new Date(r.created_at))} ·{" "}

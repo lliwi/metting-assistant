@@ -53,7 +53,7 @@ from app.storage import get_storage  # noqa: E402
 
 
 class _NoTasks:
-    def prepare_import(self, recording_id: object) -> None:
+    def process(self, recording_id: object) -> None:
         pass
 
 

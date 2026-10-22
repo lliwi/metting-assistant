@@ -620,6 +620,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recordings/{recording_id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Transcript
+         * @description Última versión de la transcripción (o la indicada).
+         */
+        get: operations["get_transcript_v1_recordings__recording_id__transcript_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/reprocess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reprocess Recording
+         * @description Vuelve a transcribir (p. ej. con otro idioma). Crea una versión nueva; la anterior se
+         *     conserva. Solo quien grabó o un administrador: tiene coste de procesamiento.
+         */
+        post: operations["reprocess_recording_v1_recordings__recording_id__reprocess_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/events": {
         parameters: {
             query?: never;
@@ -1037,6 +1078,11 @@ export interface components {
              */
             locale: "es" | "ca";
         };
+        /** ReprocessRequest */
+        ReprocessRequest: {
+            /** Language */
+            language?: ("es" | "ca" | "en") | null;
+        };
         /**
          * Role
          * @enum {string}
@@ -1115,6 +1161,49 @@ export interface components {
             segments: number;
             /** Duration Ms */
             duration_ms: number;
+        };
+        /** TranscriptOut */
+        TranscriptOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Recording Id
+             * Format: uuid
+             */
+            recording_id: string;
+            /** Version */
+            version: number;
+            /** Language */
+            language: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Segments */
+            segments: components["schemas"]["TranscriptSegmentOut"][];
+        };
+        /** TranscriptSegmentOut */
+        TranscriptSegmentOut: {
+            /** Idx */
+            idx: number;
+            /** Start Ms */
+            start_ms: number;
+            /** End Ms */
+            end_ms: number;
+            /** Speaker */
+            speaker: string | null;
+            /** Text */
+            text: string;
+            /** Confidence */
+            confidence: number | null;
         };
         /** UpdateMeRequest */
         UpdateMeRequest: {
@@ -2803,6 +2892,92 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDetail"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_transcript_v1_recordings__recording_id__transcript_get: {
+        parameters: {
+            query?: {
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptOut"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reprocess_recording_v1_recordings__recording_id__reprocess_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReprocessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
