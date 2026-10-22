@@ -92,6 +92,22 @@ npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que
 - `OLLAMA_NUM_CTX` (16384 por defecto): Ollama usa 4096 tokens si no se indica, insuficiente
   para una reunión de una hora.
 - Comprobar la configuración: `docker compose exec worker-asr python -m app.ai.check`.
+
+### Resumen, acta e identificación de hablantes
+
+- Al terminar cada transcripción se generan un **resumen** (con puntos clave) y un **acta**
+  (asistentes, temas, decisiones, tareas con responsable y fecha, preguntas abiertas)
+  (`AI_AUTO_GENERATE=true`). Cada punto cita los segmentos de la transcripción de los que
+  sale; en la web enlazan al momento correspondiente. Se pueden regenerar.
+- `DIARIZATION_PROVIDER` decide cómo se identifica a quién habla:
+  - `none`: sin hablantes.
+  - `openai`: `gpt-4o-transcribe-diarize` transcribe e identifica a la vez (sustituye a
+    Whisper; el audio va a OpenAI). Probado: separa correctamente dos voces.
+  - `pyannote`: local, en la GPU, tras Whisper. Requiere `infra/compose/gpu.yaml` y un
+    `HF_TOKEN` de una cuenta de huggingface.co que haya aceptado las condiciones de
+    `PYANNOTE_MODEL` (https://huggingface.co/pyannote/speaker-diarization-community-1).
+- Los hablantes aparecen como "Hablante 1, 2…"; en la página de la grabación se les puede
+  poner nombre. El acta y el resumen usan esos nombres al regenerarlos.
 - Al cerrar una grabación se encola `process_recording` (cola `asr`): une la captura del
   navegador (o prepara la importación), transcribe y guarda una versión nueva. Reprocesar
   (`POST /v1/recordings/{id}/reprocess`) crea otra versión sin borrar las anteriores.

@@ -30,9 +30,10 @@ USER 10001
 CMD ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2", "-Q", "default,media,asr,llm,exports"]
 
 # Variante con GPU NVIDIA para worker-asr (infra/compose/gpu.yaml): añade cuBLAS y cuDNN 9,
-# que ctranslate2 carga en tiempo de ejecución. El driver lo aporta el host vía CDI.
+# que ctranslate2 carga en tiempo de ejecución, y pyannote (PyTorch) para identificar
+# hablantes en local. El driver lo aporta el host vía CDI.
 FROM builder AS builder-gpu
-RUN uv sync --locked --no-dev --group gpu
+RUN uv sync --locked --no-dev --group gpu --group diarization
 
 FROM worker AS worker-gpu
 COPY --from=builder-gpu /app/.venv /app/.venv

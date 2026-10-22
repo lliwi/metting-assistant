@@ -39,6 +39,9 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.1",
 ]
+diarization = [
+    "pyannote-audio>=4",
+]
 gpu = [
     "nvidia-cublas-cu12>=12.9.2.10",
     "nvidia-cudnn-cu12>=9,<10",

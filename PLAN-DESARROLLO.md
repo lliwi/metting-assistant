@@ -228,6 +228,7 @@ Orden recomendado por valor/esfuerzo:
 | Fase | Estado | Notas |
 | --- | --- | --- |
 | 0 — Cimientos | ✅ Completada (21/10/2026) | Stack Compose arranca con health checks; CI definida. Pendiente: pre-commit, añadir S3 a `/readyz` cuando exista el cliente de almacenamiento (Fase 2), TLS en nginx para producción. |
+| 5 — Resultados de IA (adelantada) | 🟡 En curso | Resumen y acta con citas a la transcripción (Ollama u OpenAI), regeneración y hablantes con nombre. Diarización OpenAI verificada; pyannote local pendiente de HF_TOKEN. |
 | 3 — Transcripción | 🟡 En curso | ASR: faster-whisper local (CPU, `small`) u OpenAI; LLM: Ollama (`gemma3:4b` en 192.168.0.160) u OpenAI. Pipeline unir/preparar → transcribir, versiones y reprocesado. Pendiente: diarización. |
 | 2 — Captura | ✅ Completada (22/10/2026) | Grabación segmentada, cola IndexedDB, subida idempotente, reanudación por pistas, SSE. Importación por bloques con ClamAV, ffprobe y extracción de audio. Verificado en Chrome: corte de red, interrupción del micrófono, decodificación independiente de cada segmento e importación. |
 | 1 — Identidad | ✅ Completada (21/10/2026) | Registro/verificación, login con Argon2id, recuperación, sesiones revocables, CSRF, MFA TOTP con códigos de recuperación, OIDC Google/Microsoft, organizaciones con roles e invitaciones, auditoría y rate limiting. Probado en navegador de extremo a extremo. Pendiente: WebAuthn (pasa a Fase 2), login con Apple y SAML (Fase 2). |
