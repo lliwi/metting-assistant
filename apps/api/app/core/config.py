@@ -90,8 +90,19 @@ class Settings(BaseSettings):
     whisper_models_dir: str = Field(default_factory=lambda: f"{tempfile.gettempdir()}/whisper")
     whisper_beam_size: int = 5
 
+    # --- Identificación de hablantes (diarización) -----------------------------------------
+    # none: sin hablantes. openai: gpt-4o-transcribe-diarize transcribe e identifica a la vez
+    # (sustituye al ASR; el audio va a OpenAI). pyannote: local, tras Whisper (requiere
+    # HF_TOKEN con acceso al modelo y la imagen con GPU).
+    diarization_provider: Literal["none", "openai", "pyannote"] = "none"
+    openai_diarize_model: str = "gpt-4o-transcribe-diarize"
+    pyannote_model: str = "pyannote/speaker-diarization-community-1"
+    hf_token: SecretStr = SecretStr("")
+
     # --- Modelos de lenguaje (resúmenes, actas, tareas) ------------------------------------
     llm_provider: Literal["ollama", "openai"] = "ollama"
+    # Generar resumen y acta automáticamente al terminar cada transcripción.
+    ai_auto_generate: bool = True
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma3:4b"
     # Ollama usa 4096 tokens por defecto; una hora de reunión ronda los 15 000.
@@ -122,12 +133,14 @@ class Settings(BaseSettings):
             for name in ("app_secret_key", "data_encryption_key")
             if not getattr(self, name).get_secret_value()
         ]
-        if "openai" in (self.asr_provider, self.llm_provider) and not (
+        if "openai" in (self.asr_provider, self.llm_provider, self.diarization_provider) and not (
             self.openai_api_key.get_secret_value()
         ):
             missing.append("openai_api_key")
         if self.llm_provider == "openai" and not self.openai_llm_model:
             missing.append("openai_llm_model")
+        if self.diarization_provider == "pyannote" and not self.hf_token.get_secret_value():
+            missing.append("hf_token")
         if missing:
             raise ValueError(f"Faltan secretos obligatorios: {', '.join(missing)}")
         return self

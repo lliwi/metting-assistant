@@ -10,6 +10,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.ai.asr import AsrProvider
+from app.ai.diarization import Diarizer
+from app.ai.speakers import assign_speakers, prepare_speakers
 from app.audit import record_audit_event
 from app.core.config import get_settings
 from app.media.antivirus import Scanner
@@ -112,6 +114,7 @@ def process_recording(
     asr: AsrProvider,
     redis: Redis,
     recording_id: uuid.UUID,
+    diarizer: Diarizer | None = None,
 ) -> None:
     """Idempotente: una grabación ya transcrita o fallida no se vuelve a procesar."""
     settings = get_settings()
@@ -135,6 +138,10 @@ def process_recording(
         audio = workdir / "transcribe.ogg"
         audio.write_bytes(storage.get(key))
         result = asr.transcribe(audio, language=language)
+        segments = result.segments
+        if diarizer is not None:
+            segments = assign_speakers(segments, diarizer.diarize(audio))
+        segments = prepare_speakers(segments)
 
     rec = db.get_one(Recording, recording_id, with_for_update=True)
     if rec.status is not RecordingStatus.PROCESSING:
@@ -149,7 +156,7 @@ def process_recording(
         language=result.language or language,
         provider=result.provider,
         model=result.model,
-        content="\n".join(s.text for s in result.segments),
+        content="\n".join(s.text for s in segments),
         processing_ms=result.processing_ms,
     )
     db.add(transcript)
@@ -160,10 +167,11 @@ def process_recording(
             idx=i,
             start_ms=s.start_ms,
             end_ms=s.end_ms,
+            speaker=s.speaker,
             text=s.text,
             confidence=s.confidence,
         )
-        for i, s in enumerate(result.segments)
+        for i, s in enumerate(segments)
     )
     rec.status = RecordingStatus.TRANSCRIBED
     rec.error_code = None
@@ -177,7 +185,8 @@ def process_recording(
             "provider": result.provider,
             "model": result.model,
             "version": version,
-            "segments": len(result.segments),
+            "segments": len(segments),
+            "speakers": len({s.speaker for s in segments if s.speaker}),
             "audio_ms": rec.duration_ms,
             "processing_ms": result.processing_ms,
         },

@@ -4,6 +4,9 @@ from typing import Any
 import structlog
 
 from app.ai.asr import AsrError, get_asr_provider
+from app.ai.diarization import get_diarizer
+from app.ai.llm import LlmError, get_llm_provider
+from app.ai.service import mark_output_failed, outputs_after_transcription, run_output
 from app.core.rate_limit import get_redis
 from app.db import get_sessionmaker
 from app.media.antivirus import ScannerUnavailable, get_scanner
@@ -43,8 +46,16 @@ def process_recording_task(self: Any, recording_id: str) -> None:
     with get_sessionmaker()() as db:
         try:
             process_recording(
-                db, get_storage(), get_scanner(), get_asr_provider(), get_redis(), rid
+                db,
+                get_storage(),
+                get_scanner(),
+                get_asr_provider(),
+                get_redis(),
+                rid,
+                diarizer=get_diarizer(),
             )
+            for output_id in outputs_after_transcription(db, rid):
+                generate_ai_output_task.delay(str(output_id))
         except (ScannerUnavailable, AsrError) as exc:
             transient = isinstance(exc, ScannerUnavailable) or exc.transient
             db.rollback()
@@ -63,3 +74,21 @@ def process_recording_task(self: Any, recording_id: str) -> None:
             log.error("processing_failed", recording_id=recording_id, error=str(exc))
             db.rollback()
             mark_failed(db, get_redis(), rid, exc.code)
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name="app.worker.tasks.llm.generate_ai_output", bind=True, max_retries=6
+)
+def generate_ai_output_task(self: Any, output_id: str) -> None:
+    """Resumen o acta con el LLM configurado (Ollama u OpenAI)."""
+    oid = uuid.UUID(output_id)
+    with get_sessionmaker()() as db:
+        try:
+            run_output(db, get_llm_provider(), get_redis(), oid)
+        except LlmError as exc:
+            db.rollback()
+            if exc.transient and self.request.retries < self.max_retries:
+                log.warning("ai_output_retry", output_id=output_id, error=str(exc))
+                raise self.retry(exc=exc, countdown=min(600, 20 * 2**self.request.retries)) from exc
+            log.error("ai_output_failed", output_id=output_id, error=str(exc))
+            mark_output_failed(db, get_redis(), oid, "generation_failed")

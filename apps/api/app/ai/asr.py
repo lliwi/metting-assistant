@@ -31,6 +31,8 @@ class AsrSegment:
     end_ms: int
     text: str
     confidence: float | None = None
+    # Etiqueta del proveedor (A, B, SPEAKER_00…); se normaliza en el pipeline.
+    speaker: str | None = None
 
 
 @dataclass(frozen=True)
@@ -161,6 +163,8 @@ class OpenAIAsrProvider:
     def __init__(self, client: Any, model: str) -> None:
         self.client = client
         self.model = model
+        # gpt-4o-transcribe-diarize: transcribe e identifica hablantes en una llamada.
+        self.diarize = "diarize" in model
 
     def transcribe(self, path: Path, language: str | None) -> AsrResult:
         import openai
@@ -174,15 +178,22 @@ class OpenAIAsrProvider:
             )
             segments: list[AsrSegment] = []
             detected = language or ""
-            for piece, offset in pieces:
+            for piece_index, (piece, offset) in enumerate(pieces, start=1):
                 try:
                     with piece.open("rb") as f:
+                        options: dict[str, Any] = (
+                            {"response_format": "diarized_json", "chunking_strategy": "auto"}
+                            if self.diarize
+                            else {
+                                "response_format": "verbose_json",
+                                "timestamp_granularities": ["segment"],
+                            }
+                        )
                         response = self.client.audio.transcriptions.create(
                             model=self.model,
                             file=f,
                             language=language or openai.NOT_GIVEN,
-                            response_format="verbose_json",
-                            timestamp_granularities=["segment"],
+                            **options,
                         )
                 except (
                     openai.APIConnectionError,
@@ -198,12 +209,18 @@ class OpenAIAsrProvider:
                     if text and not is_hallucination(
                         text, getattr(s, "no_speech_prob", None), getattr(s, "avg_logprob", None)
                     ):
+                        speaker = getattr(s, "speaker", None)
+                        if speaker and len(pieces) > 1:
+                            # Cada trozo se diariza por separado: "A" del trozo 1 no es
+                            # necesariamente "A" del trozo 2.
+                            speaker = f"{piece_index}-{speaker}"
                         segments.append(
                             AsrSegment(
                                 start_ms=offset + int(s.start * 1000),
                                 end_ms=offset + int(s.end * 1000),
                                 text=text,
                                 confidence=_confidence(getattr(s, "avg_logprob", None)),
+                                speaker=speaker,
                             )
                         )
         return AsrResult(
@@ -226,7 +243,7 @@ def _iso_language(value: str) -> str:
 
 def get_asr_provider() -> AsrProvider:
     settings = get_settings()
-    if settings.asr_provider == "openai":
+    if settings.asr_provider == "openai" or settings.diarization_provider == "openai":
         from openai import OpenAI
 
         client = OpenAI(
@@ -235,7 +252,12 @@ def get_asr_provider() -> AsrProvider:
             timeout=600,
             max_retries=2,
         )
-        return OpenAIAsrProvider(client, settings.openai_transcription_model)
+        model = (
+            settings.openai_diarize_model
+            if settings.diarization_provider == "openai"
+            else settings.openai_transcription_model
+        )
+        return OpenAIAsrProvider(client, model)
     return FasterWhisperProvider(
         settings.whisper_model,
         settings.whisper_device,

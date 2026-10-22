@@ -47,6 +47,7 @@ from app.recordings.schemas import (
     RecordingOut,
     ReprocessRequest,
     SegmentOut,
+    SpeakerNamesUpdate,
     TrackOut,
     TrackSummary,
     TranscriptOut,
@@ -431,14 +432,19 @@ def get_transcript(
     transcript = db.scalars(stmt).first()
     if transcript is None:
         raise AppError("transcript_not_found", "La transcripción aún no está disponible", 404)
+    return _transcript_out(transcript)
+
+
+def _transcript_out(transcript: Transcript) -> TranscriptOut:
     return TranscriptOut(
         id=transcript.id,
-        recording_id=rec.id,
+        recording_id=transcript.recording_id,
         version=transcript.version,
         language=transcript.language,
         provider=transcript.provider,
         model=transcript.model,
         created_at=transcript.created_at,
+        speaker_names=dict(transcript.speaker_names or {}),
         segments=[
             TranscriptSegmentOut(
                 idx=s.idx,
@@ -451,6 +457,56 @@ def get_transcript(
             for s in transcript.segments
         ],
     )
+
+
+def _latest_transcript(db: Session, recording_id: uuid.UUID) -> Transcript:
+    transcript = db.scalars(
+        select(Transcript)
+        .where(Transcript.recording_id == recording_id)
+        .order_by(Transcript.version.desc())
+        .limit(1)
+    ).first()
+    if transcript is None:
+        raise AppError("transcript_not_found", "La transcripción aún no está disponible", 404)
+    return transcript
+
+
+@router.patch("/recordings/{recording_id}/transcript/speakers")
+def rename_speakers(
+    recording_id: uuid.UUID,
+    body: SpeakerNamesUpdate,
+    user: CurrentUser,
+    db: DbSession,
+    client: Client,
+) -> TranscriptOut:
+    """Da nombre a los hablantes detectados de la última versión de la transcripción."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE)
+    transcript = _latest_transcript(db, rec.id)
+    known = {s.speaker for s in transcript.segments if s.speaker}
+    unknown = set(body.names) - known
+    if unknown:
+        raise AppError("unknown_speaker", "Hablante desconocido", 422, details=sorted(unknown))
+    names = dict(transcript.speaker_names or {})
+    for label, name in body.names.items():
+        name = name.strip()[:100]
+        if name:
+            names[label] = name
+        else:
+            names.pop(label, None)
+    # Asignación nueva (no mutación): SQLAlchemy detecta el cambio del JSONB.
+    transcript.speaker_names = names
+    record_audit_event(
+        db,
+        action="transcript.speakers_renamed",
+        client=client,
+        actor_id=user.id,
+        organization_id=rec.organization_id,
+        resource_type="transcript",
+        resource_id=transcript.id,
+        metadata={"labels": sorted(body.names)},
+    )
+    db.commit()
+    return _transcript_out(transcript)
 
 
 @router.post("/recordings/{recording_id}/reprocess", status_code=status.HTTP_202_ACCEPTED)

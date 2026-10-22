@@ -12,7 +12,9 @@ import { api, errorCode, type Schemas, type User } from "@/lib/api/client";
 import { useQuery } from "@/lib/api/useQuery";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
+import { AiOutputSection } from "./AiOutputs";
 import type { Language } from "./SetupFields";
+import { speakerName, SpeakersEditor } from "./SpeakersEditor";
 
 type Props = { dict: Dictionary; lang: Locale };
 type Recording = Schemas["RecordingDetail"];
@@ -32,6 +34,8 @@ export function RecordingDetail({ dict, lang }: Props) {
 function useLiveRecording(recordingId: string) {
   const [recording, setRecording] = useState<Recording | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Se incrementa con cada cambio de un documento de IA: dispara su recarga.
+  const [aiTick, setAiTick] = useState(0);
 
   useEffect(() => {
     const source = new EventSource(`/api/v1/recordings/${recordingId}/events`);
@@ -53,6 +57,7 @@ function useLiveRecording(recordingId: string) {
           : r,
       );
     });
+    source.addEventListener("ai_output", () => setAiTick((t) => t + 1));
     source.onerror = () => {
       // 404/401: EventSource no da el código; se consulta para mostrar el error real.
       if (source.readyState === EventSource.CLOSED) {
@@ -69,12 +74,13 @@ function useLiveRecording(recordingId: string) {
     return () => source.close();
   }, [recordingId]);
 
-  return { recording, setRecording, loadError };
+  return { recording, setRecording, loadError, aiTick };
 }
 
 function Detail({ dict, lang, user }: Props & { user: User }) {
   const recordingId = useParams<{ recordingId: string }>().recordingId;
-  const { recording, setRecording, loadError } = useLiveRecording(recordingId);
+  const { recording, setRecording, loadError, aiTick } =
+    useLiveRecording(recordingId);
   const transcribed = recording?.status === "transcribed";
 
   const fetchTranscript = useCallback(async () => {
@@ -84,7 +90,19 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
     });
     return data ?? null;
   }, [recordingId, transcribed]);
-  const { data: transcript } = useQuery(fetchTranscript);
+  const { data: transcript, setData: setTranscript } =
+    useQuery(fetchTranscript);
+
+  const fetchOutputs = useCallback(async () => {
+    if (!transcribed) return [];
+    void aiTick; // dependencia explícita: recargar al recibir un evento ai_output
+    const { data } = await api.GET("/v1/recordings/{recording_id}/ai-outputs", {
+      params: { path: { recording_id: recordingId } },
+    });
+    return data ?? [];
+  }, [recordingId, transcribed, aiTick]);
+  const { data: outputs = [], setData: setOutputs } = useQuery(fetchOutputs);
+  const byKind = Object.fromEntries(outputs.map((o) => [o.kind, o]));
 
   if (loadError)
     return <p className="alert error">{errorMessage(dict, loadError)}</p>;
@@ -111,6 +129,21 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
         </p>
       </div>
 
+      {transcribed &&
+        (["summary", "minutes"] as const).map((kind) => (
+          <AiOutputSection
+            key={kind}
+            dict={dict}
+            kind={kind}
+            output={byKind[kind]}
+            recordingId={recording.id}
+            canGenerate
+            onRequested={(o) =>
+              setOutputs([...outputs.filter((x) => x.kind !== o.kind), o])
+            }
+          />
+        ))}
+
       <section
         className="card stack"
         aria-labelledby="transcript-heading"
@@ -123,6 +156,16 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
         <StatusMessage dict={dict} recording={recording} />
         {transcript && <TranscriptView dict={dict} transcript={transcript} />}
       </section>
+
+      {transcript && (
+        <SpeakersEditor
+          key={transcript.id}
+          dict={dict}
+          recordingId={recording.id}
+          transcript={transcript}
+          onSaved={setTranscript}
+        />
+      )}
 
       {recording.owner_id === user.id &&
         (recording.status === "transcribed" ||
@@ -194,7 +237,11 @@ function TranscriptView({
           {transcript.segments.map((s) => {
             const low = s.confidence !== null && s.confidence < LOW_CONFIDENCE;
             return (
-              <li key={s.idx} className={low ? "low-confidence" : undefined}>
+              <li
+                key={s.idx}
+                id={`seg-${s.idx}`}
+                className={low ? "low-confidence" : undefined}
+              >
                 <time
                   className="timestamp"
                   dateTime={`PT${Math.floor(s.start_ms / 1000)}S`}
@@ -202,6 +249,12 @@ function TranscriptView({
                   {formatDuration(s.start_ms)}
                 </time>
                 <span>
+                  {s.speaker && (
+                    <strong className="speaker">
+                      {speakerName(dict, s.speaker, transcript.speaker_names)}
+                      :{" "}
+                    </strong>
+                  )}
                   {s.text}
                   {low && (
                     <span className="visually-hidden">

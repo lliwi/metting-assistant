@@ -93,8 +93,16 @@ class TranscriptOut(BaseModel):
     provider: str
     model: str
     created_at: datetime
+    # Nombres dados a los hablantes: {"H1": "Laura"}. Sin entrada, "Hablante 1".
+    speaker_names: dict[str, str]
     segments: list[TranscriptSegmentOut]
 
 
 class ReprocessRequest(BaseModel):
     language: Language | None = None
+
+
+class SpeakerNamesUpdate(BaseModel):
+    """Nombre por etiqueta de hablante. Cadena vacía = quitar el nombre."""
+
+    names: dict[str, str] = Field(max_length=50)

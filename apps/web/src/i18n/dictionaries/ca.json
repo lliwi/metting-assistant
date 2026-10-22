@@ -165,7 +165,12 @@
     "import_too_large": "El fitxer supera la mida màxima.",
     "transcription_failed": "No s'ha pogut transcriure l'àudio.",
     "not_reprocessable": "L'enregistrament no es pot tornar a transcriure ara.",
-    "transcript_not_found": "La transcripció encara no està disponible."
+    "transcript_not_found": "La transcripció encara no està disponible.",
+    "not_transcribed": "L'enregistrament encara no està transcrit.",
+    "empty_transcript": "La transcripció no té text.",
+    "already_generating": "Ja s'està generant.",
+    "generation_failed": "El model d'IA no ha pogut generar el document.",
+    "unknown_speaker": "Parlant desconegut."
   },
   "recording": {
     "newTitle": "Nou enregistrament",
@@ -256,5 +261,33 @@
     "reprocessQueued": "S'ha posat en cua una nova transcripció.",
     "empty": "La transcripció no conté text (àudio en silenci?).",
     "back": "Enregistraments"
+  },
+  "ai": {
+    "summary": "Resum",
+    "minutes": "Acta de la reunió",
+    "keyPoints": "Punts clau",
+    "attendees": "Assistents",
+    "topics": "Temes tractats",
+    "decisions": "Decisions",
+    "tasks": "Tasques",
+    "owner": "Responsable",
+    "due": "Data límit",
+    "openQuestions": "Preguntes obertes",
+    "generating": "S'està generant amb IA…",
+    "failed": "No s'ha pogut generar el document.",
+    "regenerate": "Regenera",
+    "generate": "Genera",
+    "empty": "Cap.",
+    "goTo": "Ves al moment {time} de la transcripció",
+    "generatedWith": "Generat amb {model}",
+    "notStarted": "Encara no s'ha generat."
+  },
+  "speakers": {
+    "title": "Parlants",
+    "label": "Parlant {n}",
+    "rename": "Nom de {label}",
+    "save": "Desa els noms",
+    "saved": "Noms desats. Regenera el resum i l'acta perquè els facin servir.",
+    "none": "No s'han identificat parlants en aquesta transcripció."
   }
 }

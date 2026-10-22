@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import health
+from app.ai import router as ai_router
 from app.auth import oidc_router
 from app.auth import router as auth_router
 from app.core.config import Environment, get_settings
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(oidc_router.router)
     app.include_router(orgs_router.router)
     app.include_router(recordings_router.router)
+    app.include_router(ai_router.router)
     return app
 
 

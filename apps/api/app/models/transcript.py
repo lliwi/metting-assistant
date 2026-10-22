@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDPrimaryKey
@@ -22,6 +24,10 @@ class Transcript(UUIDPrimaryKey, Base):
     model: Mapped[str] = mapped_column(String(100))
     # Texto completo (concatenación de segmentos) para exportar y para el LLM.
     content: Mapped[str] = mapped_column(Text)
+    # Nombres asignados a los hablantes detectados: {"H1": "Laura", "H2": "Pau"}.
+    speaker_names: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
     # Tiempo de proceso del ASR: base del seguimiento de coste por trabajo.
     processing_ms: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

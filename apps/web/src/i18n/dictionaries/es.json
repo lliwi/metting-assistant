@@ -165,7 +165,12 @@
     "import_too_large": "El archivo supera el tamaño máximo.",
     "transcription_failed": "No se ha podido transcribir el audio.",
     "not_reprocessable": "La grabación no se puede volver a transcribir ahora.",
-    "transcript_not_found": "La transcripción aún no está disponible."
+    "transcript_not_found": "La transcripción aún no está disponible.",
+    "not_transcribed": "La grabación aún no está transcrita.",
+    "empty_transcript": "La transcripción no tiene texto.",
+    "already_generating": "Ya se está generando.",
+    "generation_failed": "El modelo de IA no ha podido generar el documento.",
+    "unknown_speaker": "Hablante desconocido."
   },
   "recording": {
     "newTitle": "Nueva grabación",
@@ -256,5 +261,33 @@
     "reprocessQueued": "Se ha puesto en cola una nueva transcripción.",
     "empty": "La transcripción no contiene texto (¿audio en silencio?).",
     "back": "Grabaciones"
+  },
+  "ai": {
+    "summary": "Resumen",
+    "minutes": "Acta de la reunión",
+    "keyPoints": "Puntos clave",
+    "attendees": "Asistentes",
+    "topics": "Temas tratados",
+    "decisions": "Decisiones",
+    "tasks": "Tareas",
+    "owner": "Responsable",
+    "due": "Fecha límite",
+    "openQuestions": "Preguntas abiertas",
+    "generating": "Generando con IA…",
+    "failed": "No se ha podido generar el documento.",
+    "regenerate": "Regenerar",
+    "generate": "Generar",
+    "empty": "Ninguno.",
+    "goTo": "Ir al momento {time} de la transcripción",
+    "generatedWith": "Generado con {model}",
+    "notStarted": "Aún no se ha generado."
+  },
+  "speakers": {
+    "title": "Hablantes",
+    "label": "Hablante {n}",
+    "rename": "Nombre de {label}",
+    "save": "Guardar nombres",
+    "saved": "Nombres guardados. Regenera el resumen y el acta para que los usen.",
+    "none": "No se han identificado hablantes en esta transcripción."
   }
 }

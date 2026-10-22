@@ -552,6 +552,64 @@ meter {
   color: var(--accent);
 }
 
+.transcript li:target {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.transcript li {
+  scroll-margin-top: 5rem;
+}
+
+.speaker {
+  color: var(--accent);
+}
+
+.ai-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.ai-list li + li {
+  margin-top: 0.5rem;
+}
+
+.sources {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.source-link {
+  padding: 0 0.375rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.minutes-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.topic h4 {
+  margin: 0.75rem 0 0.25rem;
+}
+
+.topic p {
+  margin: 0;
+}
+
+.speaker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.75rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
