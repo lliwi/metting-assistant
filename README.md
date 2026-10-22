@@ -95,9 +95,9 @@ npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que
 
 ### Resumen, acta e identificación de hablantes
 
-- Al terminar cada transcripción se generan un **resumen** (con puntos clave) y un **acta**
-  (asistentes, temas, decisiones, tareas con responsable y fecha, preguntas abiertas)
-  (`AI_AUTO_GENERATE=true`). Cada punto cita los segmentos de la transcripción de los que
+- **Bajo demanda**, desde la página de cada grabación, se genera un **resumen** (con puntos
+  clave) o un **acta** (asistentes, temas, decisiones, tareas con responsable y fecha,
+  preguntas abiertas). Con `AI_AUTO_GENERATE=true` se generan solos al transcribir. Cada punto cita los segmentos de la transcripción de los que
   sale; en la web enlazan al momento correspondiente. Se pueden regenerar.
 - `DIARIZATION_PROVIDER` decide cómo se identifica a quién habla:
   - `none`: sin hablantes.

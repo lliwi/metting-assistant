@@ -14,6 +14,7 @@ from app.ai.asr import AsrResult, AsrSegment
 from app.ai.documents import Line, attach_references, clean_attendees, format_lines, generate
 from app.ai.router import get_ai_task_queue
 from app.ai.service import outputs_after_transcription, run_output
+from app.core.config import get_settings
 from app.media.pipeline import process_recording
 from app.models import AiOutput, AiOutputStatus, Membership, Role, User
 from tests.conftest import ApiClient, MemoryStorage
@@ -198,12 +199,21 @@ def test_speakers_are_normalized_and_can_be_renamed(
 # --- Generación ----------------------------------------------------------------------------
 
 
+def test_nothing_is_generated_automatically_by_default(
+    transcribed: dict[str, Any], db: Session
+) -> None:
+    """Resumen y acta son bajo demanda: transcribir no consume el LLM."""
+    assert outputs_after_transcription(db, uuid.UUID(transcribed["id"])) == []
+
+
 def test_summary_and_minutes_after_transcription(
     transcribed: dict[str, Any],
     ana: ApiClient,
     db: Session,
     redis: fakeredis.FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(get_settings(), "ai_auto_generate", True)
     ana.patch(
         f"/v1/recordings/{transcribed['id']}/transcript/speakers",
         json={"names": {"H2": "Laura"}},

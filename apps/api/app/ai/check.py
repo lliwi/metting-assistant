@@ -3,6 +3,7 @@
 import sys
 import time
 
+from app.ai.asr import get_asr_provider
 from app.ai.llm import LlmError, get_llm_provider
 from app.core.config import get_settings
 
@@ -16,12 +17,14 @@ SCHEMA = {
 
 def main() -> int:
     settings = get_settings()
-    print(f"ASR: {settings.asr_provider}", end=" ")
-    if settings.asr_provider == "faster_whisper":
+    asr = get_asr_provider()
+    model = getattr(asr, "model", "")
+    if asr.name == "faster_whisper":  # type: ignore[attr-defined]
         device = f"{settings.whisper_device}/{settings.whisper_compute_type}"
-        print(f"(modelo {settings.whisper_model}, {device})")
+        print(f"ASR: faster_whisper (modelo {model}, {device})")
     else:
-        print(f"(modelo {settings.openai_transcription_model}, {settings.openai_base_url})")
+        print(f"ASR: openai (modelo {model}, {settings.openai_base_url})")
+    print(f"Hablantes: {settings.diarization_provider}")
 
     llm = get_llm_provider()
     print(f"LLM: {llm.name} (modelo {llm.model})", flush=True)

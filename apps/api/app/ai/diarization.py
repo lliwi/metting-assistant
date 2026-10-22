@@ -26,7 +26,7 @@ def _load_pipeline(model: str, token: str, device: str) -> Any:
     try:
         pipeline = Pipeline.from_pretrained(model, token=token)
     except TypeError:  # pyannote.audio < 4
-        pipeline = Pipeline.from_pretrained(model, use_auth_token=token)
+        pipeline = Pipeline.from_pretrained(model, use_auth_token=token)  # type: ignore[call-arg]
     if pipeline is None:
         raise AsrError(f"No se pudo cargar {model}: ¿token sin acceso al modelo?", transient=False)
     if device == "cuda" and torch.cuda.is_available():

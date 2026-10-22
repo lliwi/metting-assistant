@@ -195,7 +195,7 @@ export function AiOutputSection({
     >
       <div className="row spread">
         <h2 id={`ai-${kind}`}>{title}</h2>
-        {canGenerate && !generating && (
+        {canGenerate && output && !generating && (
           <button
             type="button"
             className="icon-link"
@@ -209,7 +209,23 @@ export function AiOutputSection({
         )}
       </div>
 
-      {!output && <p className="hint">{dict.ai.notStarted}</p>}
+      {!output && (
+        <div className="stack">
+          <p className="hint">{dict.ai.notStarted}</p>
+          {canGenerate && (
+            <button
+              type="button"
+              className="button primary"
+              onClick={regenerate}
+              disabled={pending}
+            >
+              {kind === "summary"
+                ? dict.ai.generateSummary
+                : dict.ai.generateMinutes}
+            </button>
+          )}
+        </div>
+      )}
       {generating && (
         <p role="status">
           {dict.ai.generating} <progress aria-label={dict.ai.generating} />

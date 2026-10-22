@@ -101,8 +101,9 @@ class Settings(BaseSettings):
 
     # --- Modelos de lenguaje (resúmenes, actas, tareas) ------------------------------------
     llm_provider: Literal["ollama", "openai"] = "ollama"
-    # Generar resumen y acta automáticamente al terminar cada transcripción.
-    ai_auto_generate: bool = True
+    # Generar resumen y acta automáticamente al terminar cada transcripción. Por defecto no:
+    # se generan bajo demanda, documento a documento (consumo de LLM solo cuando se pide).
+    ai_auto_generate: bool = False
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma3:4b"
     # Ollama usa 4096 tokens por defecto; una hora de reunión ronda los 15 000.

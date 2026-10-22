@@ -280,7 +280,9 @@
     "empty": "Ninguno.",
     "goTo": "Ir al momento {time} de la transcripción",
     "generatedWith": "Generado con {model}",
-    "notStarted": "Aún no se ha generado."
+    "notStarted": "Aún no se ha generado.",
+    "generateSummary": "Generar resumen",
+    "generateMinutes": "Generar acta"
   },
   "speakers": {
     "title": "Hablantes",

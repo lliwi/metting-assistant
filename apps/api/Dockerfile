@@ -19,7 +19,8 @@ COPY --from=builder /app /app
 FROM runtime AS api
 USER 10001
 EXPOSE 8000
-CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000", "--worker-tmp-dir", "/tmp"]
+# --graceful-timeout: las conexiones SSE no terminan solas; al reiniciar se cortan tras 10 s.
+CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000", "--worker-tmp-dir", "/tmp", "--graceful-timeout", "10"]
 
 FROM runtime AS worker
 RUN apt-get update \

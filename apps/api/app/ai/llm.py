@@ -75,32 +75,41 @@ class OpenAILlmProvider:
     def __init__(self, client: Any, model: str) -> None:
         self.client = client
         self.model = model
+        # Los modelos de razonamiento (GPT-5…) solo admiten la temperatura por defecto: se
+        # detecta en la primera llamada y se deja de enviar.
+        self.fixed_temperature = False
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
         import openai
 
+        transient = (openai.APIConnectionError, openai.RateLimitError, openai.InternalServerError)
         try:
-            completion = self.client.chat.completions.create(
-                model=self.model,
-                temperature=0,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {"name": "result", "schema": schema, "strict": True},
-                },
-            )
-        except (
-            openai.APIConnectionError,
-            openai.RateLimitError,
-            openai.InternalServerError,
-        ) as exc:
+            try:
+                completion = self._create(system, user, schema)
+            except openai.BadRequestError as exc:
+                if getattr(exc, "param", None) != "temperature" or self.fixed_temperature:
+                    raise
+                self.fixed_temperature = True
+                completion = self._create(system, user, schema)
+        except transient as exc:
             raise LlmError(str(exc), transient=True) from exc
         except openai.APIError as exc:
             raise LlmError(str(exc), transient=False) from exc
         return _parse(completion.choices[0].message.content or "")
+
+    def _create(self, system: str, user: str, schema: dict[str, Any]) -> Any:
+        return self.client.chat.completions.create(
+            model=self.model,
+            **({} if self.fixed_temperature else {"temperature": 0}),
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "result", "schema": schema, "strict": True},
+            },
+        )
 
 
 def get_llm_provider() -> LlmProvider:

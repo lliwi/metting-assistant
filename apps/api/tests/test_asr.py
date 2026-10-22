@@ -65,3 +65,32 @@ def test_capture_gap_detection(captured: int, timeline: int, gaps: bool) -> None
     from app.media.pipeline import has_capture_gaps
 
     assert has_capture_gaps(captured, timeline) is gaps
+
+
+def test_openai_llm_retries_without_temperature_for_reasoning_models() -> None:
+    """gpt-5.x rechaza temperature=0: se repite sin el parámetro y se recuerda."""
+    import httpx
+    import openai
+
+    from app.ai.llm import OpenAILlmProvider
+
+    calls: list[dict[str, object]] = []
+
+    class Completions:
+        def create(self, **kwargs: object) -> object:
+            calls.append(kwargs)
+            if "temperature" in kwargs:
+                request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+                raise openai.BadRequestError(
+                    "Unsupported value: 'temperature'",
+                    response=httpx.Response(400, request=request),
+                    body={"param": "temperature", "code": "unsupported_value"},
+                )
+            message = type("M", (), {"content": '{"ok": true}'})
+            return type("C", (), {"choices": [type("Ch", (), {"message": message})]})
+
+    client = type("Client", (), {"chat": type("Chat", (), {"completions": Completions()})})
+    llm = OpenAILlmProvider(client, "gpt-5.6-terra")
+    assert llm.complete_json("s", "u", {}) == {"ok": True}
+    assert llm.complete_json("s", "u", {}) == {"ok": True}
+    assert ["temperature" in c for c in calls] == [True, False, False]

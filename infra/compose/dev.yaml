@@ -15,7 +15,9 @@ services:
       ENVIRONMENT: development
       LOG_LEVEL: DEBUG
       COOKIE_SECURE: "false"
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
+    # --timeout-graceful-shutdown: las conexiones SSE abiertas no terminan solas; sin límite,
+    # cada recarga de código dejaba la API colgada esperando a que se cerraran.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app", "--timeout-graceful-shutdown", "5"]
     volumes:
       - ./apps/api/app:/app/app:ro
       - ./apps/api/migrations:/app/migrations:ro
