@@ -96,6 +96,7 @@ def _recording_out(rec: Recording) -> RecordingOut:
         source_filename=rec.source_filename,
         audio_ready=rec.audio_object_key is not None,
         error_code=rec.error_code,
+        capture_warning=rec.capture_warning,
         created_at=rec.created_at,
         completed_at=rec.completed_at,
     )
@@ -508,7 +509,11 @@ def _readable_snapshot(
     recording_id: uuid.UUID, user: CurrentUser, db: DbSession
 ) -> dict[str, object]:
     # Dependencia síncrona: FastAPI la ejecuta en el threadpool, sin bloquear el event loop.
-    return _snapshot(db, load_recording(db, user, recording_id, Action.RECORDING_READ))
+    snapshot = _snapshot(db, load_recording(db, user, recording_id, Action.RECORDING_READ))
+    # La sesión vive lo que dure el stream (minutos u horas): se cierra la transacción ya
+    # para no retener la conexión ni bloqueos (impedirían, p. ej., migraciones).
+    db.rollback()
+    return snapshot
 
 
 HEARTBEAT_SECONDS = 15.0

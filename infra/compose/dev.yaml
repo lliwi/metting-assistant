@@ -1,6 +1,15 @@
 # Override de desarrollo: recarga en caliente de la API y dependencias accesibles desde localhost
 # para ejecutar tests y la web con `npm run dev` fuera de Docker.
 services:
+  # HTTPS en la red local para probar desde el móvil (el micrófono exige contexto seguro).
+  # Genera antes el certificado: ./scripts/generate-dev-cert.sh
+  nginx:
+    ports:
+      - "${HTTPS_PORT:-8443}:8443"
+    volumes:
+      - ./infra/nginx/tls-dev.conf:/etc/nginx/conf.d/tls-dev.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+
   api:
     environment:
       ENVIRONMENT: development

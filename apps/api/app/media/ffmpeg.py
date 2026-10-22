@@ -146,6 +146,10 @@ def concat_audio(inputs: list[Path], target: Path, timeout: int = 3600) -> None:
                 "concat",
                 "-i",
                 str(listing),
+                # Rellena con silencio los huecos de timestamps: la línea de tiempo del audio
+                # coincide con el tiempo real y las marcas de la transcripción también.
+                "-af",
+                "aresample=async=1:first_pts=0",
                 "-ac",
                 "1",
                 "-c:a",
@@ -162,3 +166,37 @@ def concat_audio(inputs: list[Path], target: Path, timeout: int = 3600) -> None:
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         raise MediaError("unreadable_media", str(exc)) from exc
+
+
+def decoded_duration_ms(path: Path, timeout: int = 600) -> int:
+    """Duración del audio realmente presente (muestras decodificadas), no la del contenedor.
+
+    Si el navegador perdió muestras al capturar, el contenedor dice 12 s pero solo hay 4 s.
+    """
+    with subprocess.Popen(  # noqa: S603 - argumentos fijos, sin shell
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            *SAFE_INPUT,
+            "-i",
+            str(path),
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-f",
+            "s16le",
+            "-",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    ) as proc:
+        assert proc.stdout is not None
+        total = 0
+        while chunk := proc.stdout.read(1 << 20):
+            total += len(chunk)
+        proc.wait(timeout=timeout)
+    if proc.returncode != 0:
+        raise MediaError("unreadable_media", str(path))
+    return total * 1000 // (16000 * 2)

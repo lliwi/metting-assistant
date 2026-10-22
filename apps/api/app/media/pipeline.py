@@ -13,10 +13,11 @@ from app.ai.asr import AsrProvider
 from app.audit import record_audit_event
 from app.core.config import get_settings
 from app.media.antivirus import Scanner
-from app.media.ffmpeg import concat_audio, probe
+from app.media.ffmpeg import concat_audio, decoded_duration_ms, probe
 from app.media.imports import audio_key, prepare_import
 from app.models import (
     AudioSegment,
+    AuditResult,
     Recording,
     RecordingSource,
     RecordingStatus,
@@ -29,6 +30,10 @@ from app.storage import ObjectStorage
 log = structlog.get_logger(__name__)
 
 ACTIVE = (RecordingStatus.PENDING, RecordingStatus.PROCESSING)
+# Si las muestras capturadas cubren menos de esto de la línea de tiempo (y faltan más de
+# MIN_MISSING_MS), el navegador perdió audio al capturar.
+MIN_CAPTURED_RATIO = 0.85
+MIN_MISSING_MS = 2_000
 
 
 def _set_processing(db: Session, redis: Redis, recording_id: uuid.UUID) -> None:
@@ -36,6 +41,15 @@ def _set_processing(db: Session, redis: Redis, recording_id: uuid.UUID) -> None:
     rec.status = RecordingStatus.PROCESSING
     db.commit()
     events.publish(redis, rec.id, {"type": "status", "status": rec.status.value})
+
+
+def has_capture_gaps(captured_ms: int, timeline_ms: int) -> bool:
+    missing = timeline_ms - captured_ms
+    return (
+        timeline_ms > 0
+        and missing > MIN_MISSING_MS
+        and captured_ms < timeline_ms * MIN_CAPTURED_RATIO
+    )
 
 
 def normalize_browser_capture(
@@ -53,9 +67,11 @@ def normalize_browser_capture(
     key = audio_key(rec)
     db.rollback()
     inputs = []
+    captured_ms = 0
     for i, segment in enumerate(segments):
         path = workdir / f"{i:05d}.{segment.object_key.rsplit('.', 1)[-1]}"
         path.write_bytes(storage.get(segment.object_key))
+        captured_ms += decoded_duration_ms(path)
         inputs.append(path)
     output = workdir / "audio.ogg"
     concat_audio(inputs, output)
@@ -66,6 +82,25 @@ def normalize_browser_capture(
     rec.audio_object_key = key
     # La duración medida sustituye a la declarada por el navegador.
     rec.duration_ms = duration_ms or rec.duration_ms
+    # Referencia: la línea de tiempo del audio unido (huecos rellenados con silencio), no la
+    # duración que declara el navegador, que incluye el arranque y cierre de la grabadora.
+    if has_capture_gaps(captured_ms, duration_ms):
+        rec.capture_warning = "audio_gaps"
+        log.warning(
+            "capture_audio_gaps",
+            recording_id=str(rec.id),
+            timeline_ms=duration_ms,
+            captured_ms=captured_ms,
+        )
+        record_audit_event(
+            db,
+            action="recording.capture_gaps",
+            result=AuditResult.FAILURE,
+            organization_id=rec.organization_id,
+            resource_type="recording",
+            resource_id=rec.id,
+            metadata={"timeline_ms": duration_ms, "captured_ms": captured_ms},
+        )
     db.commit()
     return key
 

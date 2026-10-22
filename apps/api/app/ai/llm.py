@@ -36,10 +36,13 @@ class OllamaProvider:
 
     name = "ollama"
 
-    def __init__(self, http: httpx.Client, model: str, num_ctx: int) -> None:
+    def __init__(
+        self, http: httpx.Client, model: str, num_ctx: int, keep_alive: str = "5m"
+    ) -> None:
         self.http = http
         self.model = model
         self.num_ctx = num_ctx
+        self.keep_alive = keep_alive
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -48,6 +51,7 @@ class OllamaProvider:
                 json={
                     "model": self.model,
                     "stream": False,
+                    "keep_alive": self.keep_alive,
                     "format": schema,
                     "options": {"temperature": 0, "num_ctx": self.num_ctx},
                     "messages": [
@@ -114,4 +118,6 @@ def get_llm_provider() -> LlmProvider:
     http = httpx.Client(
         base_url=settings.ollama_base_url.rstrip("/"), timeout=settings.ollama_timeout_seconds
     )
-    return OllamaProvider(http, settings.ollama_model, settings.ollama_num_ctx)
+    return OllamaProvider(
+        http, settings.ollama_model, settings.ollama_num_ctx, settings.ollama_keep_alive
+    )

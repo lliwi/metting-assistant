@@ -117,6 +117,9 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
         aria-busy={!transcribed}
       >
         <h2 id="transcript-heading">{dict.detail.transcript}</h2>
+        {recording.capture_warning === "audio_gaps" && (
+          <p className="alert error">{dict.recording.audioGapsDetected}</p>
+        )}
         <StatusMessage dict={dict} recording={recording} />
         {transcript && <TranscriptView dict={dict} transcript={transcript} />}
       </section>

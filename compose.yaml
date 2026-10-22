@@ -59,6 +59,7 @@ x-api-env: &api-env
   OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
   OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:4b}
   OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-16384}
+  OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
   OPENAI_TRANSCRIPTION_MODEL: ${OPENAI_TRANSCRIPTION_MODEL:-whisper-1}
@@ -72,6 +73,7 @@ services:
       - "${HTTP_PORT:-8080}:8080"
     volumes:
       - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/nginx/snippets:/etc/nginx/snippets:ro
     tmpfs: ["/tmp", "/var/cache/nginx"]
     networks: [edge]
     depends_on:

@@ -1,6 +1,7 @@
 """Transcripción de audio. Cada proveedor devuelve segmentos con marcas en milisegundos."""
 
 import math
+import re
 import tempfile
 import time
 from dataclasses import dataclass
@@ -43,6 +44,37 @@ class AsrResult:
 
 class AsrProvider(Protocol):
     def transcribe(self, path: Path, language: str | None) -> AsrResult: ...
+
+
+# Frases que Whisper "inventa" sobre silencio o ruido (aprendidas de subtítulos de vídeos).
+# Solo se descartan si el segmento es únicamente eso.
+_HALLUCINATIONS = re.compile(
+    r"^[\s¡!¿?.,]*("
+    r"suscr[ií]bete( al canal)?( y dale (a )?like)?"
+    r"|dale (a )?like( y suscr[ií]bete)?"
+    r"|gracias por (ver|mirar)( el v[ií]deo)?"
+    r"|subt[ií]tulos? (realizados? )?(por|de) .*"
+    r"|.*amara\.org.*"
+    r"|thanks for watching"
+    r"|please subscribe"
+    r"|subscribe to (my|the) channel"
+    r")[\s¡!¿?.,]*$",
+    re.IGNORECASE,
+)
+# Umbral de Whisper para "probablemente no hay voz" combinado con baja certeza del texto.
+NO_SPEECH_THRESHOLD = 0.6
+LOW_LOGPROB = -0.8
+
+
+def is_hallucination(text: str, no_speech_prob: float | None, avg_logprob: float | None) -> bool:
+    if _HALLUCINATIONS.match(text):
+        return True
+    return (
+        no_speech_prob is not None
+        and avg_logprob is not None
+        and no_speech_prob > NO_SPEECH_THRESHOLD
+        and avg_logprob < LOW_LOGPROB
+    )
 
 
 def _confidence(avg_logprob: float | None) -> float | None:
@@ -97,11 +129,16 @@ class FasterWhisperProvider:
                 )
                 for s in segments
                 if s.text.strip()
+                and not is_hallucination(s.text.strip(), s.no_speech_prob, s.avg_logprob)
             ]
         except OSError as exc:  # descarga del modelo, disco
             raise AsrError(str(exc), transient=True) from exc
         except Exception as exc:
-            raise AsrError(str(exc), transient=False) from exc
+            # GPU compartida (p. ej. con Ollama): sin memoria ahora, quizá sí en unos minutos.
+            out_of_memory = "out of memory" in str(exc).lower()
+            if out_of_memory:
+                _load_whisper.cache_clear()
+            raise AsrError(str(exc), transient=out_of_memory) from exc
         return AsrResult(
             language=info.language,
             segments=result,
@@ -158,7 +195,9 @@ class OpenAIAsrProvider:
                 detected = detected or getattr(response, "language", "") or ""
                 for s in getattr(response, "segments", None) or []:
                     text = (s.text or "").strip()
-                    if text:
+                    if text and not is_hallucination(
+                        text, getattr(s, "no_speech_prob", None), getattr(s, "avg_logprob", None)
+                    ):
                         segments.append(
                             AsrSegment(
                                 start_ms=offset + int(s.start * 1000),

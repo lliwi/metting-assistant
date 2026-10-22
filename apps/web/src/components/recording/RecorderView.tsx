@@ -166,6 +166,11 @@ export function RecorderView({
       {result?.kind === "missing" && (
         <p className="alert error">{dict.recording.missing}</p>
       )}
+      {capture.audioGaps && (
+        <p className="alert error" role="alert">
+          {dict.recording.audioGaps}
+        </p>
+      )}
       {capture.error && <p className="alert error">{capture.error}</p>}
 
       <UploadStatus dict={dict} recordingId={recordingId} />

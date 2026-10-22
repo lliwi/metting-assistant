@@ -211,7 +211,12 @@
     "sessionExpired": "Tu sesión ha caducado. Inicia sesión de nuevo para seguir subiendo el audio (está guardado en este dispositivo).",
     "notResumable": "Esta grabación ya no admite más audio.",
     "discard": "Descartar",
-    "discardConfirm": "¿Descartar del dispositivo el audio que no se ha podido subir? No se podrá recuperar."
+    "discardConfirm": "¿Descartar del dispositivo el audio que no se ha podido subir? No se podrá recuperar.",
+    "audioGaps": "Este navegador o micrófono está perdiendo parte del audio. Prueba con otro navegador (Chrome o Firefox actualizados) o con otro micrófono.",
+    "audioGapsDetected": "Durante la captura se perdió parte del audio (el navegador no entregó todas las muestras). La transcripción puede estar incompleta.",
+    "insecureContext": "El navegador solo permite usar el micrófono en conexiones seguras. Abre la aplicación por HTTPS: {url}",
+    "noMediaRecorder": "Este navegador no permite grabar audio (falta MediaRecorder). Actualiza el navegador o prueba con Chrome, Firefox o Safari recientes.",
+    "micBusy": "No se puede usar el micrófono: otra aplicación lo está usando o el sistema lo ha bloqueado. Ciérrala y vuelve a intentarlo."
   },
   "recordings": {
     "title": "Grabaciones",

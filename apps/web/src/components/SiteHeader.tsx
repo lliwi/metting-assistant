@@ -1,18 +1,38 @@
 "use client";
 
+import {
+  AudioLines,
+  Languages,
+  LogIn,
+  LogOut,
+  UserPlus,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { locales, type Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/client";
+import { locales, type Locale } from "@/i18n/config";
 
+// Cada idioma se anuncia en su propia lengua (lo que buscaría quien la habla).
 const localeNames: Record<Locale, string> = { es: "Español", ca: "Català" };
 
 function withLocale(pathname: string, locale: Locale): string {
   const [, , ...rest] = pathname.split("/");
   return `/${locale}${rest.length ? `/${rest.join("/")}` : ""}`;
+}
+
+/** Icono con nombre accesible: lo leen los lectores de pantalla y aparece como tooltip. */
+function IconLink({ href, label, icon: Icon }: { href: string; label: string; icon: LucideIcon }) {
+  return (
+    <Link href={href} className="icon-link" aria-label={label} title={label}>
+      <Icon aria-hidden="true" size={22} strokeWidth={2} />
+    </Link>
+  );
 }
 
 export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
@@ -35,62 +55,74 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
           (user ? (
             <ul>
               <li>
-                <Link href={`/${lang}/recordings`}>{dict.nav.recordings}</Link>
+                <IconLink
+                  href={`/${lang}/recordings`}
+                  label={dict.nav.recordings}
+                  icon={AudioLines}
+                />
               </li>
               <li>
-                <Link href={`/${lang}/organizations`}>{dict.nav.organizations}</Link>
+                <IconLink
+                  href={`/${lang}/organizations`}
+                  label={dict.nav.organizations}
+                  icon={Users}
+                />
               </li>
               <li>
-                <Link href={`/${lang}/account`}>{dict.nav.account}</Link>
+                <IconLink href={`/${lang}/account`} label={dict.nav.account} icon={UserRound} />
               </li>
               <li>
-                <button type="button" className="link-button" onClick={handleLogout}>
-                  {dict.nav.logout}
+                <button
+                  type="button"
+                  className="icon-link"
+                  onClick={handleLogout}
+                  aria-label={dict.nav.logout}
+                  title={dict.nav.logout}
+                >
+                  <LogOut aria-hidden="true" size={22} strokeWidth={2} />
                 </button>
               </li>
             </ul>
           ) : (
             <ul>
               <li>
-                <Link href={`/${lang}/login`}>{dict.nav.login}</Link>
+                <IconLink href={`/${lang}/login`} label={dict.nav.login} icon={LogIn} />
               </li>
               <li>
-                <Link href={`/${lang}/register`}>{dict.nav.register}</Link>
+                <IconLink href={`/${lang}/register`} label={dict.nav.register} icon={UserPlus} />
               </li>
             </ul>
           ))}
       </nav>
 
       <nav aria-label={dict.nav.language}>
-        {/* La ruta actual solo se conoce en runtime: el prerender usa enlaces a la portada. */}
-        <Suspense fallback={<LocaleLinks lang={lang} hrefFor={(l) => `/${l}`} />}>
-          <CurrentPathLocaleLinks lang={lang} />
+        {/* La ruta actual solo se conoce en runtime: el prerender enlaza a la portada. */}
+        <Suspense fallback={<LocaleToggle lang={lang} hrefFor={(l) => `/${l}`} />}>
+          <CurrentPathLocaleToggle lang={lang} />
         </Suspense>
       </nav>
     </header>
   );
 }
 
-function CurrentPathLocaleLinks({ lang }: { lang: Locale }) {
+function CurrentPathLocaleToggle({ lang }: { lang: Locale }) {
   const pathname = usePathname();
-  return <LocaleLinks lang={lang} hrefFor={(l) => withLocale(pathname, l)} />;
+  return <LocaleToggle lang={lang} hrefFor={(l) => withLocale(pathname, l)} />;
 }
 
-function LocaleLinks({ lang, hrefFor }: { lang: Locale; hrefFor: (l: Locale) => string }) {
+/** Con dos idiomas, un único icono que cambia al otro. */
+function LocaleToggle({ lang, hrefFor }: { lang: Locale; hrefFor: (l: Locale) => string }) {
+  const other = locales.find((l) => l !== lang) ?? lang;
   return (
-    <ul className="locale-switcher">
-      {locales.map((locale) => (
-        <li key={locale}>
-          <Link
-            href={hrefFor(locale)}
-            hrefLang={locale}
-            lang={locale}
-            aria-current={locale === lang ? "page" : undefined}
-          >
-            {localeNames[locale]}
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <Link
+      href={hrefFor(other)}
+      hrefLang={other}
+      lang={other}
+      className="icon-link"
+      aria-label={localeNames[other]}
+      title={localeNames[other]}
+    >
+      <Languages aria-hidden="true" size={22} strokeWidth={2} />
+    </Link>
   );
 }

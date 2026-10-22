@@ -995,6 +995,8 @@ export interface components {
             audio_ready: boolean;
             /** Error Code */
             error_code: string | null;
+            /** Capture Warning */
+            capture_warning: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1037,6 +1039,8 @@ export interface components {
             audio_ready: boolean;
             /** Error Code */
             error_code: string | null;
+            /** Capture Warning */
+            capture_warning: string | null;
             /**
              * Created At
              * Format: date-time

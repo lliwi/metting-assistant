@@ -97,6 +97,9 @@ class Settings(BaseSettings):
     # Ollama usa 4096 tokens por defecto; una hora de reunión ronda los 15 000.
     ollama_num_ctx: int = 16384
     ollama_timeout_seconds: int = 600
+    # Cuánto mantiene Ollama el modelo en memoria tras responder. "0" lo descarga al momento:
+    # útil si comparte GPU con Whisper (si no, la siguiente transcripción se queda sin VRAM).
+    ollama_keep_alive: str = "5m"
 
     # --- OpenAI (opcional: ASR y/o LLM) -----------------------------------------------------
     openai_api_key: SecretStr = SecretStr("")

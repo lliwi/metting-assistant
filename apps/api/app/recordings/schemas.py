@@ -41,6 +41,7 @@ class RecordingOut(BaseModel):
     # El audio está listo para transcribir (extraído de una importación).
     audio_ready: bool
     error_code: str | None
+    capture_warning: str | None
     created_at: datetime
     completed_at: datetime | None
 

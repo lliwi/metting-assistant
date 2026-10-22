@@ -1,0 +1,18 @@
+# Transcripción en GPU NVIDIA (requiere nvidia-container-toolkit con CDI en el host).
+#   docker compose -f compose.yaml [-f infra/compose/dev.yaml] -f infra/compose/gpu.yaml up -d
+# Con una RTX 3060 (6 GB), Whisper "turbo" en float16 transcribe ~35× más rápido que el
+# tiempo real y con más precisión que "small" en CPU.
+services:
+  worker-asr:
+    build:
+      context: ./apps/api
+      target: worker-gpu
+    image: metting-agent/worker-gpu:${IMAGE_TAG:-dev}
+    pull_policy: build
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      WHISPER_DEVICE: cuda
+      # Pesos int8 y cálculo en float16: la mitad de VRAM que float16 con precisión equivalente.
+      WHISPER_COMPUTE_TYPE: int8_float16
+      WHISPER_MODEL: ${WHISPER_MODEL_GPU:-turbo}

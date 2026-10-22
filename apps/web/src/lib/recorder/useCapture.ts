@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { capturedMs, hasCaptureGaps } from "./captureCheck";
 import { getRecorderQueue, sha256Hex } from "./index";
 import { pickMimeType, SegmentedRecorder } from "./segmentedRecorder";
 
@@ -22,6 +23,8 @@ export function useCapture({ stream, recordingId, track }: Params) {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [level, setLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // El navegador está perdiendo audio al capturar (se avisa mientras se graba).
+  const [audioGaps, setAudioGaps] = useState(false);
   const recorderRef = useRef<SegmentedRecorder | null>(null);
   const savedMsRef = useRef(0);
 
@@ -47,6 +50,9 @@ export function useCapture({ stream, recordingId, track }: Params) {
         });
         savedMsRef.current += durationMs;
         uploader.notify();
+        void capturedMs(blob).then((captured) => {
+          if (hasCaptureGaps(captured, durationMs)) setAudioGaps(true);
+        });
       },
       onError: (e) =>
         setError(e instanceof Error ? e.message : "recorder_error"),
@@ -139,7 +145,7 @@ export function useCapture({ stream, recordingId, track }: Params) {
     setPhase("stopped");
   }, [stream]);
 
-  return { phase, elapsedMs, level, error, pause, resume, stop };
+  return { phase, elapsedMs, level, error, audioGaps, pause, resume, stop };
 }
 
 export function formatDuration(ms: number): string {

@@ -294,3 +294,21 @@ def test_sse_sends_initial_snapshot(ana: ApiClient) -> None:
         payload = json.loads(next(lines).removeprefix("data: "))
         assert payload["id"] == rec["id"]
         assert payload["status"] == "uploading"
+
+
+def test_sse_does_not_hold_a_transaction_open(ana: ApiClient, db: Session) -> None:
+    """Regresión: la conexión SSE dejaba la transacción abierta mientras duraba el stream,
+    reteniendo bloqueos (una migración ALTER TABLE quedaba esperando indefinidamente)."""
+    from sqlalchemy import text
+
+    rec = create_recording(ana)
+    with ana.stream("GET", f"/v1/recordings/{rec['id']}/events") as res:
+        next(res.iter_lines())
+        idle = db.scalar(
+            text(
+                "SELECT count(*) FROM pg_stat_activity "
+                "WHERE datname = current_database() AND state = 'idle in transaction' "
+                "AND pid <> pg_backend_pid()"
+            )
+        )
+        assert idle == 0

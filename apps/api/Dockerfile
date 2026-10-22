@@ -28,3 +28,12 @@ RUN apt-get update \
     && mkdir /scratch /models && chown 10001 /scratch /models
 USER 10001
 CMD ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2", "-Q", "default,media,asr,llm,exports"]
+
+# Variante con GPU NVIDIA para worker-asr (infra/compose/gpu.yaml): añade cuBLAS y cuDNN 9,
+# que ctranslate2 carga en tiempo de ejecución. El driver lo aporta el host vía CDI.
+FROM builder AS builder-gpu
+RUN uv sync --locked --no-dev --group gpu
+
+FROM worker AS worker-gpu
+COPY --from=builder-gpu /app/.venv /app/.venv
+ENV LD_LIBRARY_PATH=/app/.venv/lib/python3.13/site-packages/nvidia/cublas/lib:/app/.venv/lib/python3.13/site-packages/nvidia/cudnn/lib

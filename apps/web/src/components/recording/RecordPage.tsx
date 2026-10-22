@@ -32,22 +32,33 @@ const AUDIO_CONSTRAINTS: MediaStreamConstraints = {
 
 /** Pide el micrófono antes de crear nada en el servidor; traduce los errores habituales. */
 async function requestMicrophone(dict: Dictionary): Promise<MediaStream> {
-  if (
-    !navigator.mediaDevices?.getUserMedia ||
-    typeof MediaRecorder === "undefined"
-  ) {
+  // Sin contexto seguro (HTTPS o localhost) el navegador oculta el micrófono, aunque el
+  // usuario le haya dado permiso: es la causa más habitual al entrar desde el móvil por IP.
+  if (!window.isSecureContext) {
+    const https = `https://${window.location.hostname}:8443${window.location.pathname}`;
+    throw new Error(format(dict.recording.insecureContext, { url: https }));
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error(dict.recording.unsupported);
+  }
+  if (typeof MediaRecorder === "undefined") {
+    throw new Error(dict.recording.noMediaRecorder);
   }
   try {
     return await navigator.mediaDevices.getUserMedia(AUDIO_CONSTRAINTS);
   } catch (e) {
-    const name = e instanceof DOMException ? e.name : "";
-    if (name === "NotAllowedError" || name === "SecurityError")
+    const name = e instanceof DOMException ? e.name : String(e);
+    if (name === "NotAllowedError" || name === "SecurityError") {
       throw new Error(dict.recording.micDenied);
+    }
     if (name === "NotFoundError" || name === "OverconstrainedError") {
       throw new Error(dict.recording.micUnavailable);
     }
-    throw new Error(dict.recording.unsupported);
+    if (name === "NotReadableError" || name === "AbortError") {
+      throw new Error(dict.recording.micBusy);
+    }
+    // Se muestra el nombre del error para poder diagnosticarlo.
+    throw new Error(`${dict.recording.unsupported} (${name})`);
   }
 }
 

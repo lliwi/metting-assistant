@@ -26,7 +26,10 @@ export async function uploadFileInChunks(
   const total = Math.max(1, Math.ceil(file.size / IMPORT_CHUNK_BYTES));
   let uploaded = 0;
   for (let seq = 0; seq < total; seq++) {
-    const blob = file.slice(seq * IMPORT_CHUNK_BYTES, (seq + 1) * IMPORT_CHUNK_BYTES);
+    const blob = file.slice(
+      seq * IMPORT_CHUNK_BYTES,
+      (seq + 1) * IMPORT_CHUNK_BYTES,
+    );
     const chunk = {
       id: crypto.randomUUID(),
       recordingId,
@@ -48,7 +51,8 @@ export async function uploadFileInChunks(
         outcome = { kind: "retry" as const, reason: "network" };
       }
       if (outcome.kind === "ok") break;
-      if (outcome.kind === "auth") throw new ImportUploadError("unauthenticated");
+      if (outcome.kind === "auth")
+        throw new ImportUploadError("unauthenticated");
       if (outcome.kind === "fatal") throw new ImportUploadError(outcome.reason);
       await sleep(Math.min(60_000, 1_000 * 2 ** attempt));
     }

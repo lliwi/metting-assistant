@@ -55,6 +55,8 @@ class Recording(UUIDPrimaryKey, Timestamps, Base):
     audio_object_key: Mapped[str | None] = mapped_column(String(500))
     # Motivo estable del fallo cuando status = failed (p. ej. "malware_detected").
     error_code: Mapped[str | None] = mapped_column(String(64))
+    # Aviso no bloqueante sobre la captura (p. ej. "audio_gaps": el navegador perdió audio).
+    capture_warning: Mapped[str | None] = mapped_column(String(64))
 
     segments: Mapped[list["AudioSegment"]] = relationship(
         back_populates="recording", order_by="(AudioSegment.track, AudioSegment.seq)"
