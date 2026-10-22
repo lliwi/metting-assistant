@@ -100,5 +100,12 @@ npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que
   valida el contenedor real por sus bytes. `POST …/complete` recibe cuántos segmentos produjo
   cada pista y responde 409 `missing_segments` si falta alguno.
 - Una captura interrumpida (micrófono, permiso, cierre) se reanuda en una pista nueva.
+- **Importación** (`/import`): el archivo se sube en bloques de 8 MB por el mismo endpoint
+  (idempotente y reanudable). Al cerrar, el worker une los bloques verificando su checksum,
+  lo analiza con ClamAV, valida con ffprobe que tiene audio y no supera la duración máxima, y
+  extrae el audio a Opus mono. El original se borra; queda solo el audio.
+- **Antivirus**: en producción activa el perfil con `COMPOSE_PROFILES=antivirus` (ya viene en
+  `.env.example`). Si ClamAV no responde, las importaciones se rechazan (`scan_unavailable`)
+  tras reintentos: nunca se aceptan sin analizar. En desarrollo (`dev.yaml`) está desactivado.
 - Garage no implementa SSE-S3: en on-premise el cifrado en reposo va en el volumen. Con S3
   gestionado, usa `S3_SERVER_SIDE_ENCRYPTION=AES256` o `aws:kms`.

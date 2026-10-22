@@ -23,7 +23,7 @@ export async function sha256Hex(blob: Blob): Promise<string> {
   ).join("");
 }
 
-async function sendSegment(segment: StoredSegment): Promise<SendOutcome> {
+export async function sendSegment(segment: StoredSegment): Promise<SendOutcome> {
   const form = new FormData();
   form.set("segment_id", segment.id);
   form.set("track", String(segment.track));

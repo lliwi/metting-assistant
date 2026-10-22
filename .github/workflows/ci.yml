@@ -32,6 +32,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.12.19"
+      - name: FFmpeg (tests de importación)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .

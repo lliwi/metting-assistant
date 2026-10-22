@@ -44,6 +44,10 @@ x-api-env: &api-env
   MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
   MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
   MICROSOFT_TENANT: ${MICROSOFT_TENANT:-common}
+  # Sin antivirus disponible, las importaciones se rechazan (scan_unavailable).
+  ANTIVIRUS_MODE: ${ANTIVIRUS_MODE:-clamd}
+  CLAMD_HOST: clamav
+  SCRATCH_DIR: /scratch
   ASR_PROVIDER: ${ASR_PROVIDER:-whisper}
   LLM_PROVIDER: ${LLM_PROVIDER:-managed_provider}
 
@@ -137,6 +141,9 @@ services:
     environment: *api-env
     # egress: salida a proveedores externos de ASR/LLM; sin puertos publicados.
     networks: [internal, egress]
+    # Disco de trabajo para unir y convertir archivos importados (pueden ocupar GB).
+    volumes:
+      - worker_scratch:/scratch
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -218,6 +225,20 @@ services:
       resources:
         limits: { cpus: "1", memory: 512M }
 
+  # Antivirus de archivos importados. Activar en producción con COMPOSE_PROFILES=antivirus.
+  # Necesita ~2 GB de RAM y descarga firmas al arrancar (varios minutos la primera vez).
+  clamav:
+    <<: *stateful
+    profiles: [antivirus]
+    image: clamav/clamav:1.5.4
+    volumes:
+      - clamav_db:/var/lib/clamav
+    # egress: freshclam actualiza las firmas.
+    networks: [internal, egress]
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 3G }
+
   otel-collector:
     <<: *hardening
     profiles: [observability]
@@ -238,3 +259,5 @@ volumes:
   redis_data:
   garage_meta:
   garage_data:
+  worker_scratch:
+  clamav_db:

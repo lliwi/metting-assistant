@@ -156,7 +156,13 @@
     "duration_limit": "S'ha arribat a la durada màxima de l'enregistrament.",
     "segment_too_large": "Un segment supera la mida màxima.",
     "unsupported_media": "Format d'àudio no admès.",
-    "empty_recording": "L'enregistrament no té àudio."
+    "empty_recording": "L'enregistrament no té àudio.",
+    "malware_detected": "El fitxer s'ha rebutjat: l'antivirus hi ha detectat contingut maliciós.",
+    "no_audio": "El fitxer no conté àudio.",
+    "unreadable_media": "No s'ha pogut llegir el fitxer. Comprova que no estigui malmès.",
+    "scan_unavailable": "No s'ha pogut analitzar el fitxer amb l'antivirus. Torna-ho a provar més tard.",
+    "corrupted_upload": "El fitxer s'ha malmès durant la pujada. Torna'l a importar.",
+    "import_too_large": "El fitxer supera la mida màxima."
   },
   "recording": {
     "newTitle": "Nou enregistrament",
@@ -216,6 +222,18 @@
       "cancelled": "Cancel·lat"
     },
     "localPending": "{count} segments en aquest dispositiu",
-    "finishNow": "Finalitza la captura"
+    "finishNow": "Finalitza la captura",
+    "failedReason": "Motiu: {reason}",
+    "audioReady": "Àudio a punt"
+  },
+  "import": {
+    "title": "Importa àudio o vídeo",
+    "file": "Fitxer",
+    "fileHint": "MP3, M4A, AAC, WAV, OGG, WebM, MP4 o MOV. Màxim 2 GB.",
+    "submit": "Importa",
+    "uploading": "S'està pujant… {percent} %",
+    "processing": "S'està analitzant el fitxer i extraient l'àudio…",
+    "ready": "Fitxer importat. La transcripció començarà aviat.",
+    "tooLarge": "El fitxer supera el màxim de 2 GB."
   }
 }

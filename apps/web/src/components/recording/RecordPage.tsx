@@ -12,6 +12,7 @@ import { useQuery } from "@/lib/api/useQuery";
 import { getRecorderQueue, SegmentStore } from "@/lib/recorder";
 
 import { RecorderView } from "./RecorderView";
+import { SetupFields, useSetupState } from "./SetupFields";
 
 type Props = { dict: Dictionary; lang: Locale };
 type Active = {
@@ -20,7 +21,6 @@ type Active = {
   track: number;
   title: string;
 };
-type Language = Schemas["RecordingCreate"]["language"];
 
 const AUDIO_CONSTRAINTS: MediaStreamConstraints = {
   audio: {
@@ -186,13 +186,8 @@ function NewRecordingForm({
   error: string | null;
   onStart: (body: Schemas["RecordingCreate"]) => Promise<void>;
 }) {
-  const fetchOrgs = useCallback(
-    async () => (await api.GET("/v1/organizations")).data ?? [],
-    [],
-  );
-  const { data: orgs } = useQuery(fetchOrgs);
-  const writable = (orgs ?? []).filter((o) => o.role !== "viewer");
-
+  const setup = useSetupState(lang);
+  const { consent, language, organizationId: selectedOrg } = setup;
   const [title, setTitle] = useState(() =>
     format(dict.recording.defaultTitle, {
       date: new Intl.DateTimeFormat(lang, {
@@ -201,12 +196,6 @@ function NewRecordingForm({
       }).format(new Date()),
     }),
   );
-  const [orgId, setOrgId] = useState("");
-  const [language, setLanguage] = useState<Language>(
-    lang === "ca" ? "ca" : "es",
-  );
-  const [consent, setConsent] = useState(false);
-  const selectedOrg = orgId || writable[0]?.id || "";
 
   return (
     <form
@@ -218,6 +207,7 @@ function NewRecordingForm({
           organization_id: selectedOrg,
           title,
           language,
+          source: "browser",
           consent: true,
         });
       }}
@@ -230,49 +220,7 @@ function NewRecordingForm({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
       />
-      <div className="field">
-        <label htmlFor="org">{dict.recording.organization}</label>
-        <select
-          id="org"
-          required
-          value={selectedOrg}
-          onChange={(e) => setOrgId(e.target.value)}
-        >
-          {writable.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.is_personal ? dict.orgs.personal : o.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="field">
-        <label htmlFor="language">{dict.recording.language}</label>
-        <select
-          id="language"
-          value={language}
-          onChange={(e) => setLanguage(e.target.value as Language)}
-        >
-          {(["es", "ca", "en"] as const).map((l) => (
-            <option key={l} value={l}>
-              {dict.recording.languages[l]}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <fieldset className="consent">
-        <legend>{dict.recording.consentTitle}</legend>
-        <p>{dict.recording.consentText}</p>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            required
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-          />
-          {dict.recording.consentCheck}
-        </label>
-      </fieldset>
+      <SetupFields dict={dict} state={setup} />
 
       <FormMessage error={error} />
       {busy && <p role="status">{dict.recording.requestingMic}</p>}

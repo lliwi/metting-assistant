@@ -24,6 +24,8 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_STARTTLS: "false"
+      # En desarrollo no se levanta ClamAV (perfil antivirus): los archivos no se analizan.
+      ANTIVIRUS_MODE: disabled
     volumes:
       - ./apps/api/app:/app/app:ro
 

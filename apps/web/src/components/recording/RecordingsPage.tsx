@@ -81,6 +81,13 @@ function List({ dict, lang, user }: Props & { user: User }) {
                       {dateFormat.format(new Date(r.created_at))} ·{" "}
                       {formatDuration(r.duration_ms)}
                     </div>
+                    {r.status === "failed" && r.error_code && (
+                      <div className="alert error">
+                        {format(dict.recordings.failedReason, {
+                          reason: errorMessage(dict, r.error_code),
+                        })}
+                      </div>
+                    )}
                     {local > 0 && (
                       <div className="hint">
                         {format(dict.recordings.localPending, { count: local })}
@@ -91,6 +98,11 @@ function List({ dict, lang, user }: Props & { user: User }) {
                     <span className="badge">
                       {dict.recordings.status[r.status]}
                     </span>
+                    {r.audio_ready && r.status === "pending" && (
+                      <span className="badge ok">
+                        {dict.recordings.audioReady}
+                      </span>
+                    )}
                     {resumable && (
                       <>
                         <Link

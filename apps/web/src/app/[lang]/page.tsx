@@ -20,13 +20,10 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
         <Link className="button primary large" href={`/${lang}/record`}>
           {dict.home.newRecording}
         </Link>
-        <button type="button" className="button" disabled aria-describedby="soon">
+        <Link className="button large" href={`/${lang}/import`}>
           {dict.home.importAudio}
-        </button>
+        </Link>
       </div>
-      <p id="soon" className="hint">
-        {dict.home.importAudio}: {dict.home.comingSoon}
-      </p>
 
       <p className="notice" role="note">
         {dict.home.aiNotice}

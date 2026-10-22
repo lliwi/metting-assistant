@@ -156,7 +156,13 @@
     "duration_limit": "Se ha alcanzado la duración máxima de la grabación.",
     "segment_too_large": "Un segmento supera el tamaño máximo.",
     "unsupported_media": "Formato de audio no admitido.",
-    "empty_recording": "La grabación no tiene audio."
+    "empty_recording": "La grabación no tiene audio.",
+    "malware_detected": "El archivo se ha rechazado: el antivirus ha detectado contenido malicioso.",
+    "no_audio": "El archivo no contiene audio.",
+    "unreadable_media": "No se ha podido leer el archivo. Comprueba que no esté dañado.",
+    "scan_unavailable": "No se ha podido analizar el archivo con el antivirus. Inténtalo más tarde.",
+    "corrupted_upload": "El archivo se ha dañado durante la subida. Vuelve a importarlo.",
+    "import_too_large": "El archivo supera el tamaño máximo."
   },
   "recording": {
     "newTitle": "Nueva grabación",
@@ -216,6 +222,18 @@
       "cancelled": "Cancelada"
     },
     "localPending": "{count} segmentos en este dispositivo",
-    "finishNow": "Finalizar captura"
+    "finishNow": "Finalizar captura",
+    "failedReason": "Motivo: {reason}",
+    "audioReady": "Audio listo"
+  },
+  "import": {
+    "title": "Importar audio o vídeo",
+    "file": "Archivo",
+    "fileHint": "MP3, M4A, AAC, WAV, OGG, WebM, MP4 o MOV. Máximo 2 GB.",
+    "submit": "Importar",
+    "uploading": "Subiendo… {percent} %",
+    "processing": "Analizando el archivo y extrayendo el audio…",
+    "ready": "Archivo importado. La transcripción empezará en breve.",
+    "tooLarge": "El archivo supera el máximo de 2 GB."
   }
 }

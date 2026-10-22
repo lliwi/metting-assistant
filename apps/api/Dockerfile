@@ -24,6 +24,7 @@ CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "4
 FROM runtime AS worker
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir /scratch && chown 10001 /scratch
 USER 10001
 CMD ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2", "-Q", "default,media,asr,llm,exports"]

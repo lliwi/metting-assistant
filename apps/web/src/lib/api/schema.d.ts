@@ -909,6 +909,14 @@ export interface components {
              */
             language: "es" | "ca" | "en";
             /**
+             * Source
+             * @default browser
+             * @enum {string}
+             */
+            source: "browser" | "import";
+            /** Filename */
+            filename?: string | null;
+            /**
              * Consent
              * @constant
              */
@@ -936,8 +944,16 @@ export interface components {
             source: components["schemas"]["RecordingSource"];
             /** Duration Ms */
             duration_ms: number;
+            /** Size Bytes */
+            size_bytes: number;
             /** Track Count */
             track_count: number;
+            /** Source Filename */
+            source_filename: string | null;
+            /** Audio Ready */
+            audio_ready: boolean;
+            /** Error Code */
+            error_code: string | null;
             /**
              * Created At
              * Format: date-time
@@ -970,8 +986,16 @@ export interface components {
             source: components["schemas"]["RecordingSource"];
             /** Duration Ms */
             duration_ms: number;
+            /** Size Bytes */
+            size_bytes: number;
             /** Track Count */
             track_count: number;
+            /** Source Filename */
+            source_filename: string | null;
+            /** Audio Ready */
+            audio_ready: boolean;
+            /** Error Code */
+            error_code: string | null;
             /**
              * Created At
              * Format: date-time
