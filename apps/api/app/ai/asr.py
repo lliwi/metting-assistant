@@ -11,7 +11,7 @@ from typing import Any, Protocol
 
 import structlog
 
-from app.core.config import get_settings
+from app.core.config import TranscriptionEngine, get_settings
 from app.media.ffmpeg import split_audio
 
 log = structlog.get_logger(__name__)
@@ -241,9 +241,10 @@ def _iso_language(value: str) -> str:
     return _LANGUAGE_NAMES.get(value, value[:8])
 
 
-def get_asr_provider() -> AsrProvider:
+def get_asr_provider(engine: TranscriptionEngine | None = None) -> AsrProvider:
     settings = get_settings()
-    if settings.asr_provider == "openai" or settings.diarization_provider == "openai":
+    engine = engine or settings.default_engine
+    if engine == "openai":
         from openai import OpenAI
 
         client = OpenAI(
@@ -252,10 +253,11 @@ def get_asr_provider() -> AsrProvider:
             timeout=600,
             max_retries=2,
         )
+        # Con la diarización desactivada se usa el modelo de transcripción sin hablantes.
         model = (
-            settings.openai_diarize_model
-            if settings.diarization_provider == "openai"
-            else settings.openai_transcription_model
+            settings.openai_transcription_model
+            if settings.diarization_provider == "none"
+            else settings.openai_diarize_model
         )
         return OpenAIAsrProvider(client, model)
     return FasterWhisperProvider(

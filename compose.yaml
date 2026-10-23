@@ -55,6 +55,9 @@ x-api-env: &api-env
   WHISPER_MODELS_DIR: /models
   # Caché de Hugging Face en el volumen de modelos (el resto del sistema es de solo lectura).
   HF_HOME: /models/huggingface
+  # matplotlib y fontconfig (dependencias de pyannote y WeasyPrint) necesitan una caché escribible.
+  MPLCONFIGDIR: /tmp/matplotlib
+  XDG_CACHE_HOME: /tmp/cache
   DIARIZATION_PROVIDER: ${DIARIZATION_PROVIDER:-none}
   OPENAI_DIARIZE_MODEL: ${OPENAI_DIARIZE_MODEL:-gpt-4o-transcribe-diarize}
   PYANNOTE_MODEL: ${PYANNOTE_MODEL:-pyannote/speaker-diarization-community-1}

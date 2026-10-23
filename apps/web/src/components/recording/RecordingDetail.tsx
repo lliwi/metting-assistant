@@ -374,6 +374,13 @@ function TranscriptView({
   );
 }
 
+type Engine = Schemas["EnginesOut"]["default"];
+
+async function fetchEngines() {
+  const { data } = await api.GET("/v1/transcription-engines");
+  return data ?? null;
+}
+
 function Reprocess({
   dict,
   recording,
@@ -388,13 +395,17 @@ function Reprocess({
     recording.language as Language,
   );
   const [done, setDone] = useState(false);
+  const { data: engines } = useQuery(fetchEngines);
+  const [engine, setEngine] = useState<Engine | "">("");
+  const current: Engine | undefined =
+    (recording.transcription_engine as Engine | null) ?? engines?.default;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const data = await run(() =>
       api.POST("/v1/recordings/{recording_id}/reprocess", {
         params: { path: { recording_id: recording.id } },
-        body: { language },
+        body: { language, ...(engine ? { engine } : {}) },
       }),
     );
     if (data) {
@@ -422,6 +433,30 @@ function Reprocess({
           ))}
         </select>
       </div>
+      {engines && engines.available.length > 1 && (
+        <div className="field">
+          <label htmlFor="reprocess-engine">{dict.detail.engine}</label>
+          <select
+            id="reprocess-engine"
+            value={engine || current}
+            onChange={(e) => setEngine(e.target.value as Engine)}
+            aria-describedby="reprocess-engine-hint"
+          >
+            {engines.available.map((name) => (
+              <option key={name} value={name}>
+                {dict.detail.engines[name]}
+              </option>
+            ))}
+          </select>
+          <p id="reprocess-engine-hint" className="hint">
+            {(engine || current) === "local"
+              ? engines.local_speakers
+                ? dict.detail.engineLocalHint
+                : dict.detail.engineLocalNoSpeakersHint
+              : dict.detail.engineOpenaiHint}
+          </p>
+        </div>
+      )}
       <FormMessage
         error={error}
         success={done ? dict.detail.reprocessQueued : null}

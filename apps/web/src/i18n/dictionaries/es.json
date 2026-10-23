@@ -173,7 +173,8 @@
     "generation_failed": "El modelo de IA no ha podido generar el documento.",
     "unknown_speaker": "Hablante desconocido.",
     "nothing_to_export": "No hay contenido para exportar.",
-    "not_editable": "El documento aún no está listo."
+    "not_editable": "El documento aún no está listo.",
+    "engine_unavailable": "Ese motor de transcripción no está disponible."
   },
   "recording": {
     "newTitle": "Nueva grabación",
@@ -263,7 +264,15 @@
     "reprocessLanguage": "Idioma",
     "reprocessQueued": "Se ha puesto en cola una nueva transcripción.",
     "empty": "La transcripción no contiene texto (¿audio en silencio?).",
-    "back": "Grabaciones"
+    "back": "Grabaciones",
+    "engine": "Motor de transcripción",
+    "engines": {
+      "local": "Local (este servidor)",
+      "openai": "OpenAI (en la nube)"
+    },
+    "engineLocalHint": "Whisper y pyannote en la GPU del servidor: el audio no sale, es rápido y sin coste por uso.",
+    "engineLocalNoSpeakersHint": "Whisper en el servidor: el audio no sale. Sin identificación de hablantes (falta configurar pyannote).",
+    "engineOpenaiHint": "El audio se envía a OpenAI. Identifica hablantes; tarda más y tiene coste por minuto."
   },
   "ai": {
     "summary": "Resumen",

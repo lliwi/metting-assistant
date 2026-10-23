@@ -6,6 +6,10 @@ from typing import Literal, Self
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Motor de transcripción: "local" (Whisper + pyannote en el worker; el audio no sale) u
+# "openai" (gpt-4o-transcribe-diarize, o el modelo de transcripción sin hablantes).
+TranscriptionEngine = Literal["local", "openai"]
+
 
 class Environment(StrEnum):
     DEVELOPMENT = "development"
@@ -120,6 +124,26 @@ class Settings(BaseSettings):
     openai_llm_model: str = ""
 
     cors_origins: list[str] = Field(default_factory=list)
+
+    @property
+    def default_engine(self) -> TranscriptionEngine:
+        """Motor con el que se transcribe si la grabación no pide otro."""
+        if "openai" in (self.asr_provider, self.diarization_provider):
+            return "openai"
+        return "local"
+
+    @property
+    def available_engines(self) -> list[TranscriptionEngine]:
+        """local: Whisper en el worker (+ pyannote si hay HF_TOKEN). openai: requiere clave."""
+        engines: list[TranscriptionEngine] = ["local"]
+        if self.openai_api_key.get_secret_value():
+            engines.append("openai")
+        return engines
+
+    @property
+    def local_diarization(self) -> bool:
+        """pyannote en el motor local: con HF_TOKEN, salvo que se desactive la diarización."""
+        return self.diarization_provider != "none" and bool(self.hf_token.get_secret_value())
 
     @property
     def is_production(self) -> bool:

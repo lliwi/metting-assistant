@@ -8,7 +8,7 @@ import structlog
 
 from app.ai.asr import AsrError
 from app.ai.speakers import SpeakerTurn
-from app.core.config import get_settings
+from app.core.config import TranscriptionEngine, get_settings
 
 log = structlog.get_logger(__name__)
 
@@ -67,10 +67,10 @@ class PyannoteDiarizer:
         ]
 
 
-def get_diarizer() -> Diarizer | None:
-    """Solo pyannote diariza después del ASR; con OpenAI viene incluido en la transcripción."""
+def get_diarizer(engine: TranscriptionEngine | None = None) -> Diarizer | None:
+    """Solo el motor local diariza después del ASR; con OpenAI viene en la transcripción."""
     settings = get_settings()
-    if settings.diarization_provider != "pyannote":
+    if (engine or settings.default_engine) != "local" or not settings.local_diarization:
         return None
     return PyannoteDiarizer(
         settings.pyannote_model, settings.hf_token.get_secret_value(), settings.whisper_device

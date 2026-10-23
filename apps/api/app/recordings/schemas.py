@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.config import TranscriptionEngine
 from app.models import RecordingSource, RecordingStatus
 
 Language = Literal["es", "ca", "en"]
@@ -42,6 +43,7 @@ class RecordingOut(BaseModel):
     audio_ready: bool
     error_code: str | None
     capture_warning: str | None
+    transcription_engine: str | None
     created_at: datetime
     completed_at: datetime | None
 
@@ -100,6 +102,15 @@ class TranscriptOut(BaseModel):
 
 class ReprocessRequest(BaseModel):
     language: Language | None = None
+    # Motor para esta y las siguientes transcripciones de la grabación.
+    engine: TranscriptionEngine | None = None
+
+
+class EnginesOut(BaseModel):
+    default: TranscriptionEngine
+    available: list[TranscriptionEngine]
+    # El motor local identifica hablantes (pyannote configurado).
+    local_speakers: bool
 
 
 class SpeakerNamesUpdate(BaseModel):
