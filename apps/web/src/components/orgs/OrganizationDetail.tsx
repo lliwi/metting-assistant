@@ -5,7 +5,12 @@ import { useCallback, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { RequireAuth } from "@/components/auth/RequireAuth";
-import { errorMessage, Field, FormMessage, useAction } from "@/components/forms";
+import {
+  errorMessage,
+  Field,
+  FormMessage,
+  useAction,
+} from "@/components/forms";
 import type { Dictionary, Locale } from "@/i18n/client";
 import { format } from "@/i18n/format";
 import { api, errorCode, type Schemas, type User } from "@/lib/api/client";
@@ -32,9 +37,13 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
     const { data, error } = await api.GET("/v1/organizations/{org_id}", {
       params: { path: { org_id: orgId } },
     });
-    return data ? { org: data } : { error: errorMessage(dict, errorCode(error)) };
+    return data
+      ? { org: data }
+      : { error: errorMessage(dict, errorCode(error)) };
   }, [orgId, dict]);
-  const { data: result, setData } = useQuery<{ org?: Org; error?: string }>(fetchOrg);
+  const { data: result, setData } = useQuery<{ org?: Org; error?: string }>(
+    fetchOrg,
+  );
   const org = result?.org;
   const setOrg = (next: Org) => setData({ org: next });
 
@@ -45,17 +54,30 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
     <div className="stack-lg">
       <h1>{org.is_personal ? dict.orgs.personal : org.name}</h1>
       <p>
-        {dict.common.role}: <span className="badge">{dict.roles[org.role]}</span>
+        {dict.common.role}:{" "}
+        <span className="badge">{dict.roles[org.role]}</span>
       </p>
-      {canManage(org.role) && <Settings dict={dict} org={org} onSaved={setOrg} />}
+      {canManage(org.role) && (
+        <Settings dict={dict} org={org} onSaved={setOrg} />
+      )}
       <Members dict={dict} lang={lang} org={org} user={user} />
-      {!org.is_personal && canManage(org.role) && <Invitations dict={dict} org={org} />}
+      {!org.is_personal && canManage(org.role) && (
+        <Invitations dict={dict} org={org} />
+      )}
       {org.is_personal && <p className="hint">{dict.orgs.personalNoMembers}</p>}
     </div>
   );
 }
 
-function Settings({ dict, org, onSaved }: { dict: Dictionary; org: Org; onSaved: (o: Org) => void }) {
+function Settings({
+  dict,
+  org,
+  onSaved,
+}: {
+  dict: Dictionary;
+  org: Org;
+  onSaved: (o: Org) => void;
+}) {
   const { refresh } = useAuth();
   const { pending, error, run } = useAction(dict);
   const [name, setName] = useState(org.name);
@@ -135,7 +157,9 @@ function Members({ dict, lang, org, user }: Props & { org: Org; user: User }) {
 
   async function remove(member: Schemas["MemberOut"]) {
     const self = member.user_id === user.id;
-    const question = self ? dict.orgs.leaveConfirm : format(dict.orgs.removeConfirm, { name: member.name });
+    const question = self
+      ? dict.orgs.leaveConfirm
+      : format(dict.orgs.removeConfirm, { name: member.name });
     if (!window.confirm(question)) return;
     const res = await run(() =>
       api.DELETE("/v1/organizations/{org_id}/members/{member_id}", {
@@ -152,7 +176,8 @@ function Members({ dict, lang, org, user }: Props & { org: Org; user: User }) {
   }
 
   // Un admin no puede asignar ni modificar propietarios.
-  const assignable = org.role === "owner" ? ROLES : ROLES.filter((r) => r !== "owner");
+  const assignable =
+    org.role === "owner" ? ROLES : ROLES.filter((r) => r !== "owner");
 
   return (
     <section className="card" aria-labelledby="members-heading">
@@ -160,12 +185,14 @@ function Members({ dict, lang, org, user }: Props & { org: Org; user: User }) {
       <ul className="list">
         {members.map((m) => {
           const self = m.user_id === user.id;
-          const editable = manage && !self && (org.role === "owner" || m.role !== "owner");
+          const editable =
+            manage && !self && (org.role === "owner" || m.role !== "owner");
           return (
             <li key={m.user_id} className="list-row">
               <div>
                 <div>
-                  {m.name} {self && <span className="hint">({dict.orgs.you})</span>}
+                  {m.name}{" "}
+                  {self && <span className="hint">({dict.orgs.you})</span>}
                 </div>
                 <div className="hint">{m.email}</div>
               </div>
@@ -174,7 +201,9 @@ function Members({ dict, lang, org, user }: Props & { org: Org; user: User }) {
                   <select
                     aria-label={`${dict.common.role}: ${m.name}`}
                     value={m.role}
-                    onChange={(e) => changeRole(m.user_id, e.target.value as Role)}
+                    onChange={(e) =>
+                      changeRole(m.user_id, e.target.value as Role)
+                    }
                   >
                     {assignable.map((r) => (
                       <option key={r} value={r}>
@@ -186,7 +215,11 @@ function Members({ dict, lang, org, user }: Props & { org: Org; user: User }) {
                   <span className="badge">{dict.roles[m.role]}</span>
                 )}
                 {editable && (
-                  <button type="button" className="button small" onClick={() => remove(m)}>
+                  <button
+                    type="button"
+                    className="button small"
+                    onClick={() => remove(m)}
+                  >
                     {dict.common.remove}
                   </button>
                 )}
@@ -254,7 +287,8 @@ function Invitations({ dict, org }: { dict: Dictionary; org: Org }) {
     await load();
   }
 
-  const roles = org.role === "owner" ? ROLES : ROLES.filter((r) => r !== "owner");
+  const roles =
+    org.role === "owner" ? ROLES : ROLES.filter((r) => r !== "owner");
 
   return (
     <section className="card stack" aria-labelledby="invitations-heading">
@@ -266,7 +300,11 @@ function Invitations({ dict, org }: { dict: Dictionary; org: Org }) {
               <div>
                 {i.email} <span className="badge">{dict.roles[i.role]}</span>
               </div>
-              <button type="button" className="button small" onClick={() => revoke(i.id)}>
+              <button
+                type="button"
+                className="button small"
+                onClick={() => revoke(i.id)}
+              >
                 {dict.orgs.revoke}
               </button>
             </li>
@@ -283,7 +321,11 @@ function Invitations({ dict, org }: { dict: Dictionary; org: Org }) {
         />
         <div className="field">
           <label htmlFor="invite-role">{dict.common.role}</label>
-          <select id="invite-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+          <select
+            id="invite-role"
+            value={role}
+            onChange={(e) => setRole(e.target.value as Role)}
+          >
             {roles.map((r) => (
               <option key={r} value={r}>
                 {dict.roles[r]}

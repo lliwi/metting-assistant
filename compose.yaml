@@ -182,6 +182,23 @@ services:
       resources:
         limits: { cpus: "2", memory: 2G }
 
+  # Tareas periódicas (celery beat): reencola trabajos perdidos cada 10 min. Una sola réplica.
+  scheduler:
+    <<: *hardening
+    image: metting-agent/worker:${IMAGE_TAG:-dev}
+    pull_policy: never
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=INFO", "--schedule", "/tmp/celerybeat-schedule"]
+    environment: *api-env
+    networks: [internal]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 256M }
+
   # Transcripción: separado porque Whisper satura la CPU (o la GPU). Escala por su cuenta.
   worker-asr:
     <<: *hardening

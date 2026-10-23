@@ -62,7 +62,13 @@ export function Field({
 }
 
 /** Región anunciada por lectores de pantalla para errores y confirmaciones. */
-export function FormMessage({ error, success }: { error?: string | null; success?: string | null }) {
+export function FormMessage({
+  error,
+  success,
+}: {
+  error?: string | null;
+  success?: string | null;
+}) {
   return (
     <div aria-live="polite" className="form-message">
       {error && (
@@ -76,7 +82,12 @@ export function FormMessage({ error, success }: { error?: string | null; success
 }
 
 export function safeNextPath(value: string | null, fallback: string): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+  if (
+    !value ||
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\")
+  ) {
     return fallback;
   }
   return value;

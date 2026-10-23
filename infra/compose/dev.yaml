@@ -40,6 +40,12 @@ services:
     volumes:
       - ./apps/api/app:/app/app:ro
 
+  scheduler:
+    environment:
+      ENVIRONMENT: development
+    volumes:
+      - ./apps/api/app:/app/app:ro
+
   worker-asr:
     environment:
       ENVIRONMENT: development

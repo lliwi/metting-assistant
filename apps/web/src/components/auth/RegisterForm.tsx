@@ -7,7 +7,13 @@ import { Field, FormMessage, useAction } from "@/components/forms";
 import type { Dictionary, Locale } from "@/i18n/client";
 import { api } from "@/lib/api/client";
 
-export function RegisterForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
+export function RegisterForm({
+  dict,
+  lang,
+}: {
+  dict: Dictionary;
+  lang: Locale;
+}) {
   const { pending, error, run } = useAction(dict);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -17,7 +23,9 @@ export function RegisterForm({ dict, lang }: { dict: Dictionary; lang: Locale })
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const data = await run(() =>
-      api.POST("/v1/auth/register", { body: { name, email, password, locale: lang } }),
+      api.POST("/v1/auth/register", {
+        body: { name, email, password, locale: lang },
+      }),
     );
     if (data) setDone(true);
   }
@@ -72,7 +80,8 @@ export function RegisterForm({ dict, lang }: { dict: Dictionary; lang: Locale })
         {dict.auth.registerSubmit}
       </button>
       <p className="hint">
-        {dict.auth.haveAccount} <Link href={`/${lang}/login`}>{dict.nav.login}</Link>
+        {dict.auth.haveAccount}{" "}
+        <Link href={`/${lang}/login`}>{dict.nav.login}</Link>
       </p>
     </form>
   );

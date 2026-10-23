@@ -69,9 +69,9 @@ class TaskQueue:
     """Encolado de trabajos del worker (sustituible en tests)."""
 
     def process(self, recording_id: uuid.UUID) -> None:
-        from app.worker.tasks import process_recording_task
+        from app.worker.tasks import enqueue_recording
 
-        process_recording_task.delay(str(recording_id))
+        enqueue_recording(recording_id)
 
 
 def get_task_queue() -> TaskQueue:

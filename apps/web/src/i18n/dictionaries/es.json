@@ -13,7 +13,8 @@
     "register": "Crear cuenta",
     "logout": "Cerrar sesión",
     "recordings": "Grabaciones",
-    "newRecording": "Nueva grabación"
+    "newRecording": "Nueva grabación",
+    "logoutPending": "Hay audio de tus grabaciones que todavía no se ha subido. Se quedará guardado en este dispositivo y se subirá cuando vuelvas a iniciar sesión con esta cuenta. ¿Cerrar sesión igualmente?"
   },
   "home": {
     "heading": "Tus reuniones, transcritas y resumidas",

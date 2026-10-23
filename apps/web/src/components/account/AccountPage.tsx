@@ -68,7 +68,11 @@ function ProfileSection({ dict, user }: { dict: Dictionary; user: User }) {
         />
         <div className="field">
           <label htmlFor="locale">{dict.account.language}</label>
-          <select id="locale" value={locale} onChange={(e) => setLocale(e.target.value)}>
+          <select
+            id="locale"
+            value={locale}
+            onChange={(e) => setLocale(e.target.value)}
+          >
             <option value="es">Español</option>
             <option value="ca">Català</option>
           </select>
@@ -134,7 +138,10 @@ function PasswordSection({ dict, user }: { dict: Dictionary; user: User }) {
         value={next}
         onChange={(e) => setNext(e.target.value)}
       />
-      <FormMessage error={error} success={done ? dict.account.passwordChanged : null} />
+      <FormMessage
+        error={error}
+        success={done ? dict.account.passwordChanged : null}
+      />
       <button type="submit" className="button" disabled={pending}>
         {dict.account.changePassword}
       </button>
@@ -153,7 +160,9 @@ function MfaSection({ dict, user }: { dict: Dictionary; user: User }) {
 
   useEffect(() => {
     if (!setup) return;
-    void QRCode.toDataURL(setup.otpauth_uri, { margin: 1, width: 192 }).then(setQr);
+    void QRCode.toDataURL(setup.otpauth_uri, { margin: 1, width: 192 }).then(
+      setQr,
+    );
   }, [setup]);
 
   async function start() {
@@ -163,7 +172,9 @@ function MfaSection({ dict, user }: { dict: Dictionary; user: User }) {
 
   async function confirm(e: React.FormEvent) {
     e.preventDefault();
-    const data = await run(() => api.POST("/v1/auth/mfa/totp/confirm", { body: { code } }));
+    const data = await run(() =>
+      api.POST("/v1/auth/mfa/totp/confirm", { body: { code } }),
+    );
     if (data) {
       setRecovery(data.recovery_codes);
       setSetup(null);
@@ -174,7 +185,9 @@ function MfaSection({ dict, user }: { dict: Dictionary; user: User }) {
   async function disable(e: React.FormEvent) {
     e.preventDefault();
     const data = await run(() =>
-      api.POST("/v1/auth/mfa/totp/disable", { body: { password, code: code.trim() } }),
+      api.POST("/v1/auth/mfa/totp/disable", {
+        body: { password, code: code.trim() },
+      }),
     );
     if (data) {
       setCode("");
@@ -188,7 +201,9 @@ function MfaSection({ dict, user }: { dict: Dictionary; user: User }) {
       <h3>
         {dict.account.mfa}:{" "}
         <span className={user.mfa_enabled ? "badge ok" : "badge"}>
-          {user.mfa_enabled ? dict.account.mfaEnabled : dict.account.mfaDisabled}
+          {user.mfa_enabled
+            ? dict.account.mfaEnabled
+            : dict.account.mfaDisabled}
         </span>
       </h3>
 
@@ -217,7 +232,12 @@ function MfaSection({ dict, user }: { dict: Dictionary; user: User }) {
       )}
 
       {!user.mfa_enabled && !setup && !recovery && (
-        <button type="button" className="button" onClick={start} disabled={pending}>
+        <button
+          type="button"
+          className="button"
+          onClick={start}
+          disabled={pending}
+        >
           {dict.account.mfaEnable}
         </button>
       )}
@@ -227,10 +247,17 @@ function MfaSection({ dict, user }: { dict: Dictionary; user: User }) {
           <p>{dict.account.mfaScan}</p>
           {qr && (
             // eslint-disable-next-line @next/next/no-img-element -- data URL generada en cliente
-            <img src={qr} width={192} height={192} alt={dict.account.mfaQrAlt} className="qr" />
+            <img
+              src={qr}
+              width={192}
+              height={192}
+              alt={dict.account.mfaQrAlt}
+              className="qr"
+            />
           )}
           <p>
-            {dict.account.mfaSecret}: <code className="secret">{setup.secret}</code>
+            {dict.account.mfaSecret}:{" "}
+            <code className="secret">{setup.secret}</code>
           </p>
           <Field
             label={dict.auth.mfaCode}
@@ -283,7 +310,10 @@ function MfaSection({ dict, user }: { dict: Dictionary; user: User }) {
 
 function SessionsSection({ dict, lang }: Props) {
   const { run, error } = useAction(dict);
-  const dateFormat = new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" });
+  const dateFormat = new Intl.DateTimeFormat(lang, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
   const fetchSessions = useCallback(
     async () => (await api.GET("/v1/auth/sessions")).data ?? [],
     [],
@@ -292,7 +322,9 @@ function SessionsSection({ dict, lang }: Props) {
 
   async function revoke(id: string) {
     const res = await run(() =>
-      api.DELETE("/v1/auth/sessions/{session_id}", { params: { path: { session_id: id } } }),
+      api.DELETE("/v1/auth/sessions/{session_id}", {
+        params: { path: { session_id: id } },
+      }),
     );
     if (res !== undefined) await load();
   }
@@ -314,7 +346,11 @@ function SessionsSection({ dict, lang }: Props) {
             {s.current ? (
               <span className="badge ok">{dict.account.sessionCurrent}</span>
             ) : (
-              <button type="button" className="button small" onClick={() => revoke(s.id)}>
+              <button
+                type="button"
+                className="button small"
+                onClick={() => revoke(s.id)}
+              >
                 {dict.account.sessionRevoke}
               </button>
             )}

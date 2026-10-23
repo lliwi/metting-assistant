@@ -13,7 +13,8 @@
     "register": "Crea un compte",
     "logout": "Tanca la sessió",
     "recordings": "Enregistraments",
-    "newRecording": "Nou enregistrament"
+    "newRecording": "Nou enregistrament",
+    "logoutPending": "Hi ha àudio dels teus enregistraments que encara no s'ha pujat. Es quedarà desat en aquest dispositiu i es pujarà quan tornis a iniciar la sessió amb aquest compte. Vols tancar la sessió igualment?"
   },
   "home": {
     "heading": "Les teves reunions, transcrites i resumides",

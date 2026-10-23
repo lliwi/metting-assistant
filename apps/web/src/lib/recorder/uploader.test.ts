@@ -212,3 +212,43 @@ describe("classifyResponse", () => {
     expect((await classifyResponse(response)).kind).toBe(kind);
   });
 });
+
+describe("propietario de los segmentos (dispositivo compartido)", () => {
+  it("solo sube y cuenta los segmentos de quien tiene la sesión", async () => {
+    await store.addSegment({ ...segment(0, "rec-ana"), ownerId: "ana" });
+    await store.addSegment({ ...segment(1, "rec-bob"), ownerId: "bob" });
+    await store.addSegment(segment(2, "rec-legacy")); // anterior a ownerId
+    const sent: string[] = [];
+    const uploader = new SegmentUploader(
+      store,
+      async (s) => {
+        sent.push(s.recordingId);
+        return { kind: "ok" };
+      },
+      virtualClock(),
+    );
+    uploader.setOwner("bob");
+    expect((await uploader.stats()).pending).toBe(2);
+    await runUntil(
+      uploader,
+      async () => (await store.nextPending("bob")) === undefined,
+    );
+    expect(sent.sort()).toEqual(["rec-bob", "rec-legacy"]);
+    // Lo de Ana sigue en el dispositivo, intacto.
+    expect((await store.listAll()).map((s) => s.recordingId)).toEqual([
+      "rec-ana",
+    ]);
+  });
+
+  it("sin sesión no se sube nada", async () => {
+    await store.addSegment({ ...segment(0), ownerId: "ana" });
+    const uploader = new SegmentUploader(
+      store,
+      async () => ({ kind: "ok" }),
+      virtualClock(),
+    );
+    uploader.setOwner(null);
+    expect(await uploader.ownSegments()).toEqual([]);
+    expect(await store.nextPending(null)).toBeUndefined();
+  });
+});

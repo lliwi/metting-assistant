@@ -21,6 +21,7 @@ type Props = {
   recordingId: string;
   track: number;
   title: string;
+  ownerId: string;
   onResume: () => void;
 };
 
@@ -31,9 +32,10 @@ export function RecorderView({
   recordingId,
   track,
   title,
+  ownerId,
   onResume,
 }: Props) {
-  const capture = useCapture({ stream, recordingId, track });
+  const capture = useCapture({ stream, recordingId, track, ownerId });
   const [finishing, setFinishing] = useState(false);
   // Solo tras entregar el último segmento a la cola: antes, "0 pendientes" no significa
   // que no quede audio por subir.

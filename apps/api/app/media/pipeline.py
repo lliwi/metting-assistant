@@ -6,7 +6,7 @@ from pathlib import Path
 
 import structlog
 from redis import Redis
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.ai.asr import AsrProvider
@@ -104,6 +104,11 @@ def normalize_browser_capture(
             metadata={"timeline_ms": duration_ms, "captured_ms": captured_ms},
         )
     db.commit()
+    # El audio unido sustituye a los segmentos: se borran (espacio y minimización de datos).
+    db.execute(delete(AudioSegment).where(AudioSegment.recording_id == recording_id))
+    db.commit()
+    for segment in segments:
+        storage.delete(segment.object_key)
     return key
 
 

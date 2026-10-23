@@ -18,7 +18,15 @@ from app.ai.asr import AsrError, AsrResult, AsrSegment
 from app.media.antivirus import ScanResult
 from app.media.ffmpeg import probe
 from app.media.pipeline import process_recording
-from app.models import AuditEvent, Membership, Recording, RecordingStatus, Role, User
+from app.models import (
+    AudioSegment,
+    AuditEvent,
+    Membership,
+    Recording,
+    RecordingStatus,
+    Role,
+    User,
+)
 from app.recordings.router import get_task_queue
 from tests.conftest import ApiClient, MemoryStorage
 
@@ -157,6 +165,9 @@ def test_browser_capture_is_joined_and_transcribed(
     assert result.status is RecordingStatus.TRANSCRIBED
     assert result.audio_object_key and result.audio_object_key.endswith("/audio/source.ogg")
     assert 11_500 <= result.duration_ms <= 12_500
+    # Los segmentos originales se borran una vez unido el audio.
+    assert list(storage.objects) == [result.audio_object_key]
+    assert db.scalars(select(AudioSegment)).all() == []
 
     transcript = ana.get(f"/v1/recordings/{rec['id']}/transcript").json()
     assert transcript["version"] == 1

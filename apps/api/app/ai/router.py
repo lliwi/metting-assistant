@@ -44,9 +44,9 @@ class AiOutputRequest(BaseModel):
 
 class TaskQueue:
     def generate(self, output_id: uuid.UUID) -> None:
-        from app.worker.tasks import generate_ai_output_task
+        from app.worker.tasks import enqueue_ai_output
 
-        generate_ai_output_task.delay(str(output_id))
+        enqueue_ai_output(output_id)
 
 
 def get_ai_task_queue() -> TaskQueue:

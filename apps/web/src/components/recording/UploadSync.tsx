@@ -13,8 +13,11 @@ export function UploadSync() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user || typeof indexedDB === "undefined") return;
+    if (typeof indexedDB === "undefined") return;
     const { store, uploader } = getRecorderQueue();
+    // Solo se sube (y se muestra) el audio de quien tiene la sesión.
+    uploader.setOwner(user?.id ?? null);
+    if (!user) return;
     void uploader.start();
     uploader.notify({ authRestored: true });
 

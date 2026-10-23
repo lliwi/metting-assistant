@@ -15,10 +15,11 @@ type Params = {
   stream: MediaStream;
   recordingId: string;
   track: number;
+  ownerId: string;
 };
 
 /** Ciclo de vida de una pista de grabación: grabadora, nivel, wake lock y cola local. */
-export function useCapture({ stream, recordingId, track }: Params) {
+export function useCapture({ stream, recordingId, track, ownerId }: Params) {
   const [phase, setPhase] = useState<CapturePhase>("recording");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [level, setLevel] = useState(0);
@@ -47,6 +48,7 @@ export function useCapture({ stream, recordingId, track }: Params) {
           createdAt: Date.now(),
           status: "pending",
           attempts: 0,
+          ownerId,
         });
         savedMsRef.current += durationMs;
         uploader.notify();
@@ -77,7 +79,7 @@ export function useCapture({ stream, recordingId, track }: Params) {
       void recorder.stop();
       stream.getTracks().forEach((t) => t.stop());
     };
-  }, [stream, recordingId, track]);
+  }, [stream, recordingId, track, ownerId]);
 
   // Nivel de entrada (RMS), ~10 actualizaciones por segundo.
   useEffect(() => {

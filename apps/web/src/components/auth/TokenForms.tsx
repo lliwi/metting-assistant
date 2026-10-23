@@ -24,9 +24,11 @@ export function VerifyEmail({ dict, lang }: Props) {
       setError(dict.auth.missingToken);
       return;
     }
-    void run(() => api.POST("/v1/auth/verify-email", { body: { token } })).then((data) => {
-      if (data) setDone(true);
-    });
+    void run(() => api.POST("/v1/auth/verify-email", { body: { token } })).then(
+      (data) => {
+        if (data) setDone(true);
+      },
+    );
   }, [token, run, setError, dict]);
 
   return (
@@ -50,7 +52,9 @@ export function ForgotPasswordForm({ dict }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const data = await run(() => api.POST("/v1/auth/password/forgot", { body: { email } }));
+    const data = await run(() =>
+      api.POST("/v1/auth/password/forgot", { body: { email } }),
+    );
     if (data) setDone(true);
   }
 
@@ -117,7 +121,11 @@ export function ResetPasswordForm({ dict, lang }: Props) {
           {dict.nav.login}
         </Link>
       ) : (
-        <button type="submit" className="button primary" disabled={pending || !token}>
+        <button
+          type="submit"
+          className="button primary"
+          disabled={pending || !token}
+        >
           {dict.auth.resetSubmit}
         </button>
       )}

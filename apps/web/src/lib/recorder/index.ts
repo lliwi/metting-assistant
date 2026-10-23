@@ -51,7 +51,7 @@ let singleton: { store: SegmentStore; uploader: SegmentUploader } | null = null;
 /** Descarta del dispositivo los segmentos que el servidor ya no aceptará. */
 export async function discardFailed(): Promise<void> {
   const { store, uploader } = getRecorderQueue();
-  for (const segment of await store.listAll()) {
+  for (const segment of await uploader.ownSegments()) {
     if (segment.status === "failed") await store.delete(segment.id);
   }
   uploader.notify();

@@ -16,6 +16,9 @@ export type StoredSegment = {
   blob: Blob;
   createdAt: number;
   status: "pending" | "failed";
+  // Usuario que grabó. En un dispositivo compartido, la cola solo sube (y muestra) lo de quien
+  // tiene la sesión. Ausente en segmentos guardados antes de existir este campo.
+  ownerId?: string;
   attempts: number;
   error?: string;
 };
@@ -28,6 +31,15 @@ export type CaptureState = {
   finishRequested: boolean;
   updatedAt: number;
 };
+
+/** undefined: sin filtrar. null: nadie con sesión (nada es suyo). string: id de usuario. */
+export type Owner = string | null | undefined;
+
+export function belongsTo(segment: StoredSegment, owner: Owner): boolean {
+  if (owner === undefined) return true;
+  if (owner === null) return false;
+  return segment.ownerId === undefined || segment.ownerId === owner;
+}
 
 interface RecorderDB extends DBSchema {
   segments: {
@@ -79,15 +91,17 @@ export class SegmentStore {
     await tx.done;
   }
 
-  /** El segmento pendiente más antiguo (orden de grabación). */
-  async nextPending(): Promise<StoredSegment | undefined> {
+  /** El segmento pendiente más antiguo (orden de grabación) del usuario indicado. */
+  async nextPending(owner?: Owner): Promise<StoredSegment | undefined> {
     const db = await this.db;
     let cursor = await db
       .transaction("segments")
       .store.index("byCreated")
       .openCursor();
     while (cursor) {
-      if (cursor.value.status === "pending") return cursor.value;
+      if (cursor.value.status === "pending" && belongsTo(cursor.value, owner)) {
+        return cursor.value;
+      }
       cursor = await cursor.continue();
     }
     return undefined;
@@ -98,9 +112,9 @@ export class SegmentStore {
     return db.getAllFromIndex("segments", "byRecording", recordingId);
   }
 
-  async listAll(): Promise<StoredSegment[]> {
+  async listAll(owner?: Owner): Promise<StoredSegment[]> {
     const db = await this.db;
-    return db.getAll("segments");
+    return (await db.getAll("segments")).filter((s) => belongsTo(s, owner));
   }
 
   async update(segment: StoredSegment): Promise<void> {

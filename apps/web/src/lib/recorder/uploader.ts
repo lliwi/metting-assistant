@@ -1,4 +1,4 @@
-import type { SegmentStore, StoredSegment } from "./segmentStore";
+import type { Owner, SegmentStore, StoredSegment } from "./segmentStore";
 
 /** Resultado de un intento de subida, decidido a partir de la respuesta HTTP. */
 export type SendOutcome =
@@ -68,6 +68,8 @@ export async function classifyResponse(
  */
 export class SegmentUploader {
   private running = false;
+  // Usuario con sesión: solo se suben y cuentan sus segmentos.
+  private owner: Owner = undefined;
   private wake = new AbortController();
   private attempt = 0;
   private waitingForAuth = false;
@@ -88,6 +90,15 @@ export class SegmentUploader {
     this.maxDelayMs = options.maxDelayMs ?? 60_000;
     this.sleep = options.sleep ?? defaultSleep;
     this.random = options.random ?? Math.random;
+  }
+
+  setOwner(owner: string | null): void {
+    this.owner = owner;
+    this.notify();
+  }
+
+  ownSegments(): Promise<StoredSegment[]> {
+    return this.store.listAll(this.owner);
   }
 
   subscribe(listener: (stats: UploaderStats) => void): () => void {
@@ -117,7 +128,7 @@ export class SegmentUploader {
 
   /** Reintenta los segmentos marcados como fallidos (acción explícita del usuario). */
   async retryFailed(): Promise<void> {
-    for (const segment of await this.store.listAll()) {
+    for (const segment of await this.store.listAll(this.owner)) {
       if (segment.status === "failed") {
         await this.store.update({
           ...segment,
@@ -130,7 +141,7 @@ export class SegmentUploader {
   }
 
   async stats(): Promise<UploaderStats> {
-    const all = await this.store.listAll();
+    const all = await this.store.listAll(this.owner);
     const localByRecording: Record<string, number> = {};
     const failed = all.filter((s) => s.status === "failed");
     for (const s of all) {
@@ -173,7 +184,7 @@ export class SegmentUploader {
         await this.idle(this.maxDelayMs);
         continue;
       }
-      const segment = await this.store.nextPending();
+      const segment = await this.store.nextPending(this.owner);
       if (!segment) {
         await this.emit();
         await this.idle(this.maxDelayMs);

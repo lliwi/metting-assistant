@@ -233,7 +233,29 @@ Orden recomendado por valor/esfuerzo:
 | 2 — Captura | ✅ Completada (22/10/2026) | Grabación segmentada, cola IndexedDB, subida idempotente, reanudación por pistas, SSE. Importación por bloques con ClamAV, ffprobe y extracción de audio. Verificado en Chrome: corte de red, interrupción del micrófono, decodificación independiente de cada segmento e importación. |
 | 1 — Identidad | ✅ Completada (21/10/2026) | Registro/verificación, login con Argon2id, recuperación, sesiones revocables, CSRF, MFA TOTP con códigos de recuperación, OIDC Google/Microsoft, organizaciones con roles e invitaciones, auditoría y rate limiting. Probado en navegador de extremo a extremo. Pendiente: WebAuthn (pasa a Fase 2), login con Apple y SAML (Fase 2). |
 
-## 8. Incoherencias detectadas en la especificación
+## 8. Mejoras y pendientes (revisión del 23/10/2026)
+
+Orden acordado:
+
+1. **Robustez** ✅ — barrido de trabajos perdidos (celery beat), cerrojos por trabajo,
+   visibility timeout de 6 h, borrado de segmentos tras unir el audio, audio local
+   asociado a su usuario y aviso al cerrar sesión con audio pendiente.
+2. **Reproductor y búsqueda** — escuchar la grabación (URL firmada, `Range`), saltar desde
+   transcripción/acta al audio; búsqueda por texto, título, hablante y fechas.
+3. **Edición y exportación** — editar transcripción y documentos de IA con historial;
+   exportar a Markdown, PDF, DOCX y SRT/VTT.
+4. **Modo híbrido local** — Whisper en GPU + pyannote para hablantes (requiere HF_TOKEN):
+   OpenAI diarize tarda ~1,4× la duración y pierde la identidad de hablantes en audios
+   de más de ~1 h (se trocean).
+5. **Producción y pruebas** — TLS real, copias de seguridad, monitorización y coste por
+   trabajo (tokens), Playwright, carga, seguridad, aceptación con audio real; subir el
+   repositorio a un remoto para ejecutar la CI.
+
+Mejoras de calidad: vocabulario por organización (nombres propios para el ASR), riesgos en
+el acta, ofrecer regenerar al renombrar hablantes, aviso al terminar (email/push),
+detección automática de idioma, auditoría WCAG 2.2 AA, chat sobre la reunión.
+
+## 9. Incoherencias detectadas en la especificación
 
 - El `compose.yaml` de referencia usa `condition: service_healthy` sobre `api`, pero `api` no define `healthcheck`.
 - `minio/minio:latest` contradice la regla 9.3 de no usar `latest`.

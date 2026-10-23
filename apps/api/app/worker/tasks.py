@@ -16,6 +16,8 @@ from app.media.pipeline import process_recording
 from app.notifications.email import deliver_via_smtp
 from app.storage import get_storage
 from app.worker.celery_app import celery_app
+from app.worker.jobs import AI_LOCK_TTL, PROCESSING_LOCK_TTL, exclusive, mark_queued
+from app.worker.sweeper import sweep
 
 log = structlog.get_logger(__name__)
 
@@ -43,7 +45,12 @@ def send_email(to: str, subject: str, body: str) -> None:
 def process_recording_task(self: Any, recording_id: str) -> None:
     """Prepara el audio (importación o captura del navegador) y lo transcribe."""
     rid = uuid.UUID(recording_id)
-    with get_sessionmaker()() as db:
+    with (
+        exclusive(get_redis(), "recording", rid, PROCESSING_LOCK_TTL) as owned,
+        get_sessionmaker()() as db,
+    ):
+        if not owned:
+            return
         try:
             process_recording(
                 db,
@@ -55,12 +62,14 @@ def process_recording_task(self: Any, recording_id: str) -> None:
                 diarizer=get_diarizer(),
             )
             for output_id in outputs_after_transcription(db, rid):
-                generate_ai_output_task.delay(str(output_id))
+                enqueue_ai_output(output_id)
         except (ScannerUnavailable, AsrError) as exc:
             transient = isinstance(exc, ScannerUnavailable) or exc.transient
             db.rollback()
             if transient and self.request.retries < self.max_retries:
                 log.warning("processing_retry", recording_id=recording_id, error=str(exc))
+                # Mientras espera el reintento, el barrido no debe reencolarlo.
+                mark_queued(get_redis(), "recording", rid)
                 raise self.retry(exc=exc, countdown=min(600, 30 * 2**self.request.retries)) from exc
             log.error("processing_failed", recording_id=recording_id, error=str(exc))
             # Sin antivirus no se acepta el archivo; un ASR que falla siempre no se reintenta.
@@ -82,13 +91,36 @@ def process_recording_task(self: Any, recording_id: str) -> None:
 def generate_ai_output_task(self: Any, output_id: str) -> None:
     """Resumen o acta con el LLM configurado (Ollama u OpenAI)."""
     oid = uuid.UUID(output_id)
-    with get_sessionmaker()() as db:
+    with (
+        exclusive(get_redis(), "ai_output", oid, AI_LOCK_TTL) as owned,
+        get_sessionmaker()() as db,
+    ):
+        if not owned:
+            return
         try:
             run_output(db, get_llm_provider(), get_redis(), oid)
         except LlmError as exc:
             db.rollback()
             if exc.transient and self.request.retries < self.max_retries:
                 log.warning("ai_output_retry", output_id=output_id, error=str(exc))
+                mark_queued(get_redis(), "ai_output", oid)
                 raise self.retry(exc=exc, countdown=min(600, 20 * 2**self.request.retries)) from exc
             log.error("ai_output_failed", output_id=output_id, error=str(exc))
             mark_output_failed(db, get_redis(), oid, "generation_failed")
+
+
+def enqueue_recording(recording_id: uuid.UUID) -> None:
+    mark_queued(get_redis(), "recording", recording_id)
+    process_recording_task.delay(str(recording_id))
+
+
+def enqueue_ai_output(output_id: uuid.UUID) -> None:
+    mark_queued(get_redis(), "ai_output", output_id)
+    generate_ai_output_task.delay(str(output_id))
+
+
+@celery_app.task(name="app.worker.tasks.sweep_stuck_jobs")  # type: ignore[untyped-decorator]
+def sweep_stuck_jobs() -> tuple[int, int]:
+    """Lo programa celery beat cada 10 minutos."""
+    with get_sessionmaker()() as db:
+        return sweep(db, get_redis(), enqueue_recording, enqueue_ai_output)

@@ -15,6 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Suspense } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { getRecorderQueue } from "@/lib/recorder";
 import type { Dictionary } from "@/i18n/client";
 import { locales, type Locale } from "@/i18n/config";
 
@@ -27,7 +28,15 @@ function withLocale(pathname: string, locale: Locale): string {
 }
 
 /** Icono con nombre accesible: lo leen los lectores de pantalla y aparece como tooltip. */
-function IconLink({ href, label, icon: Icon }: { href: string; label: string; icon: LucideIcon }) {
+function IconLink({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}) {
   return (
     <Link href={href} className="icon-link" aria-label={label} title={label}>
       <Icon aria-hidden="true" size={22} strokeWidth={2} />
@@ -40,6 +49,9 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
   const router = useRouter();
 
   async function handleLogout() {
+    // Lo no subido se queda en este dispositivo y solo se reanuda con la misma cuenta.
+    const pending = await getRecorderQueue().uploader.ownSegments();
+    if (pending.length > 0 && !window.confirm(dict.nav.logoutPending)) return;
     await logout();
     router.push(`/${lang}/login`);
   }
@@ -69,7 +81,11 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
                 />
               </li>
               <li>
-                <IconLink href={`/${lang}/account`} label={dict.nav.account} icon={UserRound} />
+                <IconLink
+                  href={`/${lang}/account`}
+                  label={dict.nav.account}
+                  icon={UserRound}
+                />
               </li>
               <li>
                 <button
@@ -86,10 +102,18 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
           ) : (
             <ul>
               <li>
-                <IconLink href={`/${lang}/login`} label={dict.nav.login} icon={LogIn} />
+                <IconLink
+                  href={`/${lang}/login`}
+                  label={dict.nav.login}
+                  icon={LogIn}
+                />
               </li>
               <li>
-                <IconLink href={`/${lang}/register`} label={dict.nav.register} icon={UserPlus} />
+                <IconLink
+                  href={`/${lang}/register`}
+                  label={dict.nav.register}
+                  icon={UserPlus}
+                />
               </li>
             </ul>
           ))}
@@ -97,7 +121,9 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
 
       <nav aria-label={dict.nav.language}>
         {/* La ruta actual solo se conoce en runtime: el prerender enlaza a la portada. */}
-        <Suspense fallback={<LocaleToggle lang={lang} hrefFor={(l) => `/${l}`} />}>
+        <Suspense
+          fallback={<LocaleToggle lang={lang} hrefFor={(l) => `/${l}`} />}
+        >
           <CurrentPathLocaleToggle lang={lang} />
         </Suspense>
       </nav>
@@ -111,7 +137,13 @@ function CurrentPathLocaleToggle({ lang }: { lang: Locale }) {
 }
 
 /** Con dos idiomas, un único icono que cambia al otro. */
-function LocaleToggle({ lang, hrefFor }: { lang: Locale; hrefFor: (l: Locale) => string }) {
+function LocaleToggle({
+  lang,
+  hrefFor,
+}: {
+  lang: Locale;
+  hrefFor: (l: Locale) => string;
+}) {
   const other = locales.find((l) => l !== lang) ?? lang;
   return (
     <Link

@@ -28,13 +28,15 @@ function OrganizationList({ dict, lang }: Props) {
     async () => (await api.GET("/v1/organizations")).data ?? [],
     [],
   );
-  const { data: orgs = null, reload: load } = useQuery<Schemas["OrganizationOut"][] | null>(
-    fetchOrgs,
-  );
+  const { data: orgs = null, reload: load } = useQuery<
+    Schemas["OrganizationOut"][] | null
+  >(fetchOrgs);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    const data = await run(() => api.POST("/v1/organizations", { body: { name } }));
+    const data = await run(() =>
+      api.POST("/v1/organizations", { body: { name } }),
+    );
     if (data) {
       setName("");
       await Promise.all([load(), refresh()]);
@@ -64,7 +66,9 @@ function OrganizationList({ dict, lang }: Props) {
             ))}
           </ul>
         )}
-        {orgs !== null && shared.length === 0 && <p className="hint">{dict.orgs.empty}</p>}
+        {orgs !== null && shared.length === 0 && (
+          <p className="hint">{dict.orgs.empty}</p>
+        )}
       </section>
 
       <form onSubmit={create} className="card stack">

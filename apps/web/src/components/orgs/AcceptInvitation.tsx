@@ -35,7 +35,9 @@ function Accept({ dict, lang }: Props) {
       setError(dict.auth.missingToken);
       return;
     }
-    void run(() => api.POST("/v1/invitations/accept", { body: { token } })).then((data) => {
+    void run(() =>
+      api.POST("/v1/invitations/accept", { body: { token } }),
+    ).then((data) => {
       if (data) {
         setOrg(data);
         void refresh();
@@ -47,9 +49,15 @@ function Accept({ dict, lang }: Props) {
     <div className="card form">
       <h1>{dict.orgs.acceptTitle}</h1>
       {!org && !error && <p role="status">{dict.orgs.accepting}</p>}
-      <FormMessage error={error} success={org ? format(dict.orgs.accepted, { name: org.name }) : null} />
+      <FormMessage
+        error={error}
+        success={org ? format(dict.orgs.accepted, { name: org.name }) : null}
+      />
       {org && (
-        <Link className="button primary" href={`/${lang}/organizations/${org.id}`}>
+        <Link
+          className="button primary"
+          href={`/${lang}/organizations/${org.id}`}
+        >
           {dict.orgs.open}
         </Link>
       )}

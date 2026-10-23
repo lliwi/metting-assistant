@@ -32,7 +32,7 @@ package = false
 
 [dependency-groups]
 dev = [
-    "fakeredis>=2.40.0",
+    "fakeredis[lua]>=2.40.0",
     "httpx2>=2.16.0",
     "moto[s3]>=5.2.4",
     "mypy>=2.4.0",

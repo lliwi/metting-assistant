@@ -5,12 +5,21 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { errorMessage, Field, FormMessage, safeNextPath, useAction } from "@/components/forms";
+import {
+  errorMessage,
+  Field,
+  FormMessage,
+  safeNextPath,
+  useAction,
+} from "@/components/forms";
 import type { Dictionary, Locale } from "@/i18n/client";
 import { format } from "@/i18n/format";
 import { api } from "@/lib/api/client";
 
-const providerNames: Record<string, string> = { google: "Google", microsoft: "Microsoft" };
+const providerNames: Record<string, string> = {
+  google: "Google",
+  microsoft: "Microsoft",
+};
 
 export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
   const router = useRouter();
@@ -27,7 +36,9 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
       ? new URLSearchParams()
       : new URLSearchParams(window.location.hash.slice(1)),
   );
-  const [mfaToken, setMfaToken] = useState<string | null>(() => fragment.get("mfa_token"));
+  const [mfaToken, setMfaToken] = useState<string | null>(() =>
+    fragment.get("mfa_token"),
+  );
   const [code, setCode] = useState("");
   const [notVerified, setNotVerified] = useState(false);
   const [resent, setResent] = useState(false);
@@ -47,7 +58,11 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
   useEffect(() => {
     // Quita el token del historial del navegador una vez leído.
     if (fragment.has("mfa_token")) {
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + window.location.search,
+      );
     }
   }, [fragment]);
 
@@ -59,7 +74,9 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
     e.preventDefault();
     setNotVerified(false);
     const data = await run(async () => {
-      const res = await api.POST("/v1/auth/login", { body: { email, password } });
+      const res = await api.POST("/v1/auth/login", {
+        body: { email, password },
+      });
       if (res.response.status === 403) setNotVerified(true);
       return res;
     });
@@ -77,7 +94,9 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
     e.preventDefault();
     if (!mfaToken) return;
     const data = await run(() =>
-      api.POST("/v1/auth/login/mfa", { body: { mfa_token: mfaToken, code: code.trim() } }),
+      api.POST("/v1/auth/login/mfa", {
+        body: { mfa_token: mfaToken, code: code.trim() },
+      }),
     );
     if (data?.user) {
       setCode("");
@@ -146,7 +165,12 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
           success={resent ? dict.auth.resendDone : null}
         />
         {notVerified && !resent && (
-          <button type="button" className="link-button" onClick={resend} disabled={pending}>
+          <button
+            type="button"
+            className="link-button"
+            onClick={resend}
+            disabled={pending}
+          >
             {dict.auth.resendVerification}
           </button>
         )}
@@ -164,7 +188,9 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
               className="button"
               href={`/api/v1/auth/oidc/${name}/start?next=${encodeURIComponent(next)}`}
             >
-              {format(dict.auth.continueWith, { provider: providerNames[name] ?? name })}
+              {format(dict.auth.continueWith, {
+                provider: providerNames[name] ?? name,
+              })}
             </a>
           ))}
         </div>
@@ -174,7 +200,8 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
         <Link href={`/${lang}/forgot-password`}>{dict.auth.forgotLink}</Link>
       </p>
       <p className="hint">
-        {dict.auth.noAccount} <Link href={`/${lang}/register`}>{dict.nav.register}</Link>
+        {dict.auth.noAccount}{" "}
+        <Link href={`/${lang}/register`}>{dict.nav.register}</Link>
       </p>
     </div>
   );

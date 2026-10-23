@@ -126,6 +126,7 @@ function Recorder({ dict, lang, user }: Props & { user: User }) {
           recordingId={active.recordingId}
           track={active.track}
           title={active.title}
+          ownerId={user.id}
           onResume={() => void resume(active.recordingId, active.title)}
         />
       </>
