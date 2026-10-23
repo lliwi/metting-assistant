@@ -251,8 +251,9 @@ Orden acordado:
    5 min de audio en ~30 s, sin coste y sin que el audio salga) u OpenAI (diarize; ~1,4× la
    duración y pierde la identidad de hablantes en audios de más de ~1 h). Se elige al volver
    a transcribir; si pyannote falla de forma permanente, se guarda la transcripción sin
-   hablantes. Pendiente: aceptar pyannote/speaker-diarization-community-1 en Hugging Face
-   para activar los hablantes en local y valorar el motor local como predeterminado.
+   hablantes. PyTorch, torchaudio y torchcodec se instalan en su variante CUDA 12 para
+   compartir cuDNN con ctranslate2. Probado: 2 voces, mismos 11 turnos que OpenAI; 5 min de
+   audio diarizados en ~11 s (1,6 GiB de VRAM).
 5. **Producción y pruebas** — TLS real, copias de seguridad, monitorización y coste por
    trabajo (tokens), Playwright, carga, seguridad, aceptación con audio real; subir el
    repositorio a un remoto para ejecutar la CI.

@@ -32,6 +32,19 @@ dependencies = [
 [tool.uv]
 package = false
 
+# PyTorch (pyannote) con CUDA 12, como ctranslate2 (Whisper): ambos cargan la misma cuDNN en
+# el proceso del worker. Con la variante CUDA 13 de PyPI conviven dos cuDNN y falla
+# (CUDNN_STATUS_SUBLIBRARY_VERSION_MISMATCH).
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchaudio = { index = "pytorch-cu126" }
+torchcodec = { index = "pytorch-cu126" }
+
 [dependency-groups]
 dev = [
     "fakeredis[lua]>=2.40.0",
@@ -43,9 +56,13 @@ dev = [
 ]
 diarization = [
     "pyannote-audio>=4",
+    # Directas para que se aplique el índice CUDA 12 de [tool.uv.sources].
+    "torch>=2.14",
+    "torchaudio>=2.11",
+    "torchcodec>=0.17",
 ]
 gpu = [
-    "nvidia-cublas-cu12>=12.9.2.10",
+    "nvidia-cublas-cu12>=12.6",
     "nvidia-cudnn-cu12>=9,<10",
 ]
 
