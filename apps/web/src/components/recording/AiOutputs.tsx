@@ -1,13 +1,15 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { Pencil, RefreshCw } from "lucide-react";
+import { useState } from "react";
 
 import { errorMessage, FormMessage, useAction } from "@/components/forms";
-import type { Dictionary } from "@/i18n/client";
+import type { Dictionary, Locale } from "@/i18n/client";
 import { format } from "@/i18n/format";
 import { api, type Schemas } from "@/lib/api/client";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
+import { AiOutputEditor } from "./AiOutputEditor";
 import { usePlayer } from "./Player";
 
 type Output = Schemas["AiOutputOut"];
@@ -168,6 +170,7 @@ function Minutes({
 
 export function AiOutputSection({
   dict,
+  lang,
   kind,
   output,
   recordingId,
@@ -175,6 +178,7 @@ export function AiOutputSection({
   onRequested,
 }: {
   dict: Dictionary;
+  lang: Locale;
   kind: Kind;
   output?: Output;
   recordingId: string;
@@ -182,8 +186,10 @@ export function AiOutputSection({
   onRequested: (o: Output) => void;
 }) {
   const { pending, error, run } = useAction(dict);
+  const [editing, setEditing] = useState(false);
   const title = kind === "summary" ? dict.ai.summary : dict.ai.minutes;
   const generating = output?.status === "pending";
+  const ready = output?.status === "ready";
 
   async function regenerate() {
     const data = await run(() =>
@@ -203,18 +209,31 @@ export function AiOutputSection({
     >
       <div className="row spread">
         <h2 id={`ai-${kind}`}>{title}</h2>
-        {canGenerate && output && !generating && (
-          <button
-            type="button"
-            className="icon-link"
-            onClick={regenerate}
-            disabled={pending}
-            aria-label={output ? dict.ai.regenerate : dict.ai.generate}
-            title={output ? dict.ai.regenerate : dict.ai.generate}
-          >
-            <RefreshCw aria-hidden="true" size={20} />
-          </button>
-        )}
+        <div className="row">
+          {canGenerate && ready && !editing && (
+            <button
+              type="button"
+              className="icon-link"
+              onClick={() => setEditing(true)}
+              aria-label={dict.edit.edit}
+              title={dict.edit.edit}
+            >
+              <Pencil aria-hidden="true" size={18} />
+            </button>
+          )}
+          {canGenerate && output && !generating && !editing && (
+            <button
+              type="button"
+              className="icon-link"
+              onClick={regenerate}
+              disabled={pending}
+              aria-label={output ? dict.ai.regenerate : dict.ai.generate}
+              title={output ? dict.ai.regenerate : dict.ai.generate}
+            >
+              <RefreshCw aria-hidden="true" size={20} />
+            </button>
+          )}
+        </div>
       </div>
 
       {!output && (
@@ -244,12 +263,35 @@ export function AiOutputSection({
           {errorMessage(dict, output.error_code ?? "generation_failed")}
         </p>
       )}
-      {output?.status === "ready" &&
+      {ready && editing && output && (
+        <AiOutputEditor
+          dict={dict}
+          output={output}
+          onCancel={() => setEditing(false)}
+          onSaved={(o) => {
+            setEditing(false);
+            onRequested(o);
+          }}
+        />
+      )}
+      {ready &&
+        !editing &&
+        output &&
         (kind === "summary" ? (
           <Summary dict={dict} content={output.content} />
         ) : (
           <Minutes dict={dict} content={output.content} />
         ))}
+      {ready && output?.edited_at && (
+        <p className="hint">
+          {format(dict.edit.edited, {
+            date: dateTime(lang, output.edited_at),
+          })}
+        </p>
+      )}
+      {ready && output && output.edited_at && (
+        <Revisions dict={dict} lang={lang} kind={kind} outputId={output.id} />
+      )}
       {output?.status === "ready" && (
         <p className="notice" role="note">
           {dict.home.aiNotice}{" "}
@@ -260,4 +302,69 @@ export function AiOutputSection({
       <FormMessage error={error} />
     </section>
   );
+}
+
+/** Versiones anteriores a cada edición manual (quién y cuándo); se cargan al desplegar. */
+function Revisions({
+  dict,
+  lang,
+  kind,
+  outputId,
+}: {
+  dict: Dictionary;
+  lang: Locale;
+  kind: Kind;
+  outputId: string;
+}) {
+  const [revisions, setRevisions] = useState<
+    Schemas["AiOutputRevisionOut"][] | null
+  >(null);
+  return (
+    <details
+      onToggle={(e) => {
+        if (!e.currentTarget.open) return;
+        void api
+          .GET("/v1/ai-outputs/{output_id}/revisions", {
+            params: { path: { output_id: outputId } },
+          })
+          .then(({ data }) => setRevisions(data ?? []));
+      }}
+    >
+      <summary>
+        {revisions
+          ? format(dict.edit.revisionsCount, { count: revisions.length })
+          : dict.edit.revisions}
+      </summary>
+      {revisions === null ? (
+        <p role="status">{dict.common.loading}</p>
+      ) : (
+        <ul className="list">
+          {revisions.map((r) => (
+            <li key={r.id} className="history-item">
+              <span className="hint">
+                {format(dict.edit.by, {
+                  name: r.editor_name ?? "—",
+                  date: dateTime(lang, r.created_at),
+                })}
+              </span>
+              <div className="revision">
+                {kind === "summary" ? (
+                  <Summary dict={dict} content={r.content} />
+                ) : (
+                  <Minutes dict={dict} content={r.content} />
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
+  );
+}
+
+function dateTime(lang: Locale, iso: string): string {
+  return new Intl.DateTimeFormat(lang, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(iso));
 }

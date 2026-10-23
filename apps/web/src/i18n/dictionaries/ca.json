@@ -171,7 +171,9 @@
     "empty_transcript": "La transcripció no té text.",
     "already_generating": "Ja s'està generant.",
     "generation_failed": "El model d'IA no ha pogut generar el document.",
-    "unknown_speaker": "Parlant desconegut."
+    "unknown_speaker": "Parlant desconegut.",
+    "nothing_to_export": "No hi ha contingut per exportar.",
+    "not_editable": "El document encara no està a punt."
   },
   "recording": {
     "newTitle": "Nou enregistrament",
@@ -306,5 +308,47 @@
     "clear": "Neteja",
     "noResults": "No hi ha enregistraments que coincideixin.",
     "submit": "Cerca"
+  },
+  "export": {
+    "title": "Exporta",
+    "include": "Inclou",
+    "transcript": "Transcripció",
+    "summary": "Resum",
+    "minutes": "Acta",
+    "formats": {
+      "pdf": "PDF",
+      "docx": "Word (DOCX)",
+      "md": "Markdown",
+      "txt": "Text (TXT)",
+      "srt": "Subtítols SRT",
+      "vtt": "Subtítols VTT"
+    },
+    "subtitlesHint": "TXT, SRT i VTT només contenen la transcripció amb marques de temps."
+  },
+  "edit": {
+    "edit": "Edita",
+    "save": "Desa",
+    "cancel": "Cancel·la",
+    "editTitle": "Edita el títol",
+    "editSegment": "Edita la frase de {time}",
+    "speaker": "Parlant",
+    "noSpeaker": "Sense parlant",
+    "history": "Historial de canvis",
+    "noHistory": "Sense canvis manuals.",
+    "changedText": "Text de {time}",
+    "changedSpeaker": "Parlant de {time}",
+    "by": "{name}, {date}",
+    "edited": "Editat a mà el {date}",
+    "revisions": "Versions anteriors",
+    "revisionsCount": "Versions anteriors ({count})",
+    "add": "Afegeix",
+    "remove": "Treu",
+    "attendeesHint": "Separats per comes",
+    "title": "Títol",
+    "topicTitle": "Tema",
+    "topicSummary": "Resum del tema",
+    "text": "Text",
+    "description": "Descripció",
+    "refsKept": "Es conserven les referències a la transcripció."
   }
 }

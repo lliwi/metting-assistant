@@ -61,3 +61,20 @@ class TranscriptSegment(UUIDPrimaryKey, Base):
     confidence: Mapped[float | None] = mapped_column(Float)
 
     transcript: Mapped[Transcript] = relationship(back_populates="segments")
+
+
+class TranscriptEdit(UUIDPrimaryKey, Base):
+    """Historial de cambios manuales de una transcripción (valor anterior y nuevo)."""
+
+    __tablename__ = "transcript_edits"
+    __table_args__ = (Index("ix_transcript_edits_transcript", "transcript_id", "created_at"),)
+
+    transcript_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("transcripts.id", ondelete="CASCADE")
+    )
+    segment_idx: Mapped[int] = mapped_column(Integer)
+    field: Mapped[str] = mapped_column(String(16))  # text | speaker
+    old_value: Mapped[str | None] = mapped_column(Text)
+    new_value: Mapped[str | None] = mapped_column(Text)
+    editor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -171,7 +171,9 @@
     "empty_transcript": "La transcripción no tiene texto.",
     "already_generating": "Ya se está generando.",
     "generation_failed": "El modelo de IA no ha podido generar el documento.",
-    "unknown_speaker": "Hablante desconocido."
+    "unknown_speaker": "Hablante desconocido.",
+    "nothing_to_export": "No hay contenido para exportar.",
+    "not_editable": "El documento aún no está listo."
   },
   "recording": {
     "newTitle": "Nueva grabación",
@@ -306,5 +308,47 @@
     "clear": "Limpiar",
     "noResults": "No hay grabaciones que coincidan.",
     "submit": "Buscar"
+  },
+  "export": {
+    "title": "Exportar",
+    "include": "Incluir",
+    "transcript": "Transcripción",
+    "summary": "Resumen",
+    "minutes": "Acta",
+    "formats": {
+      "pdf": "PDF",
+      "docx": "Word (DOCX)",
+      "md": "Markdown",
+      "txt": "Texto (TXT)",
+      "srt": "Subtítulos SRT",
+      "vtt": "Subtítulos VTT"
+    },
+    "subtitlesHint": "TXT, SRT y VTT contienen solo la transcripción con marcas de tiempo."
+  },
+  "edit": {
+    "edit": "Editar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "editTitle": "Editar título",
+    "editSegment": "Editar frase de {time}",
+    "speaker": "Hablante",
+    "noSpeaker": "Sin hablante",
+    "history": "Historial de cambios",
+    "noHistory": "Sin cambios manuales.",
+    "changedText": "Texto de {time}",
+    "changedSpeaker": "Hablante de {time}",
+    "by": "{name}, {date}",
+    "edited": "Editado a mano el {date}",
+    "revisions": "Versiones anteriores",
+    "revisionsCount": "Versiones anteriores ({count})",
+    "add": "Añadir",
+    "remove": "Quitar",
+    "attendeesHint": "Separados por comas",
+    "title": "Título",
+    "topicTitle": "Tema",
+    "topicSummary": "Resumen del tema",
+    "text": "Texto",
+    "description": "Descripción",
+    "refsKept": "Las referencias a la transcripción se conservan."
   }
 }
