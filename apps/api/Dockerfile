@@ -11,6 +11,11 @@ COPY migrations ./migrations
 COPY app ./app
 
 FROM ${PYTHON_IMAGE} AS runtime
+# Pango y fuentes: WeasyPrint las necesita para exportar a PDF.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 \
+       libharfbuzz-subset0 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1

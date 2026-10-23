@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, text
+from sqlalchemy import DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -50,3 +50,23 @@ class AiOutput(UUIDPrimaryKey, Timestamps, Base):
         ForeignKey("users.id", ondelete="SET NULL")
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Última edición manual (None si es tal cual lo generó el modelo).
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    edited_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
+class AiOutputRevision(UUIDPrimaryKey, Base):
+    """Contenido anterior a cada edición manual de un documento de IA."""
+
+    __tablename__ = "ai_output_revisions"
+    __table_args__ = (Index("ix_ai_output_revisions_output", "output_id", "created_at"),)
+
+    output_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ai_outputs.id", ondelete="CASCADE"))
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # Quién hizo el cambio que reemplazó este contenido.
+    edited_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

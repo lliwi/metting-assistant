@@ -1,5 +1,6 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -13,6 +14,9 @@ import { useQuery } from "@/lib/api/useQuery";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
 import { AiOutputSection } from "./AiOutputs";
+import { EditableTitle } from "./EditableTitle";
+import { ExportPanel } from "./ExportPanel";
+import { TranscriptHistory } from "./TranscriptHistory";
 import { PlayerProvider, scrollToSegment, usePlayer } from "./Player";
 import type { Language } from "./SetupFields";
 import { speakerName, SpeakersEditor } from "./SpeakersEditor";
@@ -125,7 +129,13 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
           <Link href={`/${lang}/recordings`}>← {dict.detail.back}</Link>
         </p>
         <div>
-          <h1>{recording.title}</h1>
+          <EditableTitle
+            dict={dict}
+            recording={recording}
+            onSaved={(r) =>
+              setRecording((prev) => (prev ? { ...prev, ...r } : r))
+            }
+          />
           <p className="hint">
             {dateFormat.format(new Date(recording.created_at))} ·{" "}
             {formatDuration(recording.duration_ms)} ·{" "}
@@ -140,6 +150,7 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
             <AiOutputSection
               key={kind}
               dict={dict}
+              lang={lang}
               kind={kind}
               output={byKind[kind]}
               recordingId={recording.id}
@@ -160,8 +171,26 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
             <p className="alert error">{dict.recording.audioGapsDetected}</p>
           )}
           <StatusMessage dict={dict} recording={recording} />
-          {transcript && <TranscriptView dict={dict} transcript={transcript} />}
+          {transcript && (
+            <TranscriptView
+              dict={dict}
+              transcript={transcript}
+              recordingId={recording.id}
+              onUpdated={setTranscript}
+            />
+          )}
+          {transcript && (
+            <TranscriptHistory
+              dict={dict}
+              lang={lang}
+              recordingId={recording.id}
+              segments={transcript.segments}
+              version={transcript.id}
+            />
+          )}
         </section>
+
+        {transcribed && <ExportPanel dict={dict} recordingId={recording.id} />}
 
         {transcript && (
           <SpeakersEditor
@@ -224,11 +253,17 @@ function StatusMessage({
 function TranscriptView({
   dict,
   transcript,
+  recordingId,
+  onUpdated,
 }: {
   dict: Dictionary;
   transcript: Transcript;
+  recordingId: string;
+  onUpdated: (t: Transcript) => void;
 }) {
   const player = usePlayer();
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const labels = [...new Set(segments_speakers(transcript))];
   const segments = transcript.segments;
   // Frase que suena ahora: la última que empieza antes de la posición del audio.
   let active = -1;
@@ -288,21 +323,48 @@ function TranscriptView({
                     {formatDuration(s.start_ms)}
                   </time>
                 )}
-                <span>
-                  {s.speaker && (
-                    <strong className="speaker">
-                      {speakerName(dict, s.speaker, transcript.speaker_names)}
-                      :{" "}
-                    </strong>
-                  )}
-                  {s.text}
-                  {low && (
-                    <span className="visually-hidden">
-                      {" "}
-                      ({dict.detail.lowConfidence})
-                    </span>
-                  )}
-                </span>
+                {editingIdx === s.idx ? (
+                  <SegmentEditor
+                    dict={dict}
+                    recordingId={recordingId}
+                    segment={s}
+                    labels={labels}
+                    names={transcript.speaker_names}
+                    onDone={(t) => {
+                      setEditingIdx(null);
+                      if (t) onUpdated(t);
+                    }}
+                  />
+                ) : (
+                  <span>
+                    {s.speaker && (
+                      <strong className="speaker">
+                        {speakerName(dict, s.speaker, transcript.speaker_names)}
+                        :{" "}
+                      </strong>
+                    )}
+                    {s.text}
+                    {low && (
+                      <span className="visually-hidden">
+                        {" "}
+                        ({dict.detail.lowConfidence})
+                      </span>
+                    )}
+                  </span>
+                )}
+                {editingIdx !== s.idx && (
+                  <button
+                    type="button"
+                    className="icon-link segment-edit"
+                    onClick={() => setEditingIdx(s.idx)}
+                    aria-label={format(dict.edit.editSegment, {
+                      time: formatDuration(s.start_ms),
+                    })}
+                    title={dict.edit.edit}
+                  >
+                    <Pencil aria-hidden="true" size={16} />
+                  </button>
+                )}
               </li>
             );
           })}
@@ -367,6 +429,95 @@ function Reprocess({
       <button type="submit" className="button" disabled={pending}>
         {dict.detail.reprocess}
       </button>
+    </form>
+  );
+}
+
+function segments_speakers(transcript: Transcript): string[] {
+  return transcript.segments
+    .map((s) => s.speaker)
+    .filter((x): x is string => Boolean(x));
+}
+
+/** Corrige el texto y el hablante de una frase. El cambio queda en el historial. */
+function SegmentEditor({
+  dict,
+  recordingId,
+  segment,
+  labels,
+  names,
+  onDone,
+}: {
+  dict: Dictionary;
+  recordingId: string;
+  segment: Transcript["segments"][number];
+  labels: string[];
+  names: Record<string, string>;
+  onDone: (t: Transcript | null) => void;
+}) {
+  const [text, setText] = useState(segment.text);
+  const [speaker, setSpeaker] = useState(segment.speaker ?? "");
+  const { pending, error, run } = useAction(dict);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const data = await run(() =>
+      api.PATCH("/v1/recordings/{recording_id}/transcript/segments/{idx}", {
+        params: { path: { recording_id: recordingId, idx: segment.idx } },
+        body: { text, ...(labels.length ? { speaker: speaker || null } : {}) },
+      }),
+    );
+    if (data) onDone(data);
+  }
+
+  return (
+    <form className="stack segment-form" onSubmit={save}>
+      {labels.length > 0 && (
+        <div className="field">
+          <label htmlFor={`spk-${segment.idx}`}>{dict.edit.speaker}</label>
+          <select
+            id={`spk-${segment.idx}`}
+            value={speaker}
+            onChange={(e) => setSpeaker(e.target.value)}
+          >
+            <option value="">{dict.edit.noSpeaker}</option>
+            {labels.map((l) => (
+              <option key={l} value={l}>
+                {speakerName(dict, l, names)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <label className="visually-hidden" htmlFor={`txt-${segment.idx}`}>
+        {dict.edit.text}
+      </label>
+      <textarea
+        id={`txt-${segment.idx}`}
+        rows={3}
+        required
+        maxLength={5000}
+        value={text}
+        autoFocus
+        onChange={(e) => setText(e.target.value)}
+      />
+      <FormMessage error={error} />
+      <div className="row">
+        <button
+          type="submit"
+          className="button primary small"
+          disabled={pending}
+        >
+          {dict.edit.save}
+        </button>
+        <button
+          type="button"
+          className="button small"
+          onClick={() => onDone(null)}
+        >
+          {dict.edit.cancel}
+        </button>
+      </div>
     </form>
   );
 }

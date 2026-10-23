@@ -11,6 +11,7 @@ from app.core.correlation import CorrelationIdMiddleware
 from app.core.errors import ErrorResponse, UnhandledErrorMiddleware, register_error_handlers
 from app.core.logging import configure_logging
 from app.core.root_path import RootPathMiddleware
+from app.exports import router as exports_router
 from app.orgs import router as orgs_router
 from app.recordings import audio as recordings_audio
 from app.recordings import router as recordings_router
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(recordings_router.router)
     app.include_router(recordings_audio.router)
     app.include_router(ai_router.router)
+    app.include_router(exports_router.router)
     return app
 
 

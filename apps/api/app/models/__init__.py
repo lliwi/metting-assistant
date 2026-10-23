@@ -1,4 +1,4 @@
-from app.models.ai_output import AiOutput, AiOutputKind, AiOutputStatus
+from app.models.ai_output import AiOutput, AiOutputKind, AiOutputRevision, AiOutputStatus
 from app.models.audit import AuditEvent, AuditResult
 from app.models.auth import MfaRecoveryCode, TokenPurpose, UserSession, UserToken
 from app.models.base import Base
@@ -12,11 +12,12 @@ from app.models.identity import (
     UserStatus,
 )
 from app.models.recording import AudioSegment, Recording, RecordingSource, RecordingStatus
-from app.models.transcript import Transcript, TranscriptSegment
+from app.models.transcript import Transcript, TranscriptEdit, TranscriptSegment
 
 __all__ = [
     "AiOutput",
     "AiOutputKind",
+    "AiOutputRevision",
     "AiOutputStatus",
     "AudioSegment",
     "AuditEvent",
@@ -32,6 +33,7 @@ __all__ = [
     "Role",
     "TokenPurpose",
     "Transcript",
+    "TranscriptEdit",
     "TranscriptSegment",
     "User",
     "UserIdentity",

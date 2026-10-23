@@ -243,8 +243,10 @@ Orden acordado:
 2. **Reproductor y búsqueda** ✅ — audio servido por la API con `Range` (M4A/AAC, válido en
    Safari), saltar desde transcripción, resumen y acta al audio; búsqueda por texto,
    título, hablante y fechas con frases resaltadas.
-3. **Edición y exportación** — editar transcripción y documentos de IA con historial;
-   exportar a Markdown, PDF, DOCX y SRT/VTT.
+3. **Edición y exportación** ✅ — renombrar grabaciones; corregir texto y hablante de cada
+   frase con historial (quién, cuándo, antes/después); editar resumen y acta con versiones
+   anteriores; exportar a PDF, DOCX, Markdown, TXT y subtítulos SRT/VTT eligiendo qué
+   incluir.
 4. **Modo híbrido local** — Whisper en GPU + pyannote para hablantes (requiere HF_TOKEN):
    OpenAI diarize tarda ~1,4× la duración y pierde la identidad de hablantes en audios
    de más de ~1 h (se trocean).

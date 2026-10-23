@@ -20,11 +20,13 @@ dependencies = [
     "pydantic[email]>=2.14.1",
     "pyjwt[crypto]>=2.15.1",
     "pyotp>=2.10.0",
+    "python-docx>=1.2.0",
     "python-multipart>=0.0.32",
     "redis>=8.1.0",
     "sqlalchemy>=2",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",
+    "weasyprint>=70.0",
 ]
 
 [tool.uv]
@@ -60,6 +62,8 @@ ignore = ["S101"]
 "tests/**" = ["S105", "S106"]
 # ffmpeg/ffprobe se resuelven desde el PATH de la imagen del worker.
 "app/media/ffmpeg.py" = ["S607"]
+# CSS de impresión y textos de las etiquetas.
+"app/exports/builders.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.13"
@@ -75,5 +79,5 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 
 [[tool.mypy.overrides]]
-module = ["pyannote.*", "torch.*"]
+module = ["pyannote.*", "torch.*", "weasyprint.*", "docx.*"]
 ignore_missing_imports = true

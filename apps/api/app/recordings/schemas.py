@@ -119,3 +119,23 @@ class SearchMatch(BaseModel):
 
 class RecordingListItem(RecordingOut):
     matches: list[SearchMatch] = []
+
+
+class RecordingUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+
+
+class SegmentUpdate(BaseModel):
+    """Campos a cambiar de una frase. `speaker` null = sin hablante."""
+
+    text: str | None = Field(default=None, min_length=1, max_length=5000)
+    speaker: str | None = Field(default=None, pattern=r"^H\d{1,3}$")
+
+
+class TranscriptEditOut(BaseModel):
+    segment_idx: int
+    field: str
+    old_value: str | None
+    new_value: str | None
+    editor_name: str | None
+    created_at: datetime

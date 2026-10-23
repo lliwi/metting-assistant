@@ -36,6 +36,7 @@ from app.models import (
     RecordingStatus,
     Role,
     Transcript,
+    TranscriptEdit,
     TranscriptSegment,
     User,
 )
@@ -48,12 +49,15 @@ from app.recordings.schemas import (
     RecordingDetail,
     RecordingListItem,
     RecordingOut,
+    RecordingUpdate,
     ReprocessRequest,
     SearchMatch,
     SegmentOut,
+    SegmentUpdate,
     SpeakerNamesUpdate,
     TrackOut,
     TrackSummary,
+    TranscriptEditOut,
     TranscriptOut,
     TranscriptSegmentOut,
 )
@@ -321,6 +325,31 @@ def get_recording(recording_id: uuid.UUID, user: CurrentUser, db: DbSession) -> 
     return _detail(db, load_recording(db, user, recording_id, Action.RECORDING_READ))
 
 
+@router.patch("/recordings/{recording_id}")
+def update_recording(
+    recording_id: uuid.UUID,
+    body: RecordingUpdate,
+    user: CurrentUser,
+    db: DbSession,
+    client: Client,
+) -> RecordingDetail:
+    rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE)
+    previous = rec.title
+    rec.title = body.title.strip()
+    record_audit_event(
+        db,
+        action="recording.renamed",
+        client=client,
+        actor_id=user.id,
+        organization_id=rec.organization_id,
+        resource_type="recording",
+        resource_id=rec.id,
+        metadata={"from": previous, "to": rec.title},
+    )
+    db.commit()
+    return _detail(db, rec)
+
+
 @router.post("/recordings/{recording_id}/tracks", status_code=status.HTTP_201_CREATED)
 def open_track(
     recording_id: uuid.UUID, user: CurrentUser, db: DbSession, redis: EventRedis
@@ -565,6 +594,88 @@ def _latest_transcript(db: Session, recording_id: uuid.UUID) -> Transcript:
     if transcript is None:
         raise AppError("transcript_not_found", "La transcripción aún no está disponible", 404)
     return transcript
+
+
+@router.patch("/recordings/{recording_id}/transcript/segments/{idx}")
+def edit_segment(
+    recording_id: uuid.UUID,
+    idx: int,
+    body: SegmentUpdate,
+    user: CurrentUser,
+    db: DbSession,
+    client: Client,
+) -> TranscriptOut:
+    """Corrige el texto o el hablante de una frase de la última versión. Queda en el historial."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE)
+    transcript = _latest_transcript(db, rec.id)
+    segment = next((s for s in transcript.segments if s.idx == idx), None)
+    if segment is None:
+        raise AppError("not_found", "Frase no encontrada", 404)
+
+    changes: list[tuple[str, str | None, str | None]] = []
+    if "text" in body.model_fields_set and body.text is not None:
+        text = body.text.strip()
+        if text and text != segment.text:
+            changes.append(("text", segment.text, text))
+            segment.text = text
+    if "speaker" in body.model_fields_set and body.speaker != segment.speaker:
+        known = {s.speaker for s in transcript.segments if s.speaker}
+        if body.speaker is not None and body.speaker not in known:
+            raise AppError("unknown_speaker", "Hablante desconocido", 422)
+        changes.append(("speaker", segment.speaker, body.speaker))
+        segment.speaker = body.speaker
+    if changes:
+        db.add_all(
+            TranscriptEdit(
+                transcript_id=transcript.id,
+                segment_idx=idx,
+                field=field,
+                old_value=old,
+                new_value=new,
+                editor_id=user.id,
+            )
+            for field, old, new in changes
+        )
+        transcript.content = "\n".join(s.text for s in transcript.segments)
+        record_audit_event(
+            db,
+            action="transcript.edited",
+            client=client,
+            actor_id=user.id,
+            organization_id=rec.organization_id,
+            resource_type="transcript",
+            resource_id=transcript.id,
+            metadata={"segment": idx, "fields": [c[0] for c in changes]},
+        )
+        db.commit()
+    return _transcript_out(transcript)
+
+
+@router.get("/recordings/{recording_id}/transcript/history")
+def transcript_history(
+    recording_id: uuid.UUID, user: CurrentUser, db: DbSession
+) -> list[TranscriptEditOut]:
+    """Cambios manuales de la última versión de la transcripción, del más reciente al primero."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_READ)
+    transcript = _latest_transcript(db, rec.id)
+    rows = db.execute(
+        select(TranscriptEdit, User.name)
+        .outerjoin(User, User.id == TranscriptEdit.editor_id)
+        .where(TranscriptEdit.transcript_id == transcript.id)
+        .order_by(TranscriptEdit.created_at.desc())
+        .limit(200)
+    ).all()
+    return [
+        TranscriptEditOut(
+            segment_idx=e.segment_idx,
+            field=e.field,
+            old_value=e.old_value,
+            new_value=e.new_value,
+            editor_name=name,
+            created_at=e.created_at,
+        )
+        for e, name in rows
+    ]
 
 
 @router.patch("/recordings/{recording_id}/transcript/speakers")

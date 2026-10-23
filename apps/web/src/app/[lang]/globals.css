@@ -506,8 +506,69 @@ meter {
 
 .transcript li {
   display: grid;
-  grid-template-columns: 4.5rem 1fr;
+  grid-template-columns: 4.5rem 1fr auto;
   gap: 0.75rem;
+  align-items: start;
+}
+
+.segment-edit {
+  width: 32px;
+  height: 32px;
+  opacity: 0.55;
+}
+
+.transcript li:hover .segment-edit,
+.segment-edit:focus-visible {
+  opacity: 1;
+}
+
+textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.title-input {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.row.wrap {
+  flex-wrap: wrap;
+}
+
+.edit-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.history-item del {
+  color: var(--danger);
+}
+
+.history-item ins {
+  color: var(--success-text);
+  text-decoration: none;
+}
+
+.revision {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border-left: 3px solid var(--border);
+  opacity: 0.8;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
 }
 
 .timestamp {

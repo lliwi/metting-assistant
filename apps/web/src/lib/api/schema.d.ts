@@ -564,7 +564,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Recording */
+        patch: operations["update_recording_v1_recordings__recording_id__patch"];
         trace?: never;
     };
     "/v1/recordings/{recording_id}/tracks": {
@@ -636,6 +637,46 @@ export interface paths {
          * @description Última versión de la transcripción (o la indicada).
          */
         get: operations["get_transcript_v1_recordings__recording_id__transcript_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/transcript/segments/{idx}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit Segment
+         * @description Corrige el texto o el hablante de una frase de la última versión. Queda en el historial.
+         */
+        patch: operations["edit_segment_v1_recordings__recording_id__transcript_segments__idx__patch"];
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/transcript/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transcript History
+         * @description Cambios manuales de la última versión de la transcripción, del más reciente al primero.
+         */
+        get: operations["transcript_history_v1_recordings__recording_id__transcript_history_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -746,6 +787,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ai-outputs/{output_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit Ai Output
+         * @description Guarda la versión corregida a mano. La anterior queda en el historial de revisiones.
+         */
+        patch: operations["edit_ai_output_v1_ai_outputs__output_id__patch"];
+        trace?: never;
+    };
+    "/v1/ai-outputs/{output_id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ai Output Revisions */
+        get: operations["ai_output_revisions_v1_ai_outputs__output_id__revisions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/exports/{fmt}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Recording
+         * @description Descarga la grabación en el formato indicado. Resumen y acta se incluyen si existen.
+         */
+        get: operations["export_recording_v1_recordings__recording_id__exports__fmt__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -797,16 +895,44 @@ export interface components {
             created_at: string;
             /** Completed At */
             completed_at: string | null;
+            /** Edited At */
+            edited_at: string | null;
         };
         /** AiOutputRequest */
         AiOutputRequest: {
             kind: components["schemas"]["AiOutputKind"];
+        };
+        /** AiOutputRevisionOut */
+        AiOutputRevisionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Editor Name */
+            editor_name: string | null;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
         };
         /**
          * AiOutputStatus
          * @enum {string}
          */
         AiOutputStatus: "pending" | "ready" | "failed";
+        /** AiOutputUpdate */
+        AiOutputUpdate: {
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+        };
         /** AuditEventOut */
         AuditEventOut: {
             /**
@@ -1177,6 +1303,11 @@ export interface components {
          * @enum {string}
          */
         RecordingStatus: "uploading" | "pending" | "processing" | "transcribed" | "failed" | "cancelled";
+        /** RecordingUpdate */
+        RecordingUpdate: {
+            /** Title */
+            title: string;
+        };
         /** RecoveryCodesResponse */
         RecoveryCodesResponse: {
             /** Recovery Codes */
@@ -1244,6 +1375,16 @@ export interface components {
              */
             duplicate: boolean;
         };
+        /**
+         * SegmentUpdate
+         * @description Campos a cambiar de una frase. `speaker` null = sin hablante.
+         */
+        SegmentUpdate: {
+            /** Text */
+            text?: string | null;
+            /** Speaker */
+            speaker?: string | null;
+        };
         /** SessionOut */
         SessionOut: {
             /**
@@ -1306,6 +1447,24 @@ export interface components {
             segments: number;
             /** Duration Ms */
             duration_ms: number;
+        };
+        /** TranscriptEditOut */
+        TranscriptEditOut: {
+            /** Segment Idx */
+            segment_idx: number;
+            /** Field */
+            field: string;
+            /** Old Value */
+            old_value: string | null;
+            /** New Value */
+            new_value: string | null;
+            /** Editor Name */
+            editor_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** TranscriptOut */
         TranscriptOut: {
@@ -2944,6 +3103,50 @@ export interface operations {
             };
         };
     };
+    update_recording_v1_recordings__recording_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDetail"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     open_track_v1_recordings__recording_id__tracks_post: {
         parameters: {
             query?: never;
@@ -3092,6 +3295,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TranscriptOut"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    edit_segment_v1_recordings__recording_id__transcript_segments__idx__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                idx: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptOut"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    transcript_history_v1_recordings__recording_id__transcript_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptEditOut"][];
                 };
             };
             /** @description Error de validación */
@@ -3340,6 +3628,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiOutputOut"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    edit_ai_output_v1_ai_outputs__output_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                output_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiOutputUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiOutputOut"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ai_output_revisions_v1_ai_outputs__output_id__revisions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                output_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiOutputRevisionOut"][];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_recording_v1_recordings__recording_id__exports__fmt__get: {
+        parameters: {
+            query?: {
+                transcript?: boolean;
+                summary?: boolean;
+                minutes?: boolean;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
+                fmt: "md" | "txt" | "pdf" | "docx" | "srt" | "vtt";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Error de validación */
