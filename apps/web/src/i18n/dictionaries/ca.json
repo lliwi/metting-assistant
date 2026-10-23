@@ -292,5 +292,19 @@
     "save": "Desa els noms",
     "saved": "Noms desats. Regenera el resum i l'acta perquè els facin servir.",
     "none": "No s'han identificat parlants en aquesta transcripció."
+  },
+  "player": {
+    "label": "Àudio de l'enregistrament",
+    "playFrom": "Reprodueix des de {time}"
+  },
+  "search": {
+    "label": "Cerca als enregistraments",
+    "placeholder": "Text, títol…",
+    "speaker": "Parlant",
+    "from": "Des de",
+    "to": "Fins a",
+    "clear": "Neteja",
+    "noResults": "No hi ha enregistraments que coincideixin.",
+    "submit": "Cerca"
   }
 }

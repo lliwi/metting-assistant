@@ -8,6 +8,8 @@ import { format } from "@/i18n/format";
 import { api, type Schemas } from "@/lib/api/client";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
+import { usePlayer } from "./Player";
+
 type Output = Schemas["AiOutputOut"];
 type Kind = Output["kind"];
 type Ref = { idx: number; start_ms: number };
@@ -19,6 +21,7 @@ type Item = {
 
 /** Enlaces a los segmentos de la transcripción de donde sale cada punto. */
 function Sources({ dict, refs }: { dict: Dictionary; refs?: Ref[] }) {
+  const player = usePlayer();
   if (!refs?.length) return null;
   return (
     <span className="sources">
@@ -26,6 +29,11 @@ function Sources({ dict, refs }: { dict: Dictionary; refs?: Ref[] }) {
         <a
           key={r.idx}
           href={`#seg-${r.idx}`}
+          onClick={(e) => {
+            // Salta al audio y a la frase; el enlace sigue funcionando sin JavaScript.
+            e.preventDefault();
+            player.seek(r.start_ms, r.idx);
+          }}
           className="source-link"
           aria-label={format(dict.ai.goTo, {
             time: formatDuration(r.start_ms),

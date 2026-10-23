@@ -24,7 +24,7 @@ REJECTED = "recording.import_rejected"
 
 
 def audio_key(rec: Recording) -> str:
-    return f"orgs/{rec.organization_id}/recordings/{rec.id}/audio/source.ogg"
+    return f"orgs/{rec.organization_id}/recordings/{rec.id}/audio/source.m4a"
 
 
 def mark_failed(
@@ -105,9 +105,9 @@ def prepare_import(
             mark_failed(db, redis, recording_id, "duration_limit", action=REJECTED)
             return
 
-        output = Path(tmp) / "audio.ogg"
+        output = Path(tmp) / "audio.m4a"
         extract_audio(source, output)
-        storage.put_file(target_key, str(output), "audio/ogg")
+        storage.put_file(target_key, str(output), "audio/mp4")
         # La duración real es la del audio extraído (el contenedor original puede mentir).
         duration_ms = probe(output).duration_ms or info.duration_ms
 

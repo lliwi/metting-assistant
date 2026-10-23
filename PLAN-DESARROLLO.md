@@ -240,8 +240,9 @@ Orden acordado:
 1. **Robustez** ✅ — barrido de trabajos perdidos (celery beat), cerrojos por trabajo,
    visibility timeout de 6 h, borrado de segmentos tras unir el audio, audio local
    asociado a su usuario y aviso al cerrar sesión con audio pendiente.
-2. **Reproductor y búsqueda** — escuchar la grabación (URL firmada, `Range`), saltar desde
-   transcripción/acta al audio; búsqueda por texto, título, hablante y fechas.
+2. **Reproductor y búsqueda** ✅ — audio servido por la API con `Range` (M4A/AAC, válido en
+   Safari), saltar desde transcripción, resumen y acta al audio; búsqueda por texto,
+   título, hablante y fechas con frases resaltadas.
 3. **Edición y exportación** — editar transcripción y documentos de IA con historial;
    exportar a Markdown, PDF, DOCX y SRT/VTT.
 4. **Modo híbrido local** — Whisper en GPU + pyannote para hablantes (requiere HF_TOKEN):

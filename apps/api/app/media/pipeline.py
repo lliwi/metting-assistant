@@ -75,10 +75,10 @@ def normalize_browser_capture(
         path.write_bytes(storage.get(segment.object_key))
         captured_ms += decoded_duration_ms(path)
         inputs.append(path)
-    output = workdir / "audio.ogg"
+    output = workdir / "audio.m4a"
     concat_audio(inputs, output)
     duration_ms = probe(output).duration_ms
-    storage.put_file(key, str(output), "audio/ogg")
+    storage.put_file(key, str(output), "audio/mp4")
 
     rec = db.get_one(Recording, recording_id, with_for_update=True)
     rec.audio_object_key = key
@@ -140,7 +140,8 @@ def process_recording(
     with tempfile.TemporaryDirectory(dir=settings.scratch_dir) as tmp:
         workdir = Path(tmp)
         key = rec.audio_object_key or normalize_browser_capture(db, storage, recording_id, workdir)
-        audio = workdir / "transcribe.ogg"
+        # Con la extensión real: algunos proveedores (OpenAI) deducen el formato por ella.
+        audio = workdir / f"transcribe{Path(key).suffix}"
         audio.write_bytes(storage.get(key))
         result = asr.transcribe(audio, language=language)
         segments = result.segments

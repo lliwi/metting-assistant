@@ -246,17 +246,17 @@ def test_worker_extracts_audio(
     assert result.status is RecordingStatus.PENDING
     assert (
         result.audio_object_key
-        == f"orgs/{rec['organization_id']}/recordings/{rec['id']}/audio/source.ogg"
+        == f"orgs/{rec['organization_id']}/recordings/{rec['id']}/audio/source.m4a"
     )
     assert 2_800 <= result.duration_ms <= 3_200
     # Solo queda el audio extraído; los bloques originales se borran.
     assert list(storage.objects) == [result.audio_object_key]
     assert db.scalars(select(AudioSegment)).all() == []
 
-    out = tmp_path / "out.ogg"
+    out = tmp_path / "out.m4a"
     out.write_bytes(storage.get(result.audio_object_key))
     info = probe(out)
-    assert info.has_audio and "ogg" in info.format_name
+    assert info.has_audio and "mp4" in info.format_name
 
     detail = ana.get(f"/v1/recordings/{rec['id']}").json()
     assert detail["audio_ready"] is True

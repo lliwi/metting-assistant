@@ -163,7 +163,7 @@ def test_browser_capture_is_joined_and_transcribed(
     assert 11.5 <= seconds <= 12.5
     assert language == "es"
     assert result.status is RecordingStatus.TRANSCRIBED
-    assert result.audio_object_key and result.audio_object_key.endswith("/audio/source.ogg")
+    assert result.audio_object_key and result.audio_object_key.endswith("/audio/source.m4a")
     assert 11_500 <= result.duration_ms <= 12_500
     # Los segmentos originales se borran una vez unido el audio.
     assert list(storage.objects) == [result.audio_object_key]

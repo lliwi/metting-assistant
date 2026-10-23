@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from functools import lru_cache
 from typing import Any
 
@@ -33,6 +34,23 @@ class ObjectStorage:
     def get(self, key: str) -> bytes:
         body: bytes = self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
         return body
+
+    def head(self, key: str) -> tuple[int, str]:
+        """(tamaño en bytes, content-type)."""
+        meta = self.client.head_object(Bucket=self.bucket, Key=key)
+        return int(meta["ContentLength"]), str(
+            meta.get("ContentType") or "application/octet-stream"
+        )
+
+    def iter_range(self, key: str, start: int, end: int, chunk: int = 64 * 1024) -> Iterator[bytes]:
+        """Bytes [start, end] (inclusive) en trozos, sin cargar el objeto en memoria."""
+        body = self.client.get_object(Bucket=self.bucket, Key=key, Range=f"bytes={start}-{end}")[
+            "Body"
+        ]
+        try:
+            yield from body.iter_chunks(chunk)
+        finally:
+            body.close()
 
     def exists(self, key: str) -> bool:
         try:

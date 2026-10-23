@@ -3,15 +3,16 @@ import json
 import time
 import uuid
 from collections.abc import AsyncIterator
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.audit import record_audit_event
 from app.auth.dependencies import CurrentUser, DbSession, require_csrf
@@ -35,6 +36,7 @@ from app.models import (
     RecordingStatus,
     Role,
     Transcript,
+    TranscriptSegment,
     User,
 )
 from app.orgs.permissions import Action, authorize
@@ -44,8 +46,10 @@ from app.recordings.schemas import (
     MissingSegment,
     RecordingCreate,
     RecordingDetail,
+    RecordingListItem,
     RecordingOut,
     ReprocessRequest,
+    SearchMatch,
     SegmentOut,
     SpeakerNamesUpdate,
     TrackOut,
@@ -200,13 +204,39 @@ def create_recording(
     return _detail(db, rec)
 
 
+HIGHLIGHT = "StartSel=⟦, StopSel=⟧, MaxFragments=0, HighlightAll=TRUE"
+MATCHES_PER_RECORDING = 3
+
+
+def _is_latest_transcript() -> Any:
+    """Condición: la fila de `transcripts` es la última versión de su grabación.
+
+    Alias propio y correlación explícita: sin ella, la subconsulta añadía su propio FROM y
+    calculaba el máximo de versión de todas las grabaciones a la vez.
+    """
+    latest = aliased(Transcript)
+    newest = (
+        select(func.max(latest.version))
+        .where(latest.recording_id == Transcript.recording_id)
+        .correlate_except(latest)
+        .scalar_subquery()
+    )
+    return Transcript.version == newest
+
+
 @router.get("/recordings")
 def list_recordings(
     user: CurrentUser,
     db: DbSession,
     organization_id: uuid.UUID | None = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    speaker: Annotated[str | None, Query(max_length=100)] = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
-) -> list[RecordingOut]:
+) -> list[RecordingListItem]:
+    """Listado y búsqueda. `q` busca en el título y en la última transcripción; `speaker`, en
+    los nombres asignados a los hablantes."""
     # El join con memberships limita el listado a organizaciones del usuario.
     stmt = (
         select(Recording)
@@ -217,7 +247,73 @@ def list_recordings(
     )
     if organization_id is not None:
         stmt = stmt.where(Recording.organization_id == organization_id)
-    return [_recording_out(r) for r in db.scalars(stmt)]
+    if date_from is not None:
+        stmt = stmt.where(Recording.created_at >= date_from)
+    if date_to is not None:
+        stmt = stmt.where(Recording.created_at <= date_to)
+
+    query = None
+    text_query = (q or "").strip()
+    if text_query:
+        query = func.websearch_to_tsquery("simple", text_query)
+        in_transcript = (
+            select(TranscriptSegment.id)
+            .join(Transcript, Transcript.id == TranscriptSegment.transcript_id)
+            .where(
+                Transcript.recording_id == Recording.id,
+                _is_latest_transcript(),
+                func.to_tsvector("simple", TranscriptSegment.text).op("@@")(query),
+            )
+            .exists()
+        )
+        stmt = stmt.where(
+            or_(Recording.title.ilike(f"%{_escape_like(text_query)}%"), in_transcript)
+        )
+    if speaker and speaker.strip():
+        names = func.jsonb_each_text(Transcript.speaker_names).table_valued("value")
+        has_speaker = (
+            select(Transcript.id)
+            .where(
+                Transcript.recording_id == Recording.id,
+                _is_latest_transcript(),
+                select(names.c.value)
+                .where(names.c.value.ilike(f"%{_escape_like(speaker.strip())}%"))
+                .exists(),
+            )
+            .exists()
+        )
+        stmt = stmt.where(has_speaker)
+
+    recordings = list(db.scalars(stmt))
+    matches: dict[uuid.UUID, list[SearchMatch]] = {}
+    if query is not None and recordings:
+        rows = db.execute(
+            select(
+                Transcript.recording_id,
+                TranscriptSegment.idx,
+                TranscriptSegment.start_ms,
+                func.ts_headline("simple", TranscriptSegment.text, query, HIGHLIGHT),
+            )
+            .join(Transcript, Transcript.id == TranscriptSegment.transcript_id)
+            .where(
+                Transcript.recording_id.in_([r.id for r in recordings]),
+                _is_latest_transcript(),
+                func.to_tsvector("simple", TranscriptSegment.text).op("@@")(query),
+            )
+            .order_by(Transcript.recording_id, TranscriptSegment.idx)
+        ).all()
+        for recording_id, idx, start_ms, highlighted in rows:
+            found = matches.setdefault(recording_id, [])
+            if len(found) < MATCHES_PER_RECORDING:
+                found.append(SearchMatch(idx=idx, start_ms=start_ms, highlighted=highlighted))
+    return [
+        RecordingListItem(**_recording_out(r).model_dump(), matches=matches.get(r.id, []))
+        for r in recordings
+    ]
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 @router.get("/recordings/{recording_id}")

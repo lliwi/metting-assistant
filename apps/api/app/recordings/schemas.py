@@ -106,3 +106,16 @@ class SpeakerNamesUpdate(BaseModel):
     """Nombre por etiqueta de hablante. Cadena vacía = quitar el nombre."""
 
     names: dict[str, str] = Field(max_length=50)
+
+
+class SearchMatch(BaseModel):
+    """Frase de la transcripción que coincide. En `highlighted`, los términos van entre
+    ⟦ y ⟧ (texto plano: el cliente los resalta sin interpretar HTML)."""
+
+    idx: int
+    start_ms: int
+    highlighted: str
+
+
+class RecordingListItem(RecordingOut):
+    matches: list[SearchMatch] = []

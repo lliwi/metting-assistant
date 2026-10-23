@@ -149,6 +149,15 @@ class MemoryStorage:
     def delete(self, key: str) -> None:
         self.objects.pop(key, None)
 
+    def head(self, key: str) -> tuple[int, str]:
+        body, content_type = self.objects[key]
+        return len(body), content_type
+
+    def iter_range(self, key: str, start: int, end: int, chunk: int = 64 * 1024):  # type: ignore[no-untyped-def]
+        body = self.objects[key][0][start : end + 1]
+        for i in range(0, len(body), chunk):
+            yield body[i : i + chunk]
+
     def exists(self, key: str) -> bool:
         return key in self.objects
 

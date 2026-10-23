@@ -535,7 +535,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Recordings */
+        /**
+         * List Recordings
+         * @description Listado y búsqueda. `q` busca en el título y en la última transcripción; `speaker`, en
+         *     los nombres asignados a los hablantes.
+         */
         get: operations["list_recordings_v1_recordings_get"];
         put?: never;
         /** Create Recording */
@@ -693,6 +697,23 @@ export interface paths {
          * @description Server-Sent Events: estado inicial y cambios de la grabación (segmentos, estado).
          */
         get: operations["recording_events_v1_recordings__recording_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream Audio */
+        get: operations["stream_audio_v1_recordings__recording_id__audio_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1099,8 +1120,8 @@ export interface components {
             /** Tracks */
             tracks: components["schemas"]["TrackSummary"][];
         };
-        /** RecordingOut */
-        RecordingOut: {
+        /** RecordingListItem */
+        RecordingListItem: {
             /**
              * Id
              * Format: uuid
@@ -1140,6 +1161,11 @@ export interface components {
             created_at: string;
             /** Completed At */
             completed_at: string | null;
+            /**
+             * Matches
+             * @default []
+             */
+            matches: components["schemas"]["SearchMatch"][];
         };
         /**
          * RecordingSource
@@ -1184,6 +1210,19 @@ export interface components {
          * @enum {string}
          */
         Role: "owner" | "admin" | "member" | "viewer";
+        /**
+         * SearchMatch
+         * @description Frase de la transcripción que coincide. En `highlighted`, los términos van entre
+         *     ⟦ y ⟧ (texto plano: el cliente los resalta sin interpretar HTML).
+         */
+        SearchMatch: {
+            /** Idx */
+            idx: number;
+            /** Start Ms */
+            start_ms: number;
+            /** Highlighted */
+            highlighted: string;
+        };
         /** SegmentOut */
         SegmentOut: {
             /**
@@ -2782,6 +2821,10 @@ export interface operations {
         parameters: {
             query?: {
                 organization_id?: string | null;
+                q?: string | null;
+                speaker?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
                 limit?: number;
             };
             header?: never;
@@ -2796,7 +2839,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RecordingOut"][];
+                    "application/json": components["schemas"]["RecordingListItem"][];
                 };
             };
             /** @description Error de validación */
@@ -3160,6 +3203,44 @@ export interface operations {
         };
     };
     recording_events_v1_recordings__recording_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stream_audio_v1_recordings__recording_id__audio_get: {
         parameters: {
             query?: never;
             header?: never;

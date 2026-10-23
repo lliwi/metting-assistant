@@ -62,7 +62,8 @@ def probe(path: Path, timeout: int = 120) -> ProbeResult:
 
 
 def extract_audio(source: Path, target: Path, timeout: int = 3600) -> None:
-    """Primera pista de audio → Opus mono 48 kbit/s en Ogg (suficiente para voz)."""
+    """Primera pista de audio → AAC mono 64 kbit/s en M4A (voz; se reproduce en todos los
+    navegadores, también Safari en iOS)."""
     try:
         subprocess.run(  # noqa: S603 - argumentos fijos, sin shell
             [
@@ -78,9 +79,13 @@ def extract_audio(source: Path, target: Path, timeout: int = 3600) -> None:
                 "-ac",
                 "1",
                 "-c:a",
-                "libopus",
+                "aac",
                 "-b:a",
-                "48k",
+                "64k",
+                # moov al principio: el navegador puede empezar a reproducir y saltar
+                # sin descargar el archivo entero.
+                "-movflags",
+                "+faststart",
                 "-y",
                 str(target),
             ],
@@ -131,7 +136,7 @@ def split_audio(path: Path, workdir: Path, piece_seconds: int) -> list[tuple[Pat
 
 
 def concat_audio(inputs: list[Path], target: Path, timeout: int = 3600) -> None:
-    """Une segmentos independientes en un único Opus mono. Todos deben estar en el mismo
+    """Une segmentos independientes en un único AAC mono (M4A). Todos deben estar en el mismo
     directorio que `target` (la lista del demuxer usa nombres relativos)."""
     listing = target.parent / "concat.txt"
     listing.write_text("".join(f"file '{p.name}'\n" for p in inputs))
@@ -153,9 +158,13 @@ def concat_audio(inputs: list[Path], target: Path, timeout: int = 3600) -> None:
                 "-ac",
                 "1",
                 "-c:a",
-                "libopus",
+                "aac",
                 "-b:a",
-                "48k",
+                "64k",
+                # moov al principio: el navegador puede empezar a reproducir y saltar
+                # sin descargar el archivo entero.
+                "-movflags",
+                "+faststart",
                 "-y",
                 str(target),
             ],

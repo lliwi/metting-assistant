@@ -13,6 +13,7 @@ import { useQuery } from "@/lib/api/useQuery";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
 import { AiOutputSection } from "./AiOutputs";
+import { PlayerProvider, scrollToSegment, usePlayer } from "./Player";
 import type { Language } from "./SetupFields";
 import { speakerName, SpeakersEditor } from "./SpeakersEditor";
 
@@ -114,69 +115,75 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
   });
 
   return (
-    <div className="stack-lg">
-      <p>
-        <Link href={`/${lang}/recordings`}>← {dict.detail.back}</Link>
-      </p>
-      <div>
-        <h1>{recording.title}</h1>
-        <p className="hint">
-          {dateFormat.format(new Date(recording.created_at))} ·{" "}
-          {formatDuration(recording.duration_ms)} ·{" "}
-          <span className="badge">
-            {dict.recordings.status[recording.status]}
-          </span>
+    <PlayerProvider
+      dict={dict}
+      recordingId={recording.id}
+      available={recording.audio_ready}
+    >
+      <div className="stack-lg">
+        <p>
+          <Link href={`/${lang}/recordings`}>← {dict.detail.back}</Link>
         </p>
-      </div>
+        <div>
+          <h1>{recording.title}</h1>
+          <p className="hint">
+            {dateFormat.format(new Date(recording.created_at))} ·{" "}
+            {formatDuration(recording.duration_ms)} ·{" "}
+            <span className="badge">
+              {dict.recordings.status[recording.status]}
+            </span>
+          </p>
+        </div>
 
-      {transcribed &&
-        (["summary", "minutes"] as const).map((kind) => (
-          <AiOutputSection
-            key={kind}
+        {transcribed &&
+          (["summary", "minutes"] as const).map((kind) => (
+            <AiOutputSection
+              key={kind}
+              dict={dict}
+              kind={kind}
+              output={byKind[kind]}
+              recordingId={recording.id}
+              canGenerate
+              onRequested={(o) =>
+                setOutputs([...outputs.filter((x) => x.kind !== o.kind), o])
+              }
+            />
+          ))}
+
+        <section
+          className="card stack"
+          aria-labelledby="transcript-heading"
+          aria-busy={!transcribed}
+        >
+          <h2 id="transcript-heading">{dict.detail.transcript}</h2>
+          {recording.capture_warning === "audio_gaps" && (
+            <p className="alert error">{dict.recording.audioGapsDetected}</p>
+          )}
+          <StatusMessage dict={dict} recording={recording} />
+          {transcript && <TranscriptView dict={dict} transcript={transcript} />}
+        </section>
+
+        {transcript && (
+          <SpeakersEditor
+            key={transcript.id}
             dict={dict}
-            kind={kind}
-            output={byKind[kind]}
             recordingId={recording.id}
-            canGenerate
-            onRequested={(o) =>
-              setOutputs([...outputs.filter((x) => x.kind !== o.kind), o])
-            }
-          />
-        ))}
-
-      <section
-        className="card stack"
-        aria-labelledby="transcript-heading"
-        aria-busy={!transcribed}
-      >
-        <h2 id="transcript-heading">{dict.detail.transcript}</h2>
-        {recording.capture_warning === "audio_gaps" && (
-          <p className="alert error">{dict.recording.audioGapsDetected}</p>
-        )}
-        <StatusMessage dict={dict} recording={recording} />
-        {transcript && <TranscriptView dict={dict} transcript={transcript} />}
-      </section>
-
-      {transcript && (
-        <SpeakersEditor
-          key={transcript.id}
-          dict={dict}
-          recordingId={recording.id}
-          transcript={transcript}
-          onSaved={setTranscript}
-        />
-      )}
-
-      {recording.owner_id === user.id &&
-        (recording.status === "transcribed" ||
-          recording.status === "failed") && (
-          <Reprocess
-            dict={dict}
-            recording={recording}
-            onQueued={setRecording}
+            transcript={transcript}
+            onSaved={setTranscript}
           />
         )}
-    </div>
+
+        {recording.owner_id === user.id &&
+          (recording.status === "transcribed" ||
+            recording.status === "failed") && (
+            <Reprocess
+              dict={dict}
+              recording={recording}
+              onQueued={setRecording}
+            />
+          )}
+      </div>
+    </PlayerProvider>
   );
 }
 
@@ -221,6 +228,21 @@ function TranscriptView({
   dict: Dictionary;
   transcript: Transcript;
 }) {
+  const player = usePlayer();
+  const segments = transcript.segments;
+  // Frase que suena ahora: la última que empieza antes de la posición del audio.
+  let active = -1;
+  for (const s of segments) {
+    if (s.start_ms <= player.currentMs) active = s.idx;
+    else break;
+  }
+
+  // Al abrir un enlace #seg-N (búsqueda, acta), ir a esa frase cuando ya está cargada.
+  useEffect(() => {
+    const match = /^#seg-(\d+)$/.exec(window.location.hash);
+    if (match) scrollToSegment(Number(match[1]));
+  }, [transcript.id]);
+
   return (
     <>
       <p className="hint">
@@ -240,14 +262,32 @@ function TranscriptView({
               <li
                 key={s.idx}
                 id={`seg-${s.idx}`}
-                className={low ? "low-confidence" : undefined}
+                className={
+                  [low && "low-confidence", s.idx === active && "playing"]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
+                aria-current={s.idx === active ? "true" : undefined}
               >
-                <time
-                  className="timestamp"
-                  dateTime={`PT${Math.floor(s.start_ms / 1000)}S`}
-                >
-                  {formatDuration(s.start_ms)}
-                </time>
+                {player.available ? (
+                  <button
+                    type="button"
+                    className="timestamp link-button"
+                    onClick={() => player.seek(s.start_ms)}
+                    aria-label={format(dict.player.playFrom, {
+                      time: formatDuration(s.start_ms),
+                    })}
+                  >
+                    {formatDuration(s.start_ms)}
+                  </button>
+                ) : (
+                  <time
+                    className="timestamp"
+                    dateTime={`PT${Math.floor(s.start_ms / 1000)}S`}
+                  >
+                    {formatDuration(s.start_ms)}
+                  </time>
+                )}
                 <span>
                   {s.speaker && (
                     <strong className="speaker">

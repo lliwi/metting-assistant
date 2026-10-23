@@ -292,5 +292,19 @@
     "save": "Guardar nombres",
     "saved": "Nombres guardados. Regenera el resumen y el acta para que los usen.",
     "none": "No se han identificado hablantes en esta transcripción."
+  },
+  "player": {
+    "label": "Audio de la grabación",
+    "playFrom": "Reproducir desde {time}"
+  },
+  "search": {
+    "label": "Buscar en las grabaciones",
+    "placeholder": "Texto, título…",
+    "speaker": "Hablante",
+    "from": "Desde",
+    "to": "Hasta",
+    "clear": "Limpiar",
+    "noResults": "No hay grabaciones que coincidan.",
+    "submit": "Buscar"
   }
 }
