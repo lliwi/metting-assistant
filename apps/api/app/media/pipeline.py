@@ -9,9 +9,9 @@ from redis import Redis
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.ai.asr import AsrProvider
+from app.ai.asr import AsrError, AsrProvider
 from app.ai.diarization import Diarizer
-from app.ai.speakers import assign_speakers, prepare_speakers
+from app.ai.speakers import SpeakerTurn, assign_speakers, prepare_speakers
 from app.audit import record_audit_event
 from app.core.config import get_settings
 from app.media.antivirus import Scanner
@@ -112,6 +112,18 @@ def normalize_browser_capture(
     return key
 
 
+def _diarize(diarizer: Diarizer, audio: Path, recording_id: uuid.UUID) -> list[SpeakerTurn]:
+    """Un fallo permanente de la diarización no tira la transcripción: se guarda sin hablantes.
+    Los transitorios (GPU sin memoria) se propagan para reintentar."""
+    try:
+        return diarizer.diarize(audio)
+    except AsrError as exc:
+        if exc.transient:
+            raise
+        log.warning("diarization_skipped", recording_id=str(recording_id), error=str(exc)[:300])
+        return []
+
+
 def process_recording(
     db: Session,
     storage: ObjectStorage,
@@ -146,7 +158,7 @@ def process_recording(
         result = asr.transcribe(audio, language=language)
         segments = result.segments
         if diarizer is not None:
-            segments = assign_speakers(segments, diarizer.diarize(audio))
+            segments = assign_speakers(segments, _diarize(diarizer, audio, recording_id))
         segments = prepare_speakers(segments)
 
     rec = db.get_one(Recording, recording_id, with_for_update=True)

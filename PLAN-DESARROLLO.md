@@ -247,9 +247,12 @@ Orden acordado:
    frase con historial (quién, cuándo, antes/después); editar resumen y acta con versiones
    anteriores; exportar a PDF, DOCX, Markdown, TXT y subtítulos SRT/VTT eligiendo qué
    incluir.
-4. **Modo híbrido local** — Whisper en GPU + pyannote para hablantes (requiere HF_TOKEN):
-   OpenAI diarize tarda ~1,4× la duración y pierde la identidad de hablantes en audios
-   de más de ~1 h (se trocean).
+4. **Modo híbrido local** ✅ — motor por grabación: local (Whisper turbo en GPU + pyannote;
+   5 min de audio en ~30 s, sin coste y sin que el audio salga) u OpenAI (diarize; ~1,4× la
+   duración y pierde la identidad de hablantes en audios de más de ~1 h). Se elige al volver
+   a transcribir; si pyannote falla de forma permanente, se guarda la transcripción sin
+   hablantes. Pendiente: aceptar pyannote/speaker-diarization-community-1 en Hugging Face
+   para activar los hablantes en local y valorar el motor local como predeterminado.
 5. **Producción y pruebas** — TLS real, copias de seguridad, monitorización y coste por
    trabajo (tokens), Playwright, carga, seguridad, aceptación con audio real; subir el
    repositorio a un remoto para ejecutar la CI.

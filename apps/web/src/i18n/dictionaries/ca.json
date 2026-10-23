@@ -173,7 +173,8 @@
     "generation_failed": "El model d'IA no ha pogut generar el document.",
     "unknown_speaker": "Parlant desconegut.",
     "nothing_to_export": "No hi ha contingut per exportar.",
-    "not_editable": "El document encara no està a punt."
+    "not_editable": "El document encara no està a punt.",
+    "engine_unavailable": "Aquest motor de transcripció no està disponible."
   },
   "recording": {
     "newTitle": "Nou enregistrament",
@@ -263,7 +264,15 @@
     "reprocessLanguage": "Idioma",
     "reprocessQueued": "S'ha posat en cua una nova transcripció.",
     "empty": "La transcripció no conté text (àudio en silenci?).",
-    "back": "Enregistraments"
+    "back": "Enregistraments",
+    "engine": "Motor de transcripció",
+    "engines": {
+      "local": "Local (aquest servidor)",
+      "openai": "OpenAI (al núvol)"
+    },
+    "engineLocalHint": "Whisper i pyannote a la GPU del servidor: l'àudio no surt, és ràpid i sense cost per ús.",
+    "engineLocalNoSpeakersHint": "Whisper al servidor: l'àudio no surt. Sense identificació de parlants (cal configurar pyannote).",
+    "engineOpenaiHint": "L'àudio s'envia a OpenAI. Identifica parlants; triga més i té cost per minut."
   },
   "ai": {
     "summary": "Resum",

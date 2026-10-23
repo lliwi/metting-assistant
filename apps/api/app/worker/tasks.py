@@ -1,18 +1,21 @@
 import uuid
-from typing import Any
+from typing import Any, cast
 
 import structlog
+from sqlalchemy import select
 
 from app.ai.asr import AsrError, get_asr_provider
 from app.ai.diarization import get_diarizer
 from app.ai.llm import LlmError, get_llm_provider
 from app.ai.service import mark_output_failed, outputs_after_transcription, run_output
+from app.core.config import TranscriptionEngine
 from app.core.rate_limit import get_redis
 from app.db import get_sessionmaker
 from app.media.antivirus import ScannerUnavailable, get_scanner
 from app.media.ffmpeg import MediaError
 from app.media.imports import mark_failed
 from app.media.pipeline import process_recording
+from app.models import Recording
 from app.notifications.email import deliver_via_smtp
 from app.storage import get_storage
 from app.worker.celery_app import celery_app
@@ -52,14 +55,18 @@ def process_recording_task(self: Any, recording_id: str) -> None:
         if not owned:
             return
         try:
+            engine = cast(
+                TranscriptionEngine | None,
+                db.scalar(select(Recording.transcription_engine).where(Recording.id == rid)),
+            )
             process_recording(
                 db,
                 get_storage(),
                 get_scanner(),
-                get_asr_provider(),
+                get_asr_provider(engine),
                 get_redis(),
                 rid,
-                diarizer=get_diarizer(),
+                diarizer=get_diarizer(engine),
             )
             for output_id in outputs_after_transcription(db, rid):
                 enqueue_ai_output(output_id)

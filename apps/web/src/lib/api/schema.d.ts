@@ -726,6 +726,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/transcription-engines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transcription Engines
+         * @description Motores de transcripción disponibles en este despliegue.
+         */
+        get: operations["transcription_engines_v1_transcription_engines_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/events": {
         parameters: {
             query?: never;
@@ -998,6 +1018,18 @@ export interface components {
              */
             email: string;
         };
+        /** EnginesOut */
+        EnginesOut: {
+            /**
+             * Default
+             * @enum {string}
+             */
+            default: "local" | "openai";
+            /** Available */
+            available: ("local" | "openai")[];
+            /** Local Speakers */
+            local_speakers: boolean;
+        };
         /** ErrorBody */
         ErrorBody: {
             /** Code */
@@ -1236,6 +1268,8 @@ export interface components {
             error_code: string | null;
             /** Capture Warning */
             capture_warning: string | null;
+            /** Transcription Engine */
+            transcription_engine: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1280,6 +1314,8 @@ export interface components {
             error_code: string | null;
             /** Capture Warning */
             capture_warning: string | null;
+            /** Transcription Engine */
+            transcription_engine: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1335,6 +1371,8 @@ export interface components {
         ReprocessRequest: {
             /** Language */
             language?: ("es" | "ca" | "en") | null;
+            /** Engine */
+            engine?: ("local" | "openai") | null;
         };
         /**
          * Role
@@ -3468,6 +3506,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordingDetail"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    transcription_engines_v1_transcription_engines_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginesOut"];
                 };
             };
             /** @description Error de validación */

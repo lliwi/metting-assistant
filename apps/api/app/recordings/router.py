@@ -44,6 +44,7 @@ from app.orgs.permissions import Action, authorize
 from app.recordings import events
 from app.recordings.schemas import (
     CompleteRequest,
+    EnginesOut,
     MissingSegment,
     RecordingCreate,
     RecordingDetail,
@@ -106,6 +107,7 @@ def _recording_out(rec: Recording) -> RecordingOut:
         audio_ready=rec.audio_object_key is not None,
         error_code=rec.error_code,
         capture_warning=rec.capture_warning,
+        transcription_engine=rec.transcription_engine,
         created_at=rec.created_at,
         completed_at=rec.completed_at,
     )
@@ -746,6 +748,12 @@ def reprocess_recording(
     previous = rec.language
     if body.language:
         rec.language = body.language
+    if body.engine:
+        if body.engine not in get_settings().available_engines:
+            raise AppError(
+                "engine_unavailable", "Ese motor de transcripción no está disponible", 422
+            )
+        rec.transcription_engine = body.engine
     rec.status = RecordingStatus.PENDING
     rec.error_code = None
     record_audit_event(
@@ -756,13 +764,28 @@ def reprocess_recording(
         organization_id=rec.organization_id,
         resource_type="recording",
         resource_id=rec.id,
-        metadata={"language_from": previous, "language_to": rec.language},
+        metadata={
+            "language_from": previous,
+            "language_to": rec.language,
+            "engine": rec.transcription_engine,
+        },
     )
     db.commit()
     tasks.process(rec.id)
     detail = _detail(db, rec)
     events.publish(redis, rec.id, {"type": "recording", **detail.model_dump(mode="json")})
     return detail
+
+
+@router.get("/transcription-engines")
+def transcription_engines(user: CurrentUser) -> EnginesOut:
+    """Motores de transcripción disponibles en este despliegue."""
+    settings = get_settings()
+    return EnginesOut(
+        default=settings.default_engine,
+        available=settings.available_engines,
+        local_speakers=settings.local_diarization,
+    )
 
 
 # --- Eventos (SSE) -------------------------------------------------------------------------

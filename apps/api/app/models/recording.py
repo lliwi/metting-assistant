@@ -57,6 +57,8 @@ class Recording(UUIDPrimaryKey, Timestamps, Base):
     error_code: Mapped[str | None] = mapped_column(String(64))
     # Aviso no bloqueante sobre la captura (p. ej. "audio_gaps": el navegador perdió audio).
     capture_warning: Mapped[str | None] = mapped_column(String(64))
+    # Motor de transcripción pedido ("local" | "openai"); None = el de la configuración.
+    transcription_engine: Mapped[str | None] = mapped_column(String(16))
 
     segments: Mapped[list["AudioSegment"]] = relationship(
         back_populates="recording", order_by="(AudioSegment.track, AudioSegment.seq)"
