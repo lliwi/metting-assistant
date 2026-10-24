@@ -18,7 +18,7 @@ import { EditableTitle } from "./EditableTitle";
 import { ExportPanel } from "./ExportPanel";
 import { TranscriptHistory } from "./TranscriptHistory";
 import { PlayerProvider, scrollToSegment, usePlayer } from "./Player";
-import type { Language } from "./SetupFields";
+import { type Language, LANGUAGES } from "./SetupFields";
 import { speakerName, SpeakersEditor } from "./SpeakersEditor";
 
 type Props = { dict: Dictionary; lang: Locale };
@@ -426,7 +426,7 @@ function Reprocess({
           value={language}
           onChange={(e) => setLanguage(e.target.value as Language)}
         >
-          {(["es", "ca", "en"] as const).map((l) => (
+          {LANGUAGES.map((l) => (
             <option key={l} value={l}>
               {dict.recording.languages[l]}
             </option>

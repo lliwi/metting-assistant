@@ -149,6 +149,12 @@ class MemoryStorage:
     def delete(self, key: str) -> None:
         self.objects.pop(key, None)
 
+    def delete_prefix(self, prefix: str) -> int:
+        keys = [k for k in self.objects if k.startswith(prefix)]
+        for key in keys:
+            del self.objects[key]
+        return len(keys)
+
     def head(self, key: str) -> tuple[int, str]:
         body, content_type = self.objects[key]
         return len(body), content_type

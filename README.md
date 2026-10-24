@@ -50,6 +50,22 @@ scripts/users.sh list
 `--org` acepta el id o el nombre de la organización; si no existe, se crea con ese usuario
 como propietario.
 
+### Copias de seguridad
+
+`scripts/backup.sh` guarda la base de datos (`pg_dump`) y todo el almacenamiento de objetos
+(audio, exportaciones) en `backups/<fecha>/`, cifrados con GPG (AES-256) con
+`BACKUP_PASSPHRASE` de `.env`. **Guarda esa frase también fuera del servidor**: sin ella las
+copias no se pueden restaurar. Borra las copias de más de `BACKUP_KEEP_DAYS` días (14).
+
+```sh
+scripts/backup.sh                                  # programable con cron, p. ej. a las 03:15
+scripts/restore.sh --verify backups/20261024T031500Z   # comprueba sin tocar los datos
+scripts/restore.sh --yes    backups/20261024T031500Z   # restaura (sobrescribe todo)
+```
+
+`--verify` comprueba las sumas, restaura la base de datos en una base temporal y cuenta los
+objetos. Copia la carpeta `backups/` a otro equipo o almacenamiento (p. ej. con `rclone`).
+
 ### Login con Google / Microsoft
 
 Opcional. Registra la aplicación en el proveedor con la URI de retorno

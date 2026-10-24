@@ -3,12 +3,20 @@ from enum import StrEnum
 from functools import lru_cache
 from typing import Literal, Self
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Motor de transcripción: "local" (Whisper + pyannote en el worker; el audio no sale) u
 # "openai" (gpt-4o-transcribe-diarize, o el modelo de transcripción sin hablantes).
 TranscriptionEngine = Literal["local", "openai"]
+
+
+class ModelPrice(BaseModel):
+    """Precio en USD de un modelo (AI_PRICES). Se suman las partes que apliquen."""
+
+    input_per_mtok: float = 0  # por millón de tokens de entrada
+    output_per_mtok: float = 0  # por millón de tokens de salida
+    per_audio_minute: float = 0  # por minuto de audio (transcripción)
 
 
 class Environment(StrEnum):
@@ -122,6 +130,11 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openai_transcription_model: str = "whisper-1"
     openai_llm_model: str = ""
+
+    # --- Coste estimado ---------------------------------------------------------------------
+    # JSON {modelo: {input_per_mtok, output_per_mtok, per_audio_minute}} en USD. Consulta los
+    # precios vigentes del proveedor; sin entrada, se registra el consumo sin coste.
+    ai_prices: dict[str, ModelPrice] = Field(default_factory=dict)
 
     cors_origins: list[str] = Field(default_factory=list)
 

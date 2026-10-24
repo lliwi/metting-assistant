@@ -126,6 +126,30 @@ def enqueue_ai_output(output_id: uuid.UUID) -> None:
     generate_ai_output_task.delay(str(output_id))
 
 
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name="app.worker.tasks.purge_storage_prefix",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    max_retries=8,
+)
+def purge_storage_prefix(prefix: str) -> int:
+    """Borra los objetos de una organización eliminada (la base de datos ya no los referencia)."""
+    # Solo el prefijo exacto de una organización: nunca "orgs/" ni uno parcial ("orgs/ab"
+    # también casaría con "orgs/abc…").
+    parts = prefix.split("/")
+    try:
+        valid = (
+            len(parts) == 3 and parts[0] == "orgs" and parts[2] == "" and bool(uuid.UUID(parts[1]))
+        )
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ValueError(f"Prefijo no permitido: {prefix!r}")
+    deleted = get_storage().delete_prefix(prefix)
+    log.info("storage_prefix_purged", prefix=prefix, objects=deleted)
+    return int(deleted)
+
+
 @celery_app.task(name="app.worker.tasks.sweep_stuck_jobs")  # type: ignore[untyped-decorator]
 def sweep_stuck_jobs() -> tuple[int, int]:
     """Lo programa celery beat cada 10 minutos."""

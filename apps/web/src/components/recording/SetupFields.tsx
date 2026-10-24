@@ -8,6 +8,9 @@ import { useQuery } from "@/lib/api/useQuery";
 
 export type Language = Schemas["RecordingCreate"]["language"];
 
+/** Idiomas del audio que se pueden transcribir. */
+export const LANGUAGES: readonly Language[] = ["es", "ca", "en", "it"];
+
 /** Organización, idioma y consentimiento: comunes a grabar e importar. */
 export function useSetupState(lang: Locale) {
   const fetchOrgs = useCallback(
@@ -63,7 +66,7 @@ export function SetupFields({
           value={state.language}
           onChange={(e) => state.setLanguage(e.target.value as Language)}
         >
-          {(["es", "ca", "en"] as const).map((l) => (
+          {LANGUAGES.map((l) => (
             <option key={l} value={l}>
               {dict.recording.languages[l]}
             </option>

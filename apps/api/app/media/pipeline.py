@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.ai.asr import AsrError, AsrProvider
 from app.ai.diarization import Diarizer
 from app.ai.speakers import SpeakerTurn, assign_speakers, prepare_speakers
+from app.ai.usage import record_usage
 from app.audit import record_audit_event
 from app.core.config import get_settings
 from app.media.antivirus import Scanner
@@ -193,6 +194,18 @@ def process_recording(
     )
     rec.status = RecordingStatus.TRANSCRIBED
     rec.error_code = None
+    record_usage(
+        db,
+        organization_id=rec.organization_id,
+        recording_id=rec.id,
+        kind="transcription",
+        provider=result.provider,
+        model=result.model,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        audio_ms=rec.duration_ms,
+        processing_ms=result.processing_ms,
+    )
     record_audit_event(
         db,
         action="recording.transcribed",

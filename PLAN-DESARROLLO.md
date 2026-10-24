@@ -254,9 +254,14 @@ Orden acordado:
    hablantes. PyTorch, torchaudio y torchcodec se instalan en su variante CUDA 12 para
    compartir cuDNN con ctranslate2. Probado: 2 voces, mismos 11 turnos que OpenAI; 5 min de
    audio diarizados en ~11 s (1,6 GiB de VRAM).
-5. **Producción y pruebas** — TLS real, copias de seguridad, monitorización y coste por
-   trabajo (tokens), Playwright, carga, seguridad, aceptación con audio real; subir el
-   repositorio a un remoto para ejecutar la CI.
+5. **Producción y pruebas** — en curso.
+   - ✅ Coste por trabajo: tokens, minutos y coste estimado (AI_PRICES) por transcripción y
+     documento; consumo mensual por organización (propietarios y administradores).
+   - ✅ Copias de seguridad cifradas (base de datos + objetos) con verificación de restauración.
+   - ✅ Eliminar organizaciones (cascada en BD + purga del almacenamiento) e italiano como
+     idioma del audio (peticiones del 24/10).
+   - Pendiente: monitorización, Playwright, carga, seguridad, aceptación con audio real, TLS
+     real (dominio) y remoto para la CI.
 
 Mejoras de calidad: vocabulario por organización (nombres propios para el ASR), riesgos en
 el acta, ofrecer regenerar al renombrar hablantes, aviso al terminar (email/push),

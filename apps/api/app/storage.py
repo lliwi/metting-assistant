@@ -31,6 +31,19 @@ class ObjectStorage:
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
+    def delete_prefix(self, prefix: str) -> int:
+        """Borra todos los objetos bajo el prefijo (por lotes de hasta 1000). Devuelve cuántos."""
+        deleted = 0
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            keys = [{"Key": obj["Key"]} for obj in page.get("Contents", [])]
+            if keys:
+                self.client.delete_objects(
+                    Bucket=self.bucket, Delete={"Objects": keys, "Quiet": True}
+                )
+                deleted += len(keys)
+        return deleted
+
     def get(self, key: str) -> bytes:
         body: bytes = self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
         return body

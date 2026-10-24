@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -14,6 +15,11 @@ class OrganizationUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     # None no cambia; 0 desactiva el borrado automático.
     retention_days: int | None = Field(default=None, ge=0, le=3650)
+
+
+class OrganizationDelete(BaseModel):
+    # Hay que escribir el nombre de la organización para confirmar el borrado.
+    confirm_name: str = Field(min_length=1, max_length=200)
 
 
 class OrganizationOut(BaseModel):
@@ -62,3 +68,23 @@ class AuditEventOut(BaseModel):
     result: str
     resource_type: str | None
     resource_id: str | None
+
+
+class UsageItem(BaseModel):
+    kind: str
+    provider: str
+    model: str
+    jobs: int
+    input_tokens: int
+    output_tokens: int
+    audio_ms: int
+    # None si algún trabajo de este grupo no tiene precio configurado.
+    cost_usd: Decimal | None
+
+
+class UsageSummary(BaseModel):
+    month: str
+    items: list[UsageItem]
+    total_cost_usd: Decimal
+    # Hay consumo sin precio configurado (el total no lo incluye).
+    unpriced: bool

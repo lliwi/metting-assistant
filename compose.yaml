@@ -72,6 +72,7 @@ x-api-env: &api-env
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
   OPENAI_TRANSCRIPTION_MODEL: ${OPENAI_TRANSCRIPTION_MODEL:-whisper-1}
   OPENAI_LLM_MODEL: ${OPENAI_LLM_MODEL:-}
+  AI_PRICES: ${AI_PRICES:-{}}
 
 services:
   nginx:

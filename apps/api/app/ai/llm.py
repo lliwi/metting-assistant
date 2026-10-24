@@ -5,6 +5,7 @@ from typing import Any, Protocol
 
 import httpx
 
+from app.ai.usage import Usage
 from app.core.config import get_settings
 
 
@@ -17,6 +18,8 @@ class LlmError(Exception):
 class LlmProvider(Protocol):
     name: str
     model: str
+    # Tokens acumulados de todas las llamadas de esta instancia.
+    usage: Usage
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]: ...
 
@@ -43,6 +46,7 @@ class OllamaProvider:
         self.model = model
         self.num_ctx = num_ctx
         self.keep_alive = keep_alive
+        self.usage = Usage()
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -66,7 +70,9 @@ class OllamaProvider:
             raise LlmError(f"Ollama {response.status_code}: {response.text[:200]}", transient=True)
         if response.status_code >= 400:
             raise LlmError(f"Ollama {response.status_code}: {response.text[:200]}", transient=False)
-        return _parse(response.json()["message"]["content"])
+        body = response.json()
+        self.usage.add(body.get("prompt_eval_count"), body.get("eval_count"))
+        return _parse(body["message"]["content"])
 
 
 class OpenAILlmProvider:
@@ -78,6 +84,7 @@ class OpenAILlmProvider:
         # Los modelos de razonamiento (GPT-5…) solo admiten la temperatura por defecto: se
         # detecta en la primera llamada y se deja de enviar.
         self.fixed_temperature = False
+        self.usage = Usage()
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
         import openai
@@ -95,6 +102,9 @@ class OpenAILlmProvider:
             raise LlmError(str(exc), transient=True) from exc
         except openai.APIError as exc:
             raise LlmError(str(exc), transient=False) from exc
+        usage = getattr(completion, "usage", None)
+        if usage is not None:
+            self.usage.add(usage.prompt_tokens, usage.completion_tokens)
         return _parse(completion.choices[0].message.content or "")
 
     def _create(self, system: str, user: str, schema: dict[str, Any]) -> Any:

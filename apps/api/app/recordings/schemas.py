@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from app.core.config import TranscriptionEngine
 from app.models import RecordingSource, RecordingStatus
 
-Language = Literal["es", "ca", "en"]
+Language = Literal["es", "ca", "en", "it"]
 
 
 class RecordingCreate(BaseModel):

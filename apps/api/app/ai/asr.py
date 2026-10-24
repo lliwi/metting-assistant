@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 import structlog
 
+from app.ai.usage import Usage
 from app.core.config import TranscriptionEngine, get_settings
 from app.media.ffmpeg import split_audio
 
@@ -42,6 +43,9 @@ class AsrResult:
     provider: str
     model: str
     processing_ms: int
+    # Tokens facturados (modelos gpt-4o-transcribe*); 0 si el proveedor no los informa.
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 class AsrProvider(Protocol):
@@ -177,6 +181,7 @@ class OpenAIAsrProvider:
                 else split_audio(path, Path(tmp), OPENAI_PIECE_SECONDS)
             )
             segments: list[AsrSegment] = []
+            tokens = Usage()
             detected = language or ""
             for piece_index, (piece, offset) in enumerate(pieces, start=1):
                 try:
@@ -203,6 +208,11 @@ class OpenAIAsrProvider:
                     raise AsrError(str(exc), transient=True) from exc
                 except openai.APIError as exc:
                     raise AsrError(str(exc), transient=False) from exc
+                usage = getattr(response, "usage", None)
+                if usage is not None and getattr(usage, "type", "tokens") == "tokens":
+                    tokens.add(
+                        getattr(usage, "input_tokens", 0), getattr(usage, "output_tokens", 0)
+                    )
                 detected = detected or getattr(response, "language", "") or ""
                 for s in getattr(response, "segments", None) or []:
                     text = (s.text or "").strip()
@@ -229,10 +239,12 @@ class OpenAIAsrProvider:
             provider=self.name,
             model=self.model,
             processing_ms=int((time.monotonic() - started) * 1000),
+            input_tokens=tokens.input_tokens,
+            output_tokens=tokens.output_tokens,
         )
 
 
-_LANGUAGE_NAMES = {"spanish": "es", "catalan": "ca", "english": "en"}
+_LANGUAGE_NAMES = {"spanish": "es", "catalan": "ca", "english": "en", "italian": "it"}
 
 
 def _iso_language(value: str) -> str:

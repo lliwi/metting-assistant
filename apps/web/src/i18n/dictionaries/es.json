@@ -117,7 +117,12 @@
     "acceptTitle": "Invitación",
     "accepting": "Aceptando invitación…",
     "accepted": "Ya formas parte de «{name}».",
-    "open": "Abrir"
+    "open": "Abrir",
+    "dangerZone": "Zona de peligro",
+    "delete": "Eliminar organización",
+    "deleteWarning": "Se eliminarán definitivamente todas sus grabaciones, audios, transcripciones, resúmenes y actas, además de los miembros e invitaciones. No se puede deshacer.",
+    "deleteConfirmLabel": "Escribe «{name}» para confirmar",
+    "deleteSubmit": "Eliminar definitivamente"
   },
   "errors": {
     "unknown": "Algo ha fallado. Inténtalo de nuevo.",
@@ -167,7 +172,8 @@
     "nothing_to_export": "No hay contenido para exportar.",
     "not_editable": "El documento aún no está listo.",
     "engine_unavailable": "Ese motor de transcripción no está disponible.",
-    "no_account": "No hay ninguna cuenta con ese email. Pide acceso a un administrador."
+    "no_account": "No hay ninguna cuenta con ese email. Pide acceso a un administrador.",
+    "confirmation_mismatch": "El nombre no coincide."
   },
   "recording": {
     "newTitle": "Nueva grabación",
@@ -178,7 +184,8 @@
     "languages": {
       "es": "Español",
       "ca": "Catalán",
-      "en": "Inglés"
+      "en": "Inglés",
+      "it": "Italiano"
     },
     "consentTitle": "Consentimiento de los participantes",
     "consentText": "Antes de grabar, informa a todas las personas presentes y obtén su autorización. El audio y su transcripción se guardarán en la organización seleccionada.",
@@ -352,5 +359,25 @@
     "text": "Texto",
     "description": "Descripción",
     "refsKept": "Las referencias a la transcripción se conservan."
+  },
+  "usage": {
+    "title": "Consumo de IA",
+    "month": "Mes",
+    "empty": "Sin consumo este mes.",
+    "kind": "Trabajo",
+    "model": "Proveedor y modelo",
+    "jobs": "Trabajos",
+    "audioMinutes": "Audio (min)",
+    "tokens": "Tokens (entrada / salida)",
+    "cost": "Coste estimado",
+    "total": "Total estimado",
+    "noPrice": "Sin precio",
+    "tokensHint": "Coste estimado con los precios configurados en AI_PRICES; los motores locales no tienen coste por uso.",
+    "unpricedHint": "Algunos modelos no tienen precio configurado y no se incluyen en el total.",
+    "kinds": {
+      "transcription": "Transcripción",
+      "summary": "Resumen",
+      "minutes": "Acta"
+    }
   }
 }

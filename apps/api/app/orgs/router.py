@@ -1,9 +1,10 @@
 import uuid
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.audit import record_audit_event
@@ -15,7 +16,16 @@ from app.core.errors import AppError
 from app.core.rate_limit import RateLimiter, get_rate_limiter
 from app.core.request_context import ClientInfo, get_client_info
 from app.core.security import generate_token, hash_token
-from app.models import AuditEvent, Membership, Organization, OrganizationInvitation, Role, User
+from app.models import (
+    AuditEvent,
+    Membership,
+    Organization,
+    OrganizationInvitation,
+    Recording,
+    Role,
+    UsageRecord,
+    User,
+)
 from app.notifications.email import EmailOutbox, build_email, get_email_outbox
 from app.orgs.permissions import Action, authorize, can_assign_role
 from app.orgs.schemas import (
@@ -26,8 +36,11 @@ from app.orgs.schemas import (
     MemberOut,
     MemberUpdate,
     OrganizationCreate,
+    OrganizationDelete,
     OrganizationOut,
     OrganizationUpdate,
+    UsageItem,
+    UsageSummary,
 )
 from app.orgs.service import create_organization
 
@@ -127,6 +140,54 @@ def update_org(
 
 
 # --- Miembros ------------------------------------------------------------------------------
+
+
+class OrgTasks:
+    """Encolado de trabajos del worker (sustituible en tests)."""
+
+    def purge_storage(self, prefix: str) -> None:
+        from app.worker.tasks import purge_storage_prefix
+
+        purge_storage_prefix.delay(prefix)
+
+
+def get_org_tasks() -> OrgTasks:
+    return OrgTasks()
+
+
+@router.delete("/organizations/{org_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_org(
+    org_id: uuid.UUID,
+    body: OrganizationDelete,
+    user: CurrentUser,
+    db: DbSession,
+    client: Client,
+    tasks: Annotated[OrgTasks, Depends(get_org_tasks)],
+) -> None:
+    """Borra la organización con sus grabaciones, transcripciones, documentos, miembros e
+    invitaciones. El audio se purga después en el worker. Solo propietarios; irreversible."""
+    org, _ = authorize(db, user.id, org_id, Action.ORG_DELETE)
+    if org.is_personal:
+        raise AppError("personal_organization", "El espacio personal no se puede eliminar", 409)
+    if body.confirm_name.strip() != org.name.strip():
+        raise AppError(
+            "confirmation_mismatch", "El nombre no coincide con el de la organización", 422
+        )
+    recordings = db.scalar(select(func.count()).where(Recording.organization_id == org.id))
+    # Se registra sin organization_id: la fila de auditoría sobrevive a la organización.
+    record_audit_event(
+        db,
+        action="org.delete",
+        client=client,
+        actor_id=user.id,
+        resource_type="organization",
+        resource_id=org.id,
+        metadata={"name": org.name, "recordings": recordings},
+    )
+    # El resto lo borra la base de datos en cascada (ON DELETE CASCADE).
+    db.execute(delete(Organization).where(Organization.id == org.id))
+    db.commit()
+    tasks.purge_storage(f"orgs/{org.id}/")
 
 
 @router.get("/organizations/{org_id}/members")
@@ -407,3 +468,59 @@ def list_audit_events(
         )
         for e in rows
     ]
+
+
+@router.get("/organizations/{org_id}/usage")
+def get_usage(
+    org_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    month: Annotated[str | None, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")] = None,
+) -> UsageSummary:
+    """Consumo de IA del mes (UTC), agrupado por tipo de trabajo, proveedor y modelo."""
+    authorize(db, user.id, org_id, Action.USAGE_READ)
+    start = (
+        datetime.strptime(month, "%Y-%m").replace(tzinfo=UTC)
+        if month
+        else now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    )
+    end = (start + timedelta(days=32)).replace(day=1)
+    rows = db.execute(
+        select(
+            UsageRecord.kind,
+            UsageRecord.provider,
+            UsageRecord.model,
+            func.count().label("jobs"),
+            func.coalesce(func.sum(UsageRecord.input_tokens), 0).label("input_tokens"),
+            func.coalesce(func.sum(UsageRecord.output_tokens), 0).label("output_tokens"),
+            func.coalesce(func.sum(UsageRecord.audio_ms), 0).label("audio_ms"),
+            func.sum(UsageRecord.cost_usd).label("cost_usd"),
+            func.count(UsageRecord.cost_usd).label("priced"),
+        )
+        .where(
+            UsageRecord.organization_id == org_id,
+            UsageRecord.created_at >= start,
+            UsageRecord.created_at < end,
+        )
+        .group_by(UsageRecord.kind, UsageRecord.provider, UsageRecord.model)
+        .order_by(UsageRecord.kind, UsageRecord.provider, UsageRecord.model)
+    ).all()
+    items = [
+        UsageItem(
+            kind=row.kind,
+            provider=row.provider,
+            model=row.model,
+            jobs=row.jobs,
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            audio_ms=row.audio_ms,
+            cost_usd=row.cost_usd if row.priced == row.jobs else None,
+        )
+        for row in rows
+    ]
+    return UsageSummary(
+        month=start.strftime("%Y-%m"),
+        items=items,
+        total_cost_usd=sum((i.cost_usd or Decimal(0) for i in items), Decimal(0)),
+        unpriced=any(i.cost_usd is None for i in items),
+    )

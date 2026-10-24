@@ -16,6 +16,9 @@ import { format } from "@/i18n/format";
 import { api, errorCode, type Schemas, type User } from "@/lib/api/client";
 import { useQuery } from "@/lib/api/useQuery";
 
+import { DeleteOrganization } from "./DeleteOrganization";
+import { UsageSection } from "./UsageSection";
+
 type Props = { dict: Dictionary; lang: Locale };
 type Role = Schemas["Role"];
 type Org = Schemas["OrganizationOut"];
@@ -65,6 +68,12 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
         <Invitations dict={dict} org={org} />
       )}
       {org.is_personal && <p className="hint">{dict.orgs.personalNoMembers}</p>}
+      {canManage(org.role) && (
+        <UsageSection dict={dict} lang={lang} orgId={org.id} />
+      )}
+      {org.role === "owner" && !org.is_personal && (
+        <DeleteOrganization dict={dict} lang={lang} org={org} />
+      )}
     </div>
   );
 }
