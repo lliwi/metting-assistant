@@ -5,7 +5,6 @@ import {
   Languages,
   LogIn,
   LogOut,
-  UserPlus,
   UserRound,
   Users,
   type LucideIcon,
@@ -106,13 +105,6 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
                   href={`/${lang}/login`}
                   label={dict.nav.login}
                   icon={LogIn}
-                />
-              </li>
-              <li>
-                <IconLink
-                  href={`/${lang}/register`}
-                  label={dict.nav.register}
-                  icon={UserPlus}
                 />
               </li>
             </ul>

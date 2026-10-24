@@ -31,11 +31,32 @@ docker compose -f compose.yaml -f infra/compose/dev.yaml up -d --build --wait
 
 Si tu `.env` es anterior a la Fase 1, añade `APP_SECRET_KEY`, `DATA_ENCRYPTION_KEY`, `PUBLIC_APP_URL` y `COOKIE_SECURE` (ver `.env.example`).
 
+### Usuarios
+
+No hay registro público: las cuentas las crea un administrador con `scripts/users.sh`
+(ejecuta `python -m app.auth.cli` en el contenedor de la API). Se crean activas y con
+su espacio personal; cada usuario puede cambiar su contraseña en «Mi cuenta».
+
+```sh
+scripts/users.sh create ana@example.com --name "Ana"              # pide la contraseña
+scripts/users.sh create bob@example.com --name "Bob" --org "Equipo" --role member \
+    --generate-password                                             # la muestra una vez
+scripts/users.sh add-to-org ana@example.com "Equipo" --role admin   # roles: owner|admin|member|viewer
+scripts/users.sh set-password ana@example.com                      # cierra sus sesiones
+scripts/users.sh disable ana@example.com                           # enable la reactiva
+scripts/users.sh list
+```
+
+`--org` acepta el id o el nombre de la organización; si no existe, se crea con ese usuario
+como propietario.
+
 ### Login con Google / Microsoft
 
 Opcional. Registra la aplicación en el proveedor con la URI de retorno
 `${PUBLIC_APP_URL}/api/v1/auth/oidc/<google|microsoft>/callback` y rellena `GOOGLE_CLIENT_ID`/`SECRET`
 o `MICROSOFT_CLIENT_ID`/`SECRET`/`TENANT`. Los botones aparecen solos en el login cuando hay credenciales.
+Solo dan acceso a cuentas ya creadas: Google se vincula por email verificado; Microsoft no
+garantiza el email, así que no vincula cuentas existentes por email.
 
 `--wait` espera a los health checks. Las migraciones se ejecutan en el job `migrate` antes de que arranque la API y el worker.
 

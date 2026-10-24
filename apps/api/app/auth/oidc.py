@@ -21,7 +21,6 @@ from app.auth.sessions import now
 from app.core.config import Settings, get_settings
 from app.core.request_context import ClientInfo
 from app.models import AuditResult, User, UserIdentity, UserStatus
-from app.orgs.service import create_personal_organization
 
 STATE_TTL_SECONDS = 600
 _CACHE_TTL_SECONDS = 3600
@@ -207,7 +206,10 @@ class OidcClient:
 def resolve_user(
     db: Session, provider: Provider, claims: dict[str, Any], client: ClientInfo
 ) -> User:
-    """Busca o crea el usuario de una identidad externa. No abre sesión (puede faltar MFA)."""
+    """Busca el usuario de una identidad externa. No abre sesión (puede faltar MFA).
+
+    No hay registro público: solo entran cuentas creadas por un administrador
+    (`python -m app.auth.cli`); la identidad se vincula por email verificado."""
     subject = str(claims["sub"])
     email_claim = claims.get("email") or claims.get("preferred_username")
     email = (
@@ -229,26 +231,12 @@ def resolve_user(
         if email is None:
             raise OidcError("email_required")
         user_or_none = find_user_by_email(db, email)
-        if user_or_none is not None:
-            if not email_verified:
-                # No se vincula a una cuenta existente sin garantía de que el email es suyo.
-                raise OidcError("account_exists")
-            user = user_or_none
-        else:
-            name = str(claims.get("name") or email.split("@")[0])[:200]
-            user = User(email=email, name=name, status=UserStatus.ACTIVE, password_hash=None)
-            db.add(user)
-            db.flush()
-            create_personal_organization(db, user)
-            record_audit_event(
-                db,
-                action="auth.register",
-                client=client,
-                actor_id=user.id,
-                resource_type="user",
-                resource_id=user.id,
-                metadata={"method": provider.name},
-            )
+        if user_or_none is None:
+            raise OidcError("no_account")
+        if not email_verified:
+            # No se vincula a una cuenta existente sin garantía de que el email es suyo.
+            raise OidcError("account_exists")
+        user = user_or_none
         db.add(UserIdentity(user_id=user.id, provider=provider.name, subject=subject, email=email))
 
     if user.status is UserStatus.DISABLED:

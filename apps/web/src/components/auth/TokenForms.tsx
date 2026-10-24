@@ -2,48 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { Field, FormMessage, useAction } from "@/components/forms";
 import type { Dictionary, Locale } from "@/i18n/client";
 import { api } from "@/lib/api/client";
 
 type Props = { dict: Dictionary; lang: Locale };
-
-export function VerifyEmail({ dict, lang }: Props) {
-  const token = useSearchParams().get("token");
-  const { error, setError, run } = useAction(dict);
-  const [done, setDone] = useState(false);
-  const started = useRef(false);
-
-  useEffect(() => {
-    // Un solo intento: el token es de un solo uso (y StrictMode ejecuta efectos dos veces).
-    if (started.current) return;
-    started.current = true;
-    if (!token) {
-      setError(dict.auth.missingToken);
-      return;
-    }
-    void run(() => api.POST("/v1/auth/verify-email", { body: { token } })).then(
-      (data) => {
-        if (data) setDone(true);
-      },
-    );
-  }, [token, run, setError, dict]);
-
-  return (
-    <div className="card form">
-      <h1>{dict.auth.verifyTitle}</h1>
-      {!done && !error && <p role="status">{dict.auth.verifying}</p>}
-      <FormMessage error={error} success={done ? dict.auth.verified : null} />
-      {done && (
-        <Link className="button primary" href={`/${lang}/login`}>
-          {dict.nav.login}
-        </Link>
-      )}
-    </div>
-  );
-}
 
 export function ForgotPasswordForm({ dict }: Props) {
   const { pending, error, run } = useAction(dict);

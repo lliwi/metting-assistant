@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field
 
 from app.models import Role
 
@@ -15,20 +15,6 @@ PASSWORD_MAX_LENGTH = 128
 class Password(BaseModel):
     # Longitud mínima en lugar de reglas de composición (NIST SP 800-63B).
     password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
-
-
-class RegisterRequest(Password):
-    email: EmailStr
-    name: str = Field(min_length=1, max_length=200)
-    locale: Locale = "es"
-
-    @field_validator("name")
-    @classmethod
-    def _strip_name(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("El nombre no puede estar vacío")
-        return v
 
 
 class EmailRequest(BaseModel):

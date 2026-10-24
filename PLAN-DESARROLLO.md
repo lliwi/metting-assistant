@@ -81,7 +81,7 @@ Estimación orientativa para un equipo de 2–3 personas (1 frontend, 1 backend,
 - Registro y login con email+contraseña (Argon2id), verificación de email, recuperación de contraseña.
 - Login con Google y Microsoft (OIDC).
 - MFA TOTP opcional; WebAuthn opcional si da tiempo (si no, pasa a Fase 2).
-- Espacio personal creado al registrarse; organizaciones con roles `owner`, `admin`, `member`, `viewer`.
+- Sin registro público: cuentas creadas por un administrador (`scripts/users.sh`), cada una con su espacio personal; organizaciones con roles `owner`, `admin`, `member`, `viewer`.
 - Capa de autorización central (`authorize(actor, action, resource)`) usada por todos los endpoints; filtro obligatorio por `organization_id` en el repositorio de datos.
 - Auditoría de inicios de sesión y acciones administrativas.
 - Rate limiting en login (Redis) y protección CSRF.

@@ -20,9 +20,7 @@ from app.auth.schemas import (
     PasswordChangeRequest,
     PasswordResetRequest,
     RecoveryCodesResponse,
-    RegisterRequest,
     SessionOut,
-    TokenRequest,
     TotpCodeRequest,
     TotpSetupResponse,
     UpdateMeRequest,
@@ -79,37 +77,6 @@ def user_out(db: Session, user: User) -> UserOut:
 def get_csrf_token(response: Response) -> CsrfResponse:
     """Emite el token CSRF (cookie legible + cuerpo). Llamar antes de la primera petición POST."""
     return CsrfResponse(csrf_token=set_csrf_cookie(response))
-
-
-@router.post("/register", status_code=status.HTTP_202_ACCEPTED)
-def register(
-    body: RegisterRequest, db: DbSession, outbox: Outbox, limiter: Limiter, client: Client
-) -> AcceptedResponse:
-    service.register(
-        db,
-        outbox,
-        limiter,
-        client,
-        email=body.email,
-        password=body.password,
-        name=body.name,
-        locale=body.locale,
-    )
-    return AcceptedResponse()
-
-
-@router.post("/verify-email")
-def verify_email(body: TokenRequest, db: DbSession, client: Client) -> AcceptedResponse:
-    service.verify_email(db, client, token=body.token)
-    return AcceptedResponse()
-
-
-@router.post("/resend-verification", status_code=status.HTTP_202_ACCEPTED)
-def resend_verification(
-    body: EmailRequest, db: DbSession, outbox: Outbox, limiter: Limiter, client: Client
-) -> AcceptedResponse:
-    service.resend_verification(db, outbox, limiter, client, email=body.email)
-    return AcceptedResponse()
 
 
 @router.post("/login")

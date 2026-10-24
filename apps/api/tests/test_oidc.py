@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.oidc import OidcClient
 from app.auth.oidc_router import STATE_COOKIE, get_oidc_client
-from app.models import Membership, User, UserIdentity, UserStatus
+from app.models import User, UserIdentity, UserStatus
 from tests.conftest import ApiClient
 
 pytestmark = pytest.mark.db
@@ -129,18 +129,24 @@ def sign_in(
 GOOGLE_CLAIMS = {"sub": "g-123", "email": "ana@gmail.com", "email_verified": True, "name": "Ana"}
 
 
-def test_new_google_user_is_created_and_logged_in(
+def test_unknown_identity_does_not_create_an_account(
     client: ApiClient, provider: FakeProvider, db: Session
 ) -> None:
+    """Sin registro público: OIDC solo da acceso a cuentas que ya existen."""
     res = sign_in(client, provider, "google", GOOGLE_CLAIMS)
     assert res.status_code == 303
+    assert res.headers["location"] == "http://testserver/es/login?error=no_account"
+    assert db.scalars(select(User)).all() == []
+    assert db.scalars(select(UserIdentity)).all() == []
+
+
+def test_existing_account_signs_in_without_duplicates(
+    client: ApiClient, provider: FakeProvider, db: Session, make_user: Callable[..., User]
+) -> None:
+    make_user("ana@gmail.com")
+    res = sign_in(client, provider, "google", GOOGLE_CLAIMS)
     assert res.headers["location"] == "http://testserver/es/library"
     assert client.get("/v1/auth/me").json()["email"] == "ana@gmail.com"
-
-    user = db.scalars(select(User)).one()
-    assert user.status is UserStatus.ACTIVE
-    assert user.password_hash is None
-    assert db.scalars(select(Membership)).one().user_id == user.id
 
     # Segundo login: misma identidad, sin duplicar el usuario.
     client.cookies.clear()
@@ -175,7 +181,9 @@ def test_microsoft_multitenant_issuer_is_validated(
 ) -> None:
     claims = {"sub": "ms-2", "tid": "tenant-9", "email": "bob@fabrikam.com", "name": "Bob"}
     res = sign_in(client, provider, "microsoft", claims)
-    assert res.headers["location"].endswith("/es/library")
+    # El emisor del tenant se acepta (si no, sería invalid_id_token); falla después porque
+    # la cuenta no existe.
+    assert res.headers["location"].endswith("/es/login?error=no_account")
 
 
 def test_callback_without_state_cookie_is_rejected(
@@ -217,7 +225,10 @@ def test_token_signed_with_other_key_is_rejected(client: ApiClient, provider: Fa
     assert res.headers["location"].endswith("error=invalid_id_token")
 
 
-def test_open_redirect_is_blocked(client: ApiClient, provider: FakeProvider) -> None:
+def test_open_redirect_is_blocked(
+    client: ApiClient, provider: FakeProvider, make_user: Callable[..., User]
+) -> None:
+    make_user("ana@gmail.com")
     res = sign_in(client, provider, "google", GOOGLE_CLAIMS, next_path="//evil.example/x")
     assert res.headers["location"] == "http://testserver/es"
 

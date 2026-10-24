@@ -40,8 +40,6 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
     fragment.get("mfa_token"),
   );
   const [code, setCode] = useState("");
-  const [notVerified, setNotVerified] = useState(false);
-  const [resent, setResent] = useState(false);
   const [providers, setProviders] = useState<string[]>([]);
   const [next] = useState(() =>
     safeNextPath(fragment.get("next") ?? search.get("next"), `/${lang}`),
@@ -72,14 +70,9 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
 
   async function submitCredentials(e: React.FormEvent) {
     e.preventDefault();
-    setNotVerified(false);
-    const data = await run(async () => {
-      const res = await api.POST("/v1/auth/login", {
-        body: { email, password },
-      });
-      if (res.response.status === 403) setNotVerified(true);
-      return res;
-    });
+    const data = await run(() =>
+      api.POST("/v1/auth/login", { body: { email, password } }),
+    );
     if (!data) return;
     setPassword("");
     if (data.status === "mfa_required" && data.mfa_token) {
@@ -104,13 +97,6 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
       setUser(data.user);
       router.replace(next);
     }
-  }
-
-  async function resend() {
-    const data = await run(() =>
-      api.POST("/v1/auth/resend-verification", { body: { email } }),
-    );
-    if (data) setResent(true);
   }
 
   if (mfaToken) {
@@ -162,18 +148,7 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
         />
         <FormMessage
           error={error ?? (oidcError ? errorMessage(dict, oidcError) : null)}
-          success={resent ? dict.auth.resendDone : null}
         />
-        {notVerified && !resent && (
-          <button
-            type="button"
-            className="link-button"
-            onClick={resend}
-            disabled={pending}
-          >
-            {dict.auth.resendVerification}
-          </button>
-        )}
         <button type="submit" className="button primary" disabled={pending}>
           {dict.auth.loginSubmit}
         </button>
@@ -199,10 +174,7 @@ export function LoginForm({ dict, lang }: { dict: Dictionary; lang: Locale }) {
       <p className="hint">
         <Link href={`/${lang}/forgot-password`}>{dict.auth.forgotLink}</Link>
       </p>
-      <p className="hint">
-        {dict.auth.noAccount}{" "}
-        <Link href={`/${lang}/register`}>{dict.nav.register}</Link>
-      </p>
+      <p className="hint">{dict.auth.noAccount}</p>
     </div>
   );
 }
