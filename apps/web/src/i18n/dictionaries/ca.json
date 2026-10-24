@@ -266,7 +266,7 @@
     "reprocessLanguage": "Idioma",
     "reprocessQueued": "S'ha posat en cua una nova transcripció.",
     "empty": "La transcripció no conté text (àudio en silenci?).",
-    "back": "Enregistraments",
+    "back": "Torna als enregistraments",
     "engine": "Motor de transcripció",
     "engines": {
       "local": "Local (aquest servidor)",

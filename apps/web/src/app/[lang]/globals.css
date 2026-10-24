@@ -613,6 +613,11 @@ details summary {
   color: var(--accent);
 }
 
+/* Volver a la lista: alineado con el borde del contenido pese al área táctil de 44 px. */
+.back-link {
+  margin-left: -10px;
+}
+
 .transcript li:target {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
