@@ -136,6 +136,9 @@ class Settings(BaseSettings):
     # precios vigentes del proveedor; sin entrada, se registra el consumo sin coste.
     ai_prices: dict[str, ModelPrice] = Field(default_factory=dict)
 
+    # Operaciones Argon2 simultáneas por proceso (64 MiB cada una).
+    argon2_max_concurrency: int = Field(default=2, ge=1, le=32)
+
     cors_origins: list[str] = Field(default_factory=list)
 
     @property

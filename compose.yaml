@@ -128,6 +128,8 @@ services:
       ROOT_PATH: /api
       # Métricas agregadas de todos los procesos de gunicorn (tmpfs: se vacía al arrancar).
       PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
+      # 4 procesos con 2 CPU y 1 GB: ~64 peticiones/s en la prueba de carga (scripts/loadtest.sh).
+      WEB_CONCURRENCY: ${API_WORKERS:-4}
     networks: [edge, internal]
     depends_on:
       migrate:

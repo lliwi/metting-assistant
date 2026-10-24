@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import secrets
+import threading
 from functools import lru_cache
 
 from argon2 import PasswordHasher
@@ -11,8 +12,12 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.config import get_settings
 
-# Parámetros por defecto de argon2-cffi (Argon2id, RFC 9106 perfil "low memory").
+# Parámetros por defecto de argon2-cffi (Argon2id, RFC 9106 perfil "low memory"): cada operación
+# reserva 64 MiB. Sin límite, una ráfaga de logins (o un ataque desde muchas IPs) agota la
+# memoria de la API; con el semáforo, como mucho ARGON2_MAX_CONCURRENCY por proceso y el resto
+# espera su turno.
 _hasher = PasswordHasher()
+_argon2_slots = threading.BoundedSemaphore(get_settings().argon2_max_concurrency)
 # Hash de referencia para igualar el tiempo de respuesta cuando el usuario no existe.
 _DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(16))
 
@@ -22,13 +27,16 @@ class MissingSecretError(RuntimeError):
 
 
 def hash_password(password: str) -> str:
-    return _hasher.hash(password)
+    with _argon2_slots:
+        return _hasher.hash(password)
 
 
 def verify_password(password_hash: str | None, password: str) -> bool:
     """Comprueba la contraseña en tiempo similar exista o no el hash."""
     try:
-        return _hasher.verify(password_hash or _DUMMY_HASH, password) and password_hash is not None
+        with _argon2_slots:
+            valid = _hasher.verify(password_hash or _DUMMY_HASH, password)
+        return valid and password_hash is not None
     except (VerificationError, InvalidHashError):
         return False
 
