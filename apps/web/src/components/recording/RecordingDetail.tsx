@@ -13,7 +13,7 @@ import { api, errorCode, type Schemas, type User } from "@/lib/api/client";
 import { useQuery } from "@/lib/api/useQuery";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
-import { AiGenerate, AiOutputSection } from "./AiOutputs";
+import { AiGenerate, AiOutputSection, KINDS } from "./AiOutputs";
 import { canDeleteRecording, DeleteRecording } from "./DeleteRecording";
 import { EditableTitle } from "./EditableTitle";
 import { ExportPanel } from "./ExportPanel";
@@ -154,7 +154,7 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
         </div>
 
         {transcribed &&
-          (["summary", "minutes"] as const).map(
+          KINDS.map(
             (kind) =>
               byKind[kind] && (
                 <AiOutputSection

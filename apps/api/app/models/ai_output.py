@@ -13,6 +13,8 @@ from app.models.base import Base, Timestamps, UUIDPrimaryKey, str_enum
 class AiOutputKind(StrEnum):
     SUMMARY = "summary"
     MINUTES = "minutes"
+    # Apuntes de una clase: explicación ordenada, conceptos, ejemplos y repaso.
+    CLASS_NOTES = "class_notes"
 
 
 class AiOutputStatus(StrEnum):

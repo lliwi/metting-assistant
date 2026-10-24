@@ -1,4 +1,4 @@
-"""Exportación de una grabación: transcripción, resumen y acta en varios formatos."""
+"""Exportación de una grabación: transcripción, resumen, acta y apuntes en varios formatos."""
 
 import html
 import io
@@ -19,6 +19,11 @@ LABELS: dict[str, dict[str, str]] = {
         "owner": "Responsable",
         "due": "Fecha límite",
         "open_questions": "Preguntas abiertas",
+        "class_notes": "Apuntes de clase",
+        "concepts": "Conceptos clave",
+        "examples": "Ejemplos",
+        "review": "Para repasar",
+        "homework": "Deberes",
         "none": "Ninguno.",
         "speaker": "Hablante",
         "date": "Fecha",
@@ -37,6 +42,11 @@ LABELS: dict[str, dict[str, str]] = {
         "owner": "Responsable",
         "due": "Data límit",
         "open_questions": "Preguntes obertes",
+        "class_notes": "Apunts de classe",
+        "concepts": "Conceptes clau",
+        "examples": "Exemples",
+        "review": "Per repassar",
+        "homework": "Deures",
         "none": "Cap.",
         "speaker": "Parlant",
         "date": "Data",
@@ -64,6 +74,7 @@ class ExportContext:
     speaker_names: dict[str, str] = field(default_factory=dict)
     summary: dict[str, Any] | None = None
     minutes: dict[str, Any] | None = None
+    class_notes: dict[str, Any] | None = None
 
     @property
     def labels(self) -> dict[str, str]:
@@ -148,11 +159,46 @@ def blocks(ctx: ExportContext) -> list[Block]:
         out.append(Block("h3", lb["open_questions"]))
         out += _items(m.get("preguntas_abiertas"), lambda i: i.get("texto", ""), lb)
         out.append(Block("notice", lb["ai_notice"]))
+    if ctx.class_notes:
+        out += _class_notes(ctx.class_notes, lb)
     if ctx.segments:
         out.append(Block("h2", lb["transcript"]))
         for seg in ctx.segments:
             who = ctx.speaker(seg.speaker)
             out.append(Block("p", f"{who + ': ' if who else ''}{seg.text}", clock(seg.start_ms)))
+    return out
+
+
+def _paragraphs(text: Any, ref: str = "") -> list[Block]:
+    parts = [p for p in str(text or "").split("\n") if p.strip()]
+    # La cita va en el último párrafo, al final de la explicación.
+    return [Block("p", p, ref if i == len(parts) - 1 else "") for i, p in enumerate(parts)]
+
+
+def _class_notes(n: dict[str, Any], lb: dict[str, str]) -> list[Block]:
+    out = [Block("h2", lb["class_notes"])]
+    if n.get("titulo"):
+        out.append(Block("p", str(n["titulo"])))
+    out += _paragraphs(n.get("introduccion"))
+    for section in n.get("secciones") or []:
+        out.append(Block("h3", str(section.get("titulo", ""))))
+        out += _paragraphs(section.get("contenido"), _refs(section))
+    out.append(Block("h3", lb["concepts"]))
+    out += _items(
+        n.get("conceptos"), lambda i: f"{i.get('termino', '')}: {i.get('definicion', '')}", lb
+    )
+    out.append(Block("h3", lb["examples"]))
+    out += _items(n.get("ejemplos"), lambda i: i.get("texto", ""), lb)
+    out.append(Block("h3", lb["review"]))
+    out += _items(n.get("para_repasar"), lambda i: i.get("texto", ""), lb)
+    out.append(Block("h3", lb["homework"]))
+
+    def homework(i: dict[str, Any]) -> str:
+        due = f" ({lb['due']}: {i['fecha_limite']})" if i.get("fecha_limite") else ""
+        return f"{i.get('descripcion', '')}{due}"
+
+    out += _items(n.get("deberes"), homework, lb)
+    out.append(Block("notice", lb["ai_notice"]))
     return out
 
 

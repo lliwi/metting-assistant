@@ -832,7 +832,8 @@ export interface paths {
         };
         /**
          * Export Recording
-         * @description Descarga la grabación en el formato indicado. Resumen y acta se incluyen si existen.
+         * @description Descarga la grabación en el formato indicado. Resumen, acta y apuntes se incluyen si
+         *     existen.
          */
         get: operations["export_recording_v1_recordings__recording_id__exports__fmt__get"];
         put?: never;
@@ -860,7 +861,7 @@ export interface components {
          * AiOutputKind
          * @enum {string}
          */
-        AiOutputKind: "summary" | "minutes";
+        AiOutputKind: "summary" | "minutes" | "class_notes";
         /** AiOutputOut */
         AiOutputOut: {
             /**
@@ -3803,6 +3804,7 @@ export interface operations {
                 transcript?: boolean;
                 summary?: boolean;
                 minutes?: boolean;
+                class_notes?: boolean;
             };
             header?: never;
             path: {

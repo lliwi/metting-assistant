@@ -24,6 +24,23 @@ from tests.test_pipeline import CleanScanner, Queue, record
 pytestmark = pytest.mark.db
 
 
+CLASS_NOTES: dict[str, Any] = {
+    "titulo": "Fotosíntesis",
+    "introduccion": "Cómo obtienen energía las plantas.",
+    "secciones": [
+        {
+            "titulo": "Fase luminosa",
+            "contenido": "Ocurre en los tilacoides.\nProduce ATP.",
+            "segmentos": [0, 42],  # 42 no existe: se descarta
+        }
+    ],
+    "conceptos": [{"termino": "Clorofila", "definicion": "Pigmento verde.", "segmentos": [1]}],
+    "ejemplos": [],
+    "para_repasar": [{"texto": "¿Dónde ocurre la fase luminosa?", "segmentos": [0]}],
+    "deberes": [{"descripcion": "Leer el tema 4", "fecha_limite": "el lunes", "segmentos": [1]}],
+}
+
+
 class FakeLlm:
     name = "fake"
     model = "fake-llm"
@@ -38,8 +55,10 @@ class FakeLlm:
         self.usage.add(1_000, 200)  # tokens simulados por llamada
         if self.replies:
             return self.replies.pop(0)
-        if "fragmento de una reunión larga" in system:
+        if "fragmento de una sesión larga" in system:
             return {"notas": [{"texto": "nota", "segmentos": [0]}], "decisiones": [], "tareas": []}
+        if "apuntes de la clase" in system:
+            return CLASS_NOTES
         if "acta" in system:
             return {
                 "titulo": "Seguimiento",

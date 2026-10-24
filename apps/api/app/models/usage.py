@@ -22,7 +22,7 @@ class UsageRecord(UUIDPrimaryKey, Base):
     recording_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("recordings.id", ondelete="SET NULL")
     )
-    # "transcription" | "summary" | "minutes"
+    # "transcription" | "summary" | "minutes" | "class_notes"
     kind: Mapped[str] = mapped_column(String(32))
     provider: Mapped[str] = mapped_column(String(32))
     model: Mapped[str] = mapped_column(String(100))

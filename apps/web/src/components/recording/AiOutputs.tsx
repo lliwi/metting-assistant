@@ -168,7 +168,7 @@ function Minutes({
   );
 }
 
-const KINDS: Kind[] = ["summary", "minutes"];
+export const KINDS: Kind[] = ["summary", "minutes", "class_notes"];
 
 /** Un único botón para crear los documentos que aún no existen; el tipo se elige en la lista. */
 export function AiGenerate({
@@ -218,7 +218,7 @@ export function AiGenerate({
         >
           {missing.map((k) => (
             <option key={k} value={k}>
-              {k === "summary" ? dict.ai.summary : dict.ai.minutes}
+              {kindTitle(dict, k)}
             </option>
           ))}
         </select>
@@ -229,6 +229,116 @@ export function AiGenerate({
       <FormMessage error={error} />
     </form>
   );
+}
+
+function ClassNotes({
+  dict,
+  content,
+}: {
+  dict: Dictionary;
+  content: Record<string, unknown>;
+}) {
+  const sections =
+    (content.secciones as
+      (Item & { titulo?: string; contenido?: string })[] | undefined) ?? [];
+  const paragraphs = (text: unknown) =>
+    String(text ?? "")
+      .split(/\n+/)
+      .filter(Boolean);
+  return (
+    <>
+      {typeof content.titulo === "string" && (
+        <p className="minutes-title">{content.titulo}</p>
+      )}
+      {paragraphs(content.introduccion).map((p, i) => (
+        <p key={i}>{p}</p>
+      ))}
+      {sections.map((s, i) => (
+        <div key={i} className="topic">
+          <h3>{s.titulo}</h3>
+          {paragraphs(s.contenido).map((p, j, all) => (
+            <p key={j}>
+              {p}{" "}
+              {j === all.length - 1 && (
+                <Sources dict={dict} refs={s.segmentos} />
+              )}
+            </p>
+          ))}
+        </div>
+      ))}
+
+      <h3>{dict.ai.concepts}</h3>
+      <ItemList
+        dict={dict}
+        items={content.conceptos as Item[]}
+        render={(i) => (
+          <>
+            <strong>{String(i.termino ?? "")}:</strong>{" "}
+            {String(i.definicion ?? "")}
+          </>
+        )}
+      />
+
+      <h3>{dict.ai.examples}</h3>
+      <ItemList
+        dict={dict}
+        items={content.ejemplos as Item[]}
+        render={(i) => i.texto}
+      />
+
+      <h3>{dict.ai.review}</h3>
+      <ItemList
+        dict={dict}
+        items={content.para_repasar as Item[]}
+        render={(i) => i.texto}
+      />
+
+      <h3>{dict.ai.homework}</h3>
+      <ItemList
+        dict={dict}
+        items={content.deberes as Item[]}
+        render={(i) => (
+          <>
+            {i.descripcion}
+            {i.fecha_limite && (
+              <span className="hint">
+                {" "}
+                ({dict.ai.due}: {String(i.fecha_limite)})
+              </span>
+            )}
+          </>
+        )}
+      />
+    </>
+  );
+}
+
+/** Contenido de un documento según su tipo. */
+function Content({
+  dict,
+  kind,
+  content,
+}: {
+  dict: Dictionary;
+  kind: Kind;
+  content: Record<string, unknown>;
+}) {
+  switch (kind) {
+    case "summary":
+      return <Summary dict={dict} content={content} />;
+    case "minutes":
+      return <Minutes dict={dict} content={content} />;
+    case "class_notes":
+      return <ClassNotes dict={dict} content={content} />;
+  }
+}
+
+export function kindTitle(dict: Dictionary, kind: Kind): string {
+  return {
+    summary: dict.ai.summary,
+    minutes: dict.ai.minutes,
+    class_notes: dict.ai.classNotes,
+  }[kind];
 }
 
 export function AiOutputSection({
@@ -250,7 +360,7 @@ export function AiOutputSection({
 }) {
   const { pending, error, run } = useAction(dict);
   const [editing, setEditing] = useState(false);
-  const title = kind === "summary" ? dict.ai.summary : dict.ai.minutes;
+  const title = kindTitle(dict, kind);
   const generating = output.status === "pending";
   const ready = output.status === "ready";
 
@@ -320,13 +430,9 @@ export function AiOutputSection({
           }}
         />
       )}
-      {ready &&
-        !editing &&
-        (kind === "summary" ? (
-          <Summary dict={dict} content={output.content} />
-        ) : (
-          <Minutes dict={dict} content={output.content} />
-        ))}
+      {ready && !editing && (
+        <Content dict={dict} kind={kind} content={output.content} />
+      )}
       {ready && output.edited_at && (
         <p className="hint">
           {format(dict.edit.edited, {
@@ -393,11 +499,7 @@ function Revisions({
                 })}
               </span>
               <div className="revision">
-                {kind === "summary" ? (
-                  <Summary dict={dict} content={r.content} />
-                ) : (
-                  <Minutes dict={dict} content={r.content} />
-                )}
+                <Content dict={dict} kind={kind} content={r.content} />
               </div>
             </li>
           ))}

@@ -122,6 +122,7 @@ def test_export_is_audited(
         "transcript": False,
         "summary": True,
         "minutes": True,
+        "class_notes": False,
     }
 
 

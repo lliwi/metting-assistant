@@ -53,9 +53,38 @@ class MinutesContent(_Strict):
     preguntas_abiertas: Annotated[list[Point], Field(max_length=100)]
 
 
+class Section(_Strict):
+    titulo: Short
+    contenido: Annotated[str, Field(max_length=20_000)]
+    segmentos: Refs = []
+
+
+class Concept(_Strict):
+    termino: Short
+    definicion: Text
+    segmentos: Refs = []
+
+
+class Homework(_Strict):
+    descripcion: Text
+    fecha_limite: Short | None = None
+    segmentos: Refs = []
+
+
+class ClassNotesContent(_Strict):
+    titulo: Short
+    introduccion: Annotated[str, Field(max_length=20_000)]
+    secciones: Annotated[list[Section], Field(max_length=100)]
+    conceptos: Annotated[list[Concept], Field(max_length=200)]
+    ejemplos: Annotated[list[Point], Field(max_length=100)]
+    para_repasar: Annotated[list[Point], Field(max_length=100)]
+    deberes: Annotated[list[Homework], Field(max_length=100)]
+
+
 MODELS: dict[AiOutputKind, type[_Strict]] = {
     AiOutputKind.SUMMARY: SummaryContent,
     AiOutputKind.MINUTES: MinutesContent,
+    AiOutputKind.CLASS_NOTES: ClassNotesContent,
 }
 
 
