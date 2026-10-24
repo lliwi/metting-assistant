@@ -45,6 +45,11 @@ jobs:
           DATABASE_URL="$TEST_DATABASE_URL" uv run alembic check
       - name: Auditoría de dependencias
         run: uv export --no-dev --no-hashes --format requirements-txt > /tmp/req.txt && uvx pip-audit -r /tmp/req.txt
+      - name: Auditoría de dependencias de la imagen GPU (las variantes CUDA de PyTorch no están en PyPI)
+        run: |
+          uv export --no-dev --group gpu --group diarization --no-hashes --format requirements-txt \
+            | grep -v '^-e' > /tmp/req-gpu.txt
+          uvx pip-audit --no-deps --disable-pip -r /tmp/req-gpu.txt
 
   web:
     runs-on: ubuntu-latest
@@ -87,6 +92,14 @@ jobs:
         run: |
           curl -fsS -o /dev/null http://127.0.0.1:8080/es
           curl -fsS http://127.0.0.1:8080/api/readyz
+      - name: Cabeceras de seguridad y rutas internas
+        run: |
+          headers=$(curl -fsSI http://127.0.0.1:8080/es)
+          echo "$headers" | grep -qi "^content-security-policy: default-src 'self'"
+          echo "$headers" | grep -qi "^x-frame-options: DENY"
+          echo "$headers" | grep -qi "^x-content-type-options: nosniff"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/metrics)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/docs)" = 404
       - name: Solo nginx publica puertos
         run: |
           published=$(docker compose config --format json | jq -r '.services | to_entries[] | select(.value.ports) | .key')

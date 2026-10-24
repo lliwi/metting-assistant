@@ -25,7 +25,10 @@ FROM runtime AS api
 USER 10001
 EXPOSE 8000
 # --graceful-timeout: las conexiones SSE no terminan solas; al reiniciar se cortan tras 10 s.
-CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000", "--worker-tmp-dir", "/tmp", "--graceful-timeout", "10"]
+# Procesos: WEB_CONCURRENCY (gunicorn la lee). --keep-alive mayor que el de nginx hacia la API
+# (60 s): si la API cierra antes una conexión reutilizable, nginx devuelve 502 en algunos POST.
+ENV WEB_CONCURRENCY=4
+CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "--worker-tmp-dir", "/tmp", "--graceful-timeout", "10", "--keep-alive", "75"]
 
 FROM runtime AS worker
 RUN apt-get update \

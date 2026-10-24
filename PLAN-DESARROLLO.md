@@ -263,8 +263,12 @@ Orden acordado:
    - ✅ Monitorización: métricas Prometheus (HTTP por ruta, colas, grabaciones, fallos, coste),
      8 alertas por email (Alertmanager) y panel de Grafana (perfil `monitoring`).
    - ✅ Pruebas E2E con Playwright (11 escenarios, escritorio y móvil), también en la CI.
-   - Pendiente: carga, seguridad, aceptación con audio real, TLS real (dominio) y remoto
-     para la CI.
+   - ✅ Carga (scripts/loadtest.sh): detectó y se corrigieron cortes de conexión (keep-alive de
+     la API menor que el de nginx → 502 en POST) y picos de memoria por Argon2 (64 MiB por
+     login, ahora acotado por proceso). 20 usuarios: ~64 peticiones/s, sin errores.
+   - ✅ Seguridad: CSP, auditoría de dependencias (también de la imagen GPU) y comprobación de
+     cabeceras y rutas internas en la CI; prueba E2E de que la CSP no bloquea nada.
+   - Pendiente: aceptación con audio real, TLS real con HSTS (dominio) y remoto para la CI.
 
 Mejoras de calidad: vocabulario por organización (nombres propios para el ASR), riesgos en
 el acta, ofrecer regenerar al renombrar hablantes, aviso al terminar (email/push),

@@ -84,6 +84,16 @@ Alertas (`infra/monitoring/alerts.yml`, umbrales ajustables): API caída, depend
 (BD, Redis, almacenamiento), más del 5 % de errores 5xx, colas de trabajos acumuladas,
 grabaciones atascadas o fallidas, documentos de IA fallidos y coste mensual de IA alto.
 
+### Prueba de carga
+
+`scripts/loadtest.sh` simula `USERS` personas (20) grabando reuniones y consultando la app a la
+vez durante `DURATION` segundos (60), desde el contenedor del worker contra la API por la red
+interna. Usa cuentas `carga-N@example.com` en una organización temporal que elimina al
+terminar, no transcribe nada (sin coste) y comprueba que nginx limita las ráfagas por IP.
+
+Resultado de referencia (API con 4 procesos, 2 CPU y 1 GB; 20 usuarios): ~64 peticiones/s,
+mediana de 20–60 ms en consultas y ~150 ms por segmento de audio, sin errores.
+
 ### Login con Google / Microsoft
 
 Opcional. Registra la aplicación en el proveedor con la URI de retorno
