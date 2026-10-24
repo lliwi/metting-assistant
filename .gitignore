@@ -21,4 +21,4 @@ node_modules/
 backups/
 
 # Despliegue propio del servidor
-compose.prod.yaml
+compose.prod*

@@ -14,6 +14,7 @@ import { useQuery } from "@/lib/api/useQuery";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
 import { AiOutputSection } from "./AiOutputs";
+import { canDeleteRecording, DeleteRecording } from "./DeleteRecording";
 import { EditableTitle } from "./EditableTitle";
 import { ExportPanel } from "./ExportPanel";
 import { TranscriptHistory } from "./TranscriptHistory";
@@ -210,6 +211,11 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
               recording={recording}
               onQueued={setRecording}
             />
+          )}
+
+        {recording.status !== "processing" &&
+          canDeleteRecording(user, recording) && (
+            <DeleteRecording dict={dict} lang={lang} recording={recording} />
           )}
       </div>
     </PlayerProvider>

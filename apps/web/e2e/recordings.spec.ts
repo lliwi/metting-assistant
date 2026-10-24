@@ -75,6 +75,15 @@ test.describe.serial("grabaciones", () => {
     expect((await pdf.body()).subarray(0, 4).toString()).toBe("%PDF");
   });
 
+  test("eliminar la grabación", async ({ page }) => {
+    await openRecording(page, title);
+    await page.getByRole("button", { name: "Eliminar grabación" }).click();
+    await expect(page.getByText(/No se puede deshacer/)).toBeVisible();
+    await page.getByRole("button", { name: "Eliminar definitivamente" }).click();
+    await expect(page).toHaveURL(/\/es\/recordings$/);
+    await expect(page.getByRole("link", { name: title })).toHaveCount(0);
+  });
+
   test("grabar con el micrófono", async ({ page }) => {
     const recTitle = unique("E2E grabación");
     await page.goto("/es/record");

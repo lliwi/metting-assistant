@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, Up
 from fastapi.responses import StreamingResponse
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -81,6 +81,11 @@ class TaskQueue:
         from app.worker.tasks import enqueue_recording
 
         enqueue_recording(recording_id)
+
+    def purge_storage(self, prefix: str) -> None:
+        from app.worker.tasks import purge_storage_prefix
+
+        purge_storage_prefix.delay(prefix)
 
 
 def get_task_queue() -> TaskQueue:
@@ -350,6 +355,40 @@ def update_recording(
     )
     db.commit()
     return _detail(db, rec)
+
+
+@router.delete("/recordings/{recording_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_recording(
+    recording_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    tasks: Tasks,
+    client: Client,
+) -> None:
+    """Borra la grabación con sus transcripciones, historial y documentos de IA; el audio se
+    purga después en el worker. Solo quien grabó o un administrador. Irreversible."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE, for_update=True)
+    _, membership = authorize(db, user.id, rec.organization_id, Action.RECORDING_READ)
+    if rec.owner_id != user.id and membership.role not in (Role.OWNER, Role.ADMIN):
+        raise AppError("forbidden", "Solo quien grabó o un administrador puede eliminarla", 403)
+    # Mientras se transcribe, el worker escribe en la grabación y en el almacenamiento.
+    if rec.status is RecordingStatus.PROCESSING:
+        raise AppError("recording_busy", "Espera a que termine de procesarse", 409)
+    record_audit_event(
+        db,
+        action="recording.deleted",
+        client=client,
+        actor_id=user.id,
+        organization_id=rec.organization_id,
+        resource_type="recording",
+        resource_id=rec.id,
+        metadata={"title": rec.title, "duration_ms": rec.duration_ms},
+    )
+    # El resto lo borra la base de datos en cascada (ON DELETE CASCADE); el consumo de IA se
+    # conserva sin la referencia (ON DELETE SET NULL).
+    db.execute(delete(Recording).where(Recording.id == rec.id))
+    db.commit()
+    tasks.purge_storage(f"orgs/{rec.organization_id}/recordings/{rec.id}/")
 
 
 @router.post("/recordings/{recording_id}/tracks", status_code=status.HTTP_201_CREATED)
