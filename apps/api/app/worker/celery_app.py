@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import get_settings
 
@@ -23,6 +24,11 @@ celery_app.conf.update(
     result_expires=24 * 3600,
     beat_schedule={
         "sweep-stuck-jobs": {"task": "app.worker.tasks.sweep_stuck_jobs", "schedule": 600.0},
+        # 3:30 UTC (de madrugada en Europa): borra las grabaciones fuera del plazo de retención.
+        "apply-retention": {
+            "task": "app.worker.tasks.apply_retention",
+            "schedule": crontab(hour=3, minute=30),
+        },
     },
     # Colas separadas para escalar cada tipo de worker de forma independiente.
     task_routes={

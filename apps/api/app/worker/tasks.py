@@ -20,6 +20,7 @@ from app.notifications.email import deliver_via_smtp
 from app.storage import get_storage
 from app.worker.celery_app import celery_app
 from app.worker.jobs import AI_LOCK_TTL, PROCESSING_LOCK_TTL, exclusive, mark_queued
+from app.worker.retention import apply_retention
 from app.worker.sweeper import sweep
 
 log = structlog.get_logger(__name__)
@@ -172,3 +173,10 @@ def sweep_stuck_jobs() -> tuple[int, int]:
     """Lo programa celery beat cada 10 minutos."""
     with get_sessionmaker()() as db:
         return sweep(db, get_redis(), enqueue_recording, enqueue_ai_output)
+
+
+@celery_app.task(name="app.worker.tasks.apply_retention")  # type: ignore[untyped-decorator]
+def apply_retention_task() -> int:
+    """Lo programa celery beat cada noche."""
+    with get_sessionmaker()() as db:
+        return apply_retention(db, purge_storage_prefix.delay)

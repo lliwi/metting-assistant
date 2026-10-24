@@ -63,6 +63,7 @@ from app.recordings.schemas import (
     TranscriptSegmentOut,
 )
 from app.storage import ObjectStorage, get_storage
+from app.worker.retention import recording_prefix
 
 router = APIRouter(prefix="/v1", tags=["recordings"], dependencies=[Depends(require_csrf)])
 
@@ -388,7 +389,7 @@ def delete_recording(
     # conserva sin la referencia (ON DELETE SET NULL).
     db.execute(delete(Recording).where(Recording.id == rec.id))
     db.commit()
-    tasks.purge_storage(f"orgs/{rec.organization_id}/recordings/{rec.id}/")
+    tasks.purge_storage(recording_prefix(rec.organization_id, rec.id))
 
 
 @router.post("/recordings/{recording_id}/tracks", status_code=status.HTTP_201_CREATED)

@@ -123,6 +123,7 @@ function Settings({
       )}
       <Field
         label={dict.orgs.retentionDays}
+        hint={dict.orgs.retentionHint}
         type="number"
         min={0}
         max={3650}

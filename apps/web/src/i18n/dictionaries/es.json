@@ -112,6 +112,7 @@
     "removeConfirm": "¿Quitar a {name} de la organización?",
     "settings": "Ajustes",
     "retentionDays": "Retención (días, 0 = sin borrado automático)",
+    "retentionHint": "Cada noche se eliminan definitivamente las grabaciones más antiguas que este plazo, con su audio, transcripciones y documentos.",
     "personalNoMembers": "El espacio personal es solo tuyo: no admite miembros.",
     "you": "tú",
     "acceptTitle": "Invitación",
