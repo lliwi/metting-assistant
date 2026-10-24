@@ -155,6 +155,12 @@ class MemoryStorage:
             del self.objects[key]
         return len(keys)
 
+    def copy_prefix(self, src: str, dst: str) -> int:
+        keys = [k for k in self.objects if k.startswith(src)]
+        for key in keys:
+            self.objects[dst + key.removeprefix(src)] = self.objects[key]
+        return len(keys)
+
     def head(self, key: str) -> tuple[int, str]:
         body, content_type = self.objects[key]
         return len(body), content_type

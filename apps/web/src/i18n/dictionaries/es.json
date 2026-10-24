@@ -123,7 +123,11 @@
     "delete": "Eliminar organización",
     "deleteWarning": "Se eliminarán definitivamente todas sus grabaciones, audios, transcripciones, resúmenes y actas, además de los miembros e invitaciones. No se puede deshacer.",
     "deleteConfirmLabel": "Escribe «{name}» para confirmar",
-    "deleteSubmit": "Eliminar definitivamente"
+    "deleteSubmit": "Eliminar definitivamente",
+    "preferred": "Organización preferida: {name}",
+    "preferredOn": "Preferida: aparece la primera al grabar e importar",
+    "preferredOff": "Marcar como preferida",
+    "preferredHint": "La organización marcada con la estrella aparece la primera y seleccionada al grabar, importar o mover grabaciones."
   },
   "errors": {
     "unknown": "Algo ha fallado. Inténtalo de nuevo.",
@@ -164,7 +168,7 @@
     "import_too_large": "El archivo supera el tamaño máximo.",
     "transcription_failed": "No se ha podido transcribir el audio.",
     "not_reprocessable": "La grabación no se puede volver a transcribir ahora.",
-    "recording_busy": "Espera a que termine de transcribirse para eliminarla.",
+    "recording_busy": "Espera a que termine de procesarse.",
     "transcript_not_found": "La transcripción aún no está disponible.",
     "not_transcribed": "La grabación aún no está transcrita.",
     "empty_transcript": "La transcripción no tiene texto.",
@@ -175,7 +179,8 @@
     "not_editable": "El documento aún no está listo.",
     "engine_unavailable": "Ese motor de transcripción no está disponible.",
     "no_account": "No hay ninguna cuenta con ese email. Pide acceso a un administrador.",
-    "confirmation_mismatch": "El nombre no coincide."
+    "confirmation_mismatch": "El nombre no coincide.",
+    "same_organization": "La grabación ya está en esa organización."
   },
   "recording": {
     "newTitle": "Nueva grabación",
@@ -279,6 +284,13 @@
     "delete": "Eliminar grabación",
     "deleteWarning": "Se eliminarán definitivamente el audio, las transcripciones, el historial de cambios, el resumen y el acta. No se puede deshacer.",
     "deleteSubmit": "Eliminar definitivamente"
+  },
+  "move": {
+    "title": "Mover a otra organización",
+    "target": "Organización de destino",
+    "submit": "Mover",
+    "done": "Grabación movida a «{name}».",
+    "hint": "Se mueven el audio, las transcripciones, los documentos y el coste de IA. Solo la verán los miembros de la organización de destino."
   },
   "ai": {
     "summary": "Resumen",

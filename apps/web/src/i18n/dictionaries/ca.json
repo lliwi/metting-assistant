@@ -123,7 +123,11 @@
     "delete": "Eliminar l'organització",
     "deleteWarning": "S'eliminaran definitivament totes les gravacions, àudios, transcripcions, resums i actes, a més dels membres i les invitacions. No es pot desfer.",
     "deleteConfirmLabel": "Escriu «{name}» per confirmar",
-    "deleteSubmit": "Eliminar definitivament"
+    "deleteSubmit": "Eliminar definitivament",
+    "preferred": "Organització preferida: {name}",
+    "preferredOn": "Preferida: apareix la primera en enregistrar i importar",
+    "preferredOff": "Marcar com a preferida",
+    "preferredHint": "L'organització marcada amb l'estrella apareix la primera i seleccionada en enregistrar, importar o moure enregistraments."
   },
   "errors": {
     "unknown": "Alguna cosa ha fallat. Torna-ho a provar.",
@@ -164,7 +168,7 @@
     "import_too_large": "El fitxer supera la mida màxima.",
     "transcription_failed": "No s'ha pogut transcriure l'àudio.",
     "not_reprocessable": "L'enregistrament no es pot tornar a transcriure ara.",
-    "recording_busy": "Espera que acabi de transcriure's per eliminar-lo.",
+    "recording_busy": "Espera que acabi de processar-se.",
     "transcript_not_found": "La transcripció encara no està disponible.",
     "not_transcribed": "L'enregistrament encara no està transcrit.",
     "empty_transcript": "La transcripció no té text.",
@@ -175,7 +179,8 @@
     "not_editable": "El document encara no està a punt.",
     "engine_unavailable": "Aquest motor de transcripció no està disponible.",
     "no_account": "No hi ha cap compte amb aquest correu. Demana accés a un administrador.",
-    "confirmation_mismatch": "El nom no coincideix."
+    "confirmation_mismatch": "El nom no coincideix.",
+    "same_organization": "L'enregistrament ja és en aquesta organització."
   },
   "recording": {
     "newTitle": "Nou enregistrament",
@@ -279,6 +284,13 @@
     "delete": "Eliminar l'enregistrament",
     "deleteWarning": "S'eliminaran definitivament l'àudio, les transcripcions, l'historial de canvis, el resum i l'acta. No es pot desfer.",
     "deleteSubmit": "Eliminar definitivament"
+  },
+  "move": {
+    "title": "Moure a una altra organització",
+    "target": "Organització de destinació",
+    "submit": "Moure",
+    "done": "Enregistrament mogut a «{name}».",
+    "hint": "Es mouen l'àudio, les transcripcions, els documents i el cost d'IA. Només el veuran els membres de l'organització de destinació."
   },
   "ai": {
     "summary": "Resum",

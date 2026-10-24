@@ -355,6 +355,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{org_id}/preferred": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Preferred
+         * @description Marca la organización como preferida del usuario (y desmarca la anterior).
+         */
+        put: operations["set_preferred_v1_organizations__org_id__preferred_put"];
+        post?: never;
+        /** Unset Preferred */
+        delete: operations["unset_preferred_v1_organizations__org_id__preferred_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/{org_id}": {
         parameters: {
             query?: never;
@@ -545,6 +566,28 @@ export interface paths {
         head?: never;
         /** Update Recording */
         patch: operations["update_recording_v1_recordings__recording_id__patch"];
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Recording
+         * @description Pasa la grabación a otra organización con su audio, transcripciones, documentos y
+         *     consumo de IA. Quien grabó o un administrador del origen, y con permiso para grabar en el
+         *     destino.
+         */
+        post: operations["move_recording_v1_recordings__recording_id__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/recordings/{recording_id}/tracks": {
@@ -1159,6 +1202,11 @@ export interface components {
             retention_days: number | null;
             role: components["schemas"]["Role"];
             /**
+             * Is Preferred
+             * @default false
+             */
+            is_preferred: boolean;
+            /**
              * Created At
              * Format: date-time
              */
@@ -1313,6 +1361,14 @@ export interface components {
              * @default []
              */
             matches: components["schemas"]["SearchMatch"][];
+        };
+        /** RecordingMove */
+        RecordingMove: {
+            /**
+             * Organization Id
+             * Format: uuid
+             */
+            organization_id: string;
         };
         /**
          * RecordingSource
@@ -2465,6 +2521,82 @@ export interface operations {
             };
         };
     };
+    set_preferred_v1_organizations__org_id__preferred_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unset_preferred_v1_organizations__org_id__preferred_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_org_v1_organizations__org_id__get: {
         parameters: {
             query?: never;
@@ -3141,6 +3273,50 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RecordingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDetail"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    move_recording_v1_recordings__recording_id__move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordingMove"];
             };
         };
         responses: {

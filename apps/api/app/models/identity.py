@@ -60,6 +60,15 @@ class Organization(UUIDPrimaryKey, Timestamps, Base):
 
 class Membership(Base):
     __tablename__ = "memberships"
+    # Como mucho una organización preferida por usuario.
+    __table_args__ = (
+        Index(
+            "uq_memberships_preferred_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("preferred"),
+        ),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
@@ -68,6 +77,8 @@ class Membership(Base):
         ForeignKey("organizations.id", ondelete="CASCADE"), primary_key=True, index=True
     )
     role: Mapped[Role] = mapped_column(str_enum(Role, "membership_role"))
+    # Preferida: aparece la primera en las listas y es la opción por defecto al grabar.
+    preferred: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[User] = relationship(back_populates="memberships")

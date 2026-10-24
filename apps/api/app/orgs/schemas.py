@@ -28,6 +28,7 @@ class OrganizationOut(BaseModel):
     is_personal: bool
     retention_days: int | None
     role: Role
+    is_preferred: bool = False
     created_at: datetime
 
 

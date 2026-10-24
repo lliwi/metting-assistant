@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.audit import record_audit_event
@@ -53,13 +53,14 @@ Outbox = Annotated[EmailOutbox, Depends(get_email_outbox)]
 INVITATION_TTL = timedelta(days=7)
 
 
-def _org_out(org: Organization, role: Role) -> OrganizationOut:
+def _org_out(org: Organization, role: Role, *, preferred: bool = False) -> OrganizationOut:
     return OrganizationOut(
         id=org.id,
         name=org.name,
         is_personal=org.is_personal,
         retention_days=org.retention_days,
         role=role,
+        is_preferred=preferred,
         created_at=org.created_at,
     )
 
@@ -81,12 +82,37 @@ def _count_owners(db: DbSession, org_id: uuid.UUID) -> int:
 @router.get("/organizations")
 def list_organizations(user: CurrentUser, db: DbSession) -> list[OrganizationOut]:
     rows = db.execute(
-        select(Organization, Membership.role)
+        select(Organization, Membership.role, Membership.preferred)
         .join(Membership, Membership.organization_id == Organization.id)
         .where(Membership.user_id == user.id)
-        .order_by(Organization.is_personal.desc(), Organization.name)
+        # La preferida primero: es la opción por defecto en los desplegables.
+        .order_by(Membership.preferred.desc(), Organization.is_personal.desc(), Organization.name)
     ).all()
-    return [_org_out(org, role) for org, role in rows]
+    return [_org_out(org, role, preferred=preferred) for org, role, preferred in rows]
+
+
+@router.put("/organizations/{org_id}/preferred", status_code=status.HTTP_204_NO_CONTENT)
+def set_preferred(org_id: uuid.UUID, user: CurrentUser, db: DbSession) -> None:
+    """Marca la organización como preferida del usuario (y desmarca la anterior)."""
+    _, membership = authorize(db, user.id, org_id, Action.ORG_READ)
+    if membership.preferred:
+        return
+    db.execute(
+        update(Membership)
+        .where(Membership.user_id == user.id, Membership.preferred.is_(True))
+        .values(preferred=False)
+    )
+    # Hay que aplicar el cambio anterior antes: el índice único admite una sola preferida.
+    db.flush()
+    membership.preferred = True
+    db.commit()
+
+
+@router.delete("/organizations/{org_id}/preferred", status_code=status.HTTP_204_NO_CONTENT)
+def unset_preferred(org_id: uuid.UUID, user: CurrentUser, db: DbSession) -> None:
+    _, membership = authorize(db, user.id, org_id, Action.ORG_READ)
+    membership.preferred = False
+    db.commit()
 
 
 @router.post("/organizations", status_code=status.HTTP_201_CREATED)

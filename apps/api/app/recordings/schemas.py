@@ -136,6 +136,10 @@ class RecordingUpdate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
 
 
+class RecordingMove(BaseModel):
+    organization_id: uuid.UUID
+
+
 class SegmentUpdate(BaseModel):
     """Campos a cambiar de una frase. `speaker` null = sin hablante."""
 
