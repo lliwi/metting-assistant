@@ -126,6 +126,31 @@ def enqueue_ai_output(output_id: uuid.UUID) -> None:
     generate_ai_output_task.delay(str(output_id))
 
 
+def _is_uuid(value: str) -> bool:
+    try:
+        return str(uuid.UUID(value)) == value
+    except ValueError:
+        return False
+
+
+def _purgeable(prefix: str) -> bool:
+    """Solo el prefijo exacto de una organización (orgs/<id>/) o de una grabación
+    (orgs/<id>/recordings/<id>/): nunca "orgs/" ni uno parcial ("orgs/ab" también casaría con
+    "orgs/abc…")."""
+    parts = prefix.split("/")
+    if len(parts) == 3:
+        return parts[0] == "orgs" and _is_uuid(parts[1]) and parts[2] == ""
+    if len(parts) == 5:
+        return (
+            parts[0] == "orgs"
+            and _is_uuid(parts[1])
+            and parts[2] == "recordings"
+            and _is_uuid(parts[3])
+            and parts[4] == ""
+        )
+    return False
+
+
 @celery_app.task(  # type: ignore[untyped-decorator]
     name="app.worker.tasks.purge_storage_prefix",
     autoretry_for=(Exception,),
@@ -133,17 +158,9 @@ def enqueue_ai_output(output_id: uuid.UUID) -> None:
     max_retries=8,
 )
 def purge_storage_prefix(prefix: str) -> int:
-    """Borra los objetos de una organización eliminada (la base de datos ya no los referencia)."""
-    # Solo el prefijo exacto de una organización: nunca "orgs/" ni uno parcial ("orgs/ab"
-    # también casaría con "orgs/abc…").
-    parts = prefix.split("/")
-    try:
-        valid = (
-            len(parts) == 3 and parts[0] == "orgs" and parts[2] == "" and bool(uuid.UUID(parts[1]))
-        )
-    except ValueError:
-        valid = False
-    if not valid:
+    """Borra los objetos de una organización o una grabación eliminadas (la base de datos ya
+    no los referencia)."""
+    if not _purgeable(prefix):
         raise ValueError(f"Prefijo no permitido: {prefix!r}")
     deleted = get_storage().delete_prefix(prefix)
     log.info("storage_prefix_purged", prefix=prefix, objects=deleted)

@@ -163,6 +163,7 @@
     "import_too_large": "El fitxer supera la mida màxima.",
     "transcription_failed": "No s'ha pogut transcriure l'àudio.",
     "not_reprocessable": "L'enregistrament no es pot tornar a transcriure ara.",
+    "recording_busy": "Espera que acabi de transcriure's per eliminar-lo.",
     "transcript_not_found": "La transcripció encara no està disponible.",
     "not_transcribed": "L'enregistrament encara no està transcrit.",
     "empty_transcript": "La transcripció no té text.",
@@ -272,7 +273,11 @@
     },
     "engineLocalHint": "Whisper i pyannote a la GPU del servidor: l'àudio no surt, és ràpid i sense cost per ús.",
     "engineLocalNoSpeakersHint": "Whisper al servidor: l'àudio no surt. Sense identificació de parlants (cal configurar pyannote).",
-    "engineOpenaiHint": "L'àudio s'envia a OpenAI. Identifica parlants; triga més i té cost per minut."
+    "engineOpenaiHint": "L'àudio s'envia a OpenAI. Identifica parlants; triga més i té cost per minut.",
+    "deleteHeading": "Eliminar l'enregistrament",
+    "delete": "Eliminar l'enregistrament",
+    "deleteWarning": "S'eliminaran definitivament l'àudio, les transcripcions, l'historial de canvis, el resum i l'acta. No es pot desfer.",
+    "deleteSubmit": "Eliminar definitivament"
   },
   "ai": {
     "summary": "Resum",

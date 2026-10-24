@@ -163,6 +163,7 @@
     "import_too_large": "El archivo supera el tamaño máximo.",
     "transcription_failed": "No se ha podido transcribir el audio.",
     "not_reprocessable": "La grabación no se puede volver a transcribir ahora.",
+    "recording_busy": "Espera a que termine de transcribirse para eliminarla.",
     "transcript_not_found": "La transcripción aún no está disponible.",
     "not_transcribed": "La grabación aún no está transcrita.",
     "empty_transcript": "La transcripción no tiene texto.",
@@ -272,7 +273,11 @@
     },
     "engineLocalHint": "Whisper y pyannote en la GPU del servidor: el audio no sale, es rápido y sin coste por uso.",
     "engineLocalNoSpeakersHint": "Whisper en el servidor: el audio no sale. Sin identificación de hablantes (falta configurar pyannote).",
-    "engineOpenaiHint": "El audio se envía a OpenAI. Identifica hablantes; tarda más y tiene coste por minuto."
+    "engineOpenaiHint": "El audio se envía a OpenAI. Identifica hablantes; tarda más y tiene coste por minuto.",
+    "deleteHeading": "Eliminar grabación",
+    "delete": "Eliminar grabación",
+    "deleteWarning": "Se eliminarán definitivamente el audio, las transcripciones, el historial de cambios, el resumen y el acta. No se puede deshacer.",
+    "deleteSubmit": "Eliminar definitivamente"
   },
   "ai": {
     "summary": "Resumen",

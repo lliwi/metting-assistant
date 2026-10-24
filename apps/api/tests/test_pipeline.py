@@ -39,9 +39,13 @@ pytestmark = [
 class Queue:
     def __init__(self) -> None:
         self.processed: list[uuid.UUID] = []
+        self.purged: list[str] = []
 
     def process(self, recording_id: uuid.UUID) -> None:
         self.processed.append(recording_id)
+
+    def purge_storage(self, prefix: str) -> None:
+        self.purged.append(prefix)
 
 
 class FakeAsr:
