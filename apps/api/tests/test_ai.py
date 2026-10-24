@@ -14,6 +14,7 @@ from app.ai.asr import AsrResult, AsrSegment
 from app.ai.documents import Line, attach_references, clean_attendees, format_lines, generate
 from app.ai.router import get_ai_task_queue
 from app.ai.service import outputs_after_transcription, run_output
+from app.ai.usage import Usage
 from app.core.config import get_settings
 from app.media.pipeline import process_recording
 from app.models import AiOutput, AiOutputStatus, Membership, Role, User
@@ -30,9 +31,11 @@ class FakeLlm:
     def __init__(self, replies: list[dict[str, Any]] | None = None) -> None:
         self.calls: list[tuple[str, str]] = []
         self.replies = replies
+        self.usage = Usage()
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
         self.calls.append((system, user))
+        self.usage.add(1_000, 200)  # tokens simulados por llamada
         if self.replies:
             return self.replies.pop(0)
         if "fragmento de una reunión larga" in system:

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.documents import PROMPT_VERSION, Line, attach_references, clean_attendees, generate
 from app.ai.llm import LlmProvider
+from app.ai.usage import record_usage
 from app.audit import record_audit_event
 from app.auth.sessions import now
 from app.core.config import get_settings
@@ -126,7 +127,9 @@ def run_output(db: Session, llm: LlmProvider, redis: Redis, output_id: uuid.UUID
     db.rollback()  # sin transacción abierta mientras el modelo trabaja (puede tardar minutos)
 
     context = settings.ollama_num_ctx if llm.name == "ollama" else 100_000
+    usage_start = llm.usage.copy()
     result = generate(llm, kind, lines, names, language, context_tokens=context)
+    usage = llm.usage.since(usage_start)
 
     output = db.get_one(AiOutput, output_id, with_for_update=True)
     if output.status is not AiOutputStatus.PENDING:
@@ -138,6 +141,16 @@ def run_output(db: Session, llm: LlmProvider, redis: Redis, output_id: uuid.UUID
     output.status = AiOutputStatus.READY
     output.error_code = None
     output.completed_at = now()
+    record_usage(
+        db,
+        organization_id=rec.organization_id,
+        recording_id=rec.id,
+        kind=kind,
+        provider=result.provider,
+        model=result.model,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+    )
     record_audit_event(
         db,
         action="ai_output.generated",

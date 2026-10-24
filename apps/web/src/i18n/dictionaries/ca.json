@@ -117,7 +117,12 @@
     "acceptTitle": "Invitació",
     "accepting": "S'està acceptant la invitació…",
     "accepted": "Ja formes part de «{name}».",
-    "open": "Obre"
+    "open": "Obre",
+    "dangerZone": "Zona de perill",
+    "delete": "Eliminar l'organització",
+    "deleteWarning": "S'eliminaran definitivament totes les gravacions, àudios, transcripcions, resums i actes, a més dels membres i les invitacions. No es pot desfer.",
+    "deleteConfirmLabel": "Escriu «{name}» per confirmar",
+    "deleteSubmit": "Eliminar definitivament"
   },
   "errors": {
     "unknown": "Alguna cosa ha fallat. Torna-ho a provar.",
@@ -167,7 +172,8 @@
     "nothing_to_export": "No hi ha contingut per exportar.",
     "not_editable": "El document encara no està a punt.",
     "engine_unavailable": "Aquest motor de transcripció no està disponible.",
-    "no_account": "No hi ha cap compte amb aquest correu. Demana accés a un administrador."
+    "no_account": "No hi ha cap compte amb aquest correu. Demana accés a un administrador.",
+    "confirmation_mismatch": "El nom no coincideix."
   },
   "recording": {
     "newTitle": "Nou enregistrament",
@@ -178,7 +184,8 @@
     "languages": {
       "es": "Castellà",
       "ca": "Català",
-      "en": "Anglès"
+      "en": "Anglès",
+      "it": "Italià"
     },
     "consentTitle": "Consentiment dels participants",
     "consentText": "Abans d'enregistrar, informa totes les persones presents i obtén-ne l'autorització. L'àudio i la transcripció es desaran a l'organització seleccionada.",
@@ -352,5 +359,25 @@
     "text": "Text",
     "description": "Descripció",
     "refsKept": "Es conserven les referències a la transcripció."
+  },
+  "usage": {
+    "title": "Consum d'IA",
+    "month": "Mes",
+    "empty": "Sense consum aquest mes.",
+    "kind": "Feina",
+    "model": "Proveïdor i model",
+    "jobs": "Feines",
+    "audioMinutes": "Àudio (min)",
+    "tokens": "Tokens (entrada / sortida)",
+    "cost": "Cost estimat",
+    "total": "Total estimat",
+    "noPrice": "Sense preu",
+    "tokensHint": "Cost estimat amb els preus configurats a AI_PRICES; els motors locals no tenen cost per ús.",
+    "unpricedHint": "Alguns models no tenen preu configurat i no s'inclouen al total.",
+    "kinds": {
+      "transcription": "Transcripció",
+      "summary": "Resum",
+      "minutes": "Acta"
+    }
   }
 }

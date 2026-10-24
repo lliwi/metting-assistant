@@ -732,3 +732,48 @@ mark {
     transition: none !important;
   }
 }
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table .num {
+  white-space: nowrap;
+}
+
+.hint.block {
+  display: block;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.usage-total {
+  font-size: 1.1rem;
+}
+
+.data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.danger-zone {
+  border-color: var(--danger);
+}
+
+.danger-zone h2 {
+  color: var(--danger);
+}

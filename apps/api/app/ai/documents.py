@@ -17,9 +17,9 @@ from app.ai.llm import LlmProvider
 # Cambiar los prompts o los esquemas exige subir la versión (trazabilidad).
 PROMPT_VERSION = "2026-10-22.2"
 
-LANGUAGE_NAMES = {"es": "español", "ca": "catalán", "en": "inglés"}
+LANGUAGE_NAMES = {"es": "español", "ca": "catalán", "en": "inglés", "it": "italiano"}
 
-# Estimación conservadora de tokens por carácter en es/ca/en.
+# Estimación conservadora de tokens por carácter en es/ca/en/it.
 CHARS_PER_TOKEN = 3.0
 
 

@@ -23,6 +23,7 @@ class Action(StrEnum):
     AUDIT_READ = "audit.read"
     RECORDING_READ = "recording.read"
     RECORDING_CREATE = "recording.create"
+    USAGE_READ = "usage.read"
 
 
 _READ = {Action.ORG_READ, Action.MEMBERS_READ, Action.RECORDING_READ}
@@ -32,7 +33,13 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Action]] = {
     Role.MEMBER: frozenset(_READ | {Action.RECORDING_CREATE}),
     Role.ADMIN: frozenset(
         _READ
-        | {Action.RECORDING_CREATE, Action.ORG_UPDATE, Action.MEMBERS_MANAGE, Action.AUDIT_READ}
+        | {
+            Action.RECORDING_CREATE,
+            Action.ORG_UPDATE,
+            Action.MEMBERS_MANAGE,
+            Action.AUDIT_READ,
+            Action.USAGE_READ,
+        }
     ),
     Role.OWNER: frozenset(Action),
 }
