@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, Up
 from fastapi.responses import StreamingResponse
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -38,6 +38,7 @@ from app.models import (
     Transcript,
     TranscriptEdit,
     TranscriptSegment,
+    UsageRecord,
     User,
 )
 from app.orgs.permissions import Action, authorize
@@ -49,6 +50,7 @@ from app.recordings.schemas import (
     RecordingCreate,
     RecordingDetail,
     RecordingListItem,
+    RecordingMove,
     RecordingOut,
     RecordingUpdate,
     ReprocessRequest,
@@ -390,6 +392,76 @@ def delete_recording(
     db.execute(delete(Recording).where(Recording.id == rec.id))
     db.commit()
     tasks.purge_storage(recording_prefix(rec.organization_id, rec.id))
+
+
+MOVABLE = (RecordingStatus.TRANSCRIBED, RecordingStatus.FAILED, RecordingStatus.CANCELLED)
+
+
+@router.post("/recordings/{recording_id}/move")
+def move_recording(
+    recording_id: uuid.UUID,
+    body: RecordingMove,
+    user: CurrentUser,
+    db: DbSession,
+    storage: Storage,
+    redis: EventRedis,
+    tasks: Tasks,
+    client: Client,
+) -> RecordingDetail:
+    """Pasa la grabación a otra organización con su audio, transcripciones, documentos y
+    consumo de IA. Quien grabó o un administrador del origen, y con permiso para grabar en el
+    destino."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE, for_update=True)
+    _, membership = authorize(db, user.id, rec.organization_id, Action.RECORDING_READ)
+    if rec.owner_id != user.id and membership.role not in (Role.OWNER, Role.ADMIN):
+        raise AppError("forbidden", "Solo quien grabó o un administrador puede moverla", 403)
+    if body.organization_id == rec.organization_id:
+        raise AppError("same_organization", "La grabación ya está en esa organización", 409)
+    authorize(db, user.id, body.organization_id, Action.RECORDING_CREATE)
+    # Mientras se captura o se transcribe, el worker y el navegador escriben en sus rutas.
+    if rec.status not in MOVABLE:
+        raise AppError("recording_busy", "Espera a que termine de procesarse", 409)
+
+    source = rec.organization_id
+    old_prefix = recording_prefix(source, rec.id)
+    new_prefix = recording_prefix(body.organization_id, rec.id)
+    # Primero la copia: si algo falla, la grabación sigue intacta en su organización y las
+    # copias se purgan.
+    try:
+        storage.copy_prefix(old_prefix, new_prefix)
+        rec.organization_id = body.organization_id
+        if rec.audio_object_key:
+            rec.audio_object_key = new_prefix + rec.audio_object_key.removeprefix(old_prefix)
+        db.execute(
+            update(AudioSegment)
+            .where(AudioSegment.recording_id == rec.id)
+            .values(object_key=func.replace(AudioSegment.object_key, old_prefix, new_prefix))
+        )
+        # El coste pasa a la organización de destino junto con la grabación.
+        db.execute(
+            update(UsageRecord)
+            .where(UsageRecord.recording_id == rec.id)
+            .values(organization_id=body.organization_id)
+        )
+        record_audit_event(
+            db,
+            action="recording.moved",
+            client=client,
+            actor_id=user.id,
+            organization_id=body.organization_id,
+            resource_type="recording",
+            resource_id=rec.id,
+            metadata={"from": str(source), "to": str(body.organization_id), "title": rec.title},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        tasks.purge_storage(new_prefix)
+        raise
+    tasks.purge_storage(old_prefix)
+    detail = _detail(db, rec)
+    events.publish(redis, rec.id, {"type": "recording", **detail.model_dump(mode="json")})
+    return detail
 
 
 @router.post("/recordings/{recording_id}/tracks", status_code=status.HTTP_201_CREATED)

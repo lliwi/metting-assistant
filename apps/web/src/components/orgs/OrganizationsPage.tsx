@@ -1,5 +1,6 @@
 "use client";
 
+import { Star } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
@@ -7,6 +8,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { Field, FormMessage, useAction } from "@/components/forms";
 import type { Dictionary, Locale } from "@/i18n/client";
+import { format } from "@/i18n/format";
 import { api, type Schemas } from "@/lib/api/client";
 import { useQuery } from "@/lib/api/useQuery";
 
@@ -45,6 +47,14 @@ function OrganizationList({ dict, lang }: Props) {
 
   const shared = orgs?.filter((o) => !o.is_personal) ?? [];
 
+  async function togglePreferred(org: Schemas["OrganizationOut"]) {
+    const params = { params: { path: { org_id: org.id } } };
+    await (org.is_preferred
+      ? api.DELETE("/v1/organizations/{org_id}/preferred", params)
+      : api.PUT("/v1/organizations/{org_id}/preferred", params));
+    await load();
+  }
+
   return (
     <div className="stack-lg">
       <h1>{dict.orgs.title}</h1>
@@ -61,13 +71,38 @@ function OrganizationList({ dict, lang }: Props) {
                     {org.is_personal ? dict.orgs.personal : org.name}
                   </Link>
                 </div>
-                <span className="badge">{dict.roles[org.role]}</span>
+                <div className="row">
+                  <span className="badge">{dict.roles[org.role]}</span>
+                  <button
+                    type="button"
+                    className="icon-link"
+                    aria-pressed={org.is_preferred}
+                    aria-label={format(dict.orgs.preferred, {
+                      name: org.is_personal ? dict.orgs.personal : org.name,
+                    })}
+                    title={
+                      org.is_preferred
+                        ? dict.orgs.preferredOn
+                        : dict.orgs.preferredOff
+                    }
+                    onClick={() => void togglePreferred(org)}
+                  >
+                    <Star
+                      aria-hidden="true"
+                      size={20}
+                      fill={org.is_preferred ? "currentColor" : "none"}
+                    />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
         {orgs !== null && shared.length === 0 && (
           <p className="hint">{dict.orgs.empty}</p>
+        )}
+        {orgs !== null && shared.length > 0 && (
+          <p className="hint">{dict.orgs.preferredHint}</p>
         )}
       </section>
 

@@ -44,6 +44,23 @@ class ObjectStorage:
                 deleted += len(keys)
         return deleted
 
+    def copy_prefix(self, src: str, dst: str) -> int:
+        """Copia en el servidor (sin descargar) cada objeto de `src` a `dst` con la misma ruta
+        relativa. Devuelve cuántos."""
+        extra: dict[str, str] = {"ServerSideEncryption": self.sse} if self.sse else {}
+        copied = 0
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=src):
+            for obj in page.get("Contents", []):
+                self.client.copy_object(
+                    Bucket=self.bucket,
+                    Key=dst + obj["Key"].removeprefix(src),
+                    CopySource={"Bucket": self.bucket, "Key": obj["Key"]},
+                    **extra,
+                )
+                copied += 1
+        return copied
+
     def get(self, key: str) -> bytes:
         body: bytes = self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
         return body

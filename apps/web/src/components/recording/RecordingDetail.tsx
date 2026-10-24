@@ -17,6 +17,7 @@ import { AiGenerate, AiOutputSection, KINDS } from "./AiOutputs";
 import { canDeleteRecording, DeleteRecording } from "./DeleteRecording";
 import { EditableTitle } from "./EditableTitle";
 import { ExportPanel } from "./ExportPanel";
+import { MOVABLE, MoveRecording } from "./MoveRecording";
 import { TranscriptHistory } from "./TranscriptHistory";
 import { PlayerProvider, scrollToSegment, usePlayer } from "./Player";
 import { type Language, LANGUAGES } from "./SetupFields";
@@ -226,6 +227,15 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
               dict={dict}
               recording={recording}
               onQueued={setRecording}
+            />
+          )}
+
+        {MOVABLE.includes(recording.status) &&
+          canDeleteRecording(user, recording) && (
+            <MoveRecording
+              dict={dict}
+              recording={recording}
+              onMoved={setRecording}
             />
           )}
 
