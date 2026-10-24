@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -126,10 +126,15 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
       available={recording.audio_ready}
     >
       <div className="stack-lg">
-        <p>
-          <Link href={`/${lang}/recordings`}>← {dict.detail.back}</Link>
-        </p>
         <div>
+          <Link
+            href={`/${lang}/recordings`}
+            className="icon-link back-link"
+            aria-label={dict.detail.back}
+            title={dict.detail.back}
+          >
+            <ArrowLeft aria-hidden="true" size={22} />
+          </Link>
           <EditableTitle
             dict={dict}
             recording={recording}
