@@ -19,3 +19,6 @@ node_modules/
 .idea/
 .vscode/
 backups/
+
+# Despliegue propio del servidor
+compose.prod.yaml
