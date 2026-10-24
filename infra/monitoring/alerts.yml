@@ -1,0 +1,69 @@
+# Reglas de alerta. Los umbrales son un punto de partida: ajústalos al uso real.
+groups:
+  - name: metting-agent
+    rules:
+      - alert: ApiCaida
+        expr: up{job="api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: La API no responde
+          description: Prometheus no puede consultar la API desde hace 2 minutos.
+
+      - alert: DependenciaCaida
+        expr: metting_dependency_up == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.name }} no está accesible"
+          description: La API no puede usar {{ $labels.name }} (base de datos, Redis o almacenamiento).
+
+      - alert: ErroresServidor
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(http_requests_total[5m])), 1e-9) > 0.05
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: Más del 5 % de las peticiones fallan con error 5xx
+          description: "Tasa de errores: {{ $value | humanizePercentage }}."
+
+      - alert: ColaAtascada
+        expr: metting_queue_length{queue=~"asr|llm|media"} > 20
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Cola {{ $labels.queue }} con {{ $value }} trabajos"
+          description: ¿Está parado el worker o va saturado? Revisa los workers y la GPU.
+
+      - alert: GrabacionesAtascadas
+        expr: metting_recordings_stuck > 0
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} grabaciones llevan más de una hora procesándose"
+          description: El barrido automático las reencola; si persiste, revisa los logs del worker.
+
+      - alert: MuchasGrabacionesFallidas
+        expr: metting_recordings_failed_24h > 5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} grabaciones fallidas en 24 h"
+          description: Revisa los códigos de error (proveedor de transcripción, antivirus, audio).
+
+      - alert: DocumentosIaFallidos
+        expr: metting_ai_outputs{status="failed_24h"} > 5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} resúmenes o actas fallidos en 24 h"
+          description: Revisa el proveedor de LLM (clave, cuota, modelo).
+
+      - alert: CosteMensualAlto
+        # Umbral en USD: cámbialo según el presupuesto.
+        expr: metting_ai_cost_month_usd > 50
+        labels: { severity: info }
+        annotations:
+          summary: "El coste estimado de IA del mes es de {{ $value | printf \"%.2f\" }} USD"
+          description: Consulta el detalle en «Consumo de IA» de cada organización.

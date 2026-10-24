@@ -66,6 +66,24 @@ scripts/restore.sh --yes    backups/20261024T031500Z   # restaura (sobrescribe t
 `--verify` comprueba las sumas, restaura la base de datos en una base temporal y cuenta los
 objetos. Copia la carpeta `backups/` a otro equipo o almacenamiento (p. ej. con `rclone`).
 
+### Monitorización y alertas
+
+Perfil `monitoring`: Prometheus (consulta `/metrics` de la API por la red interna; nginx no la
+publica), Alertmanager (avisos por email con el SMTP de `.env` a `ALERT_EMAIL_TO`) y Grafana
+con el panel «Metting Agent» ya cargado (usuario `admin`, contraseña `GRAFANA_ADMIN_PASSWORD`).
+
+```sh
+docker compose -f compose.yaml -f infra/compose/dev.yaml --profile monitoring up -d
+```
+
+En desarrollo: Grafana <http://localhost:53001>, Prometheus <http://localhost:59090>,
+Alertmanager <http://localhost:59093> (los emails llegan a Mailpit). En producción no publican
+puertos: usa un túnel SSH (`ssh -L 3000:grafana:3000`…) o publícalos tras nginx con TLS.
+
+Alertas (`infra/monitoring/alerts.yml`, umbrales ajustables): API caída, dependencia caída
+(BD, Redis, almacenamiento), más del 5 % de errores 5xx, colas de trabajos acumuladas,
+grabaciones atascadas o fallidas, documentos de IA fallidos y coste mensual de IA alto.
+
 ### Login con Google / Microsoft
 
 Opcional. Registra la aplicación en el proveedor con la URI de retorno

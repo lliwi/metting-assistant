@@ -260,8 +260,10 @@ Orden acordado:
    - ✅ Copias de seguridad cifradas (base de datos + objetos) con verificación de restauración.
    - ✅ Eliminar organizaciones (cascada en BD + purga del almacenamiento) e italiano como
      idioma del audio (peticiones del 24/10).
-   - Pendiente: monitorización, Playwright, carga, seguridad, aceptación con audio real, TLS
-     real (dominio) y remoto para la CI.
+   - ✅ Monitorización: métricas Prometheus (HTTP por ruta, colas, grabaciones, fallos, coste),
+     8 alertas por email (Alertmanager) y panel de Grafana (perfil `monitoring`).
+   - Pendiente: Playwright, carga, seguridad, aceptación con audio real, TLS real (dominio) y
+     remoto para la CI.
 
 Mejoras de calidad: vocabulario por organización (nombres propios para el ASR), riesgos en
 el acta, ofrecer regenerar al renombrar hablantes, aviso al terminar (email/push),

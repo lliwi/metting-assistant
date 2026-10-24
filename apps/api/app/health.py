@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 import structlog
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from redis import Redis
 from sqlalchemy import text
 
@@ -36,6 +36,15 @@ READINESS_CHECKS: dict[str, Callable[[], None]] = {
     "redis": check_redis,
     "storage": check_storage,
 }
+
+
+@router.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    """Métricas Prometheus (solo red interna: nginx no publica esta ruta)."""
+    from app.core.metrics import render_metrics
+
+    body, content_type = render_metrics()
+    return Response(body, media_type=content_type)
 
 
 @router.get("/healthz")

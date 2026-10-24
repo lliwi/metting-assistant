@@ -1,0 +1,18 @@
+# Plantilla: el contenedor sustituye las variables al arrancar (ver compose.yaml).
+route:
+  receiver: email
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: email
+    email_configs:
+      - to: "__ALERT_EMAIL_TO__"
+        from: "__EMAIL_FROM__"
+        smarthost: "__SMTP_HOST__:__SMTP_PORT__"
+        auth_username: "__SMTP_USERNAME__"
+        auth_password_file: /tmp/smtp_password
+        require_tls: __SMTP_STARTTLS__
+        send_resolved: true

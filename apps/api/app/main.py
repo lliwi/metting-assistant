@@ -10,6 +10,7 @@ from app.core.correlation import HEADER as CORRELATION_HEADER
 from app.core.correlation import CorrelationIdMiddleware
 from app.core.errors import ErrorResponse, UnhandledErrorMiddleware, register_error_handlers
 from app.core.logging import configure_logging
+from app.core.metrics import MetricsMiddleware
 from app.core.root_path import RootPathMiddleware
 from app.exports import router as exports_router
 from app.orgs import router as orgs_router
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
             expose_headers=[CORRELATION_HEADER],
         )
     app.add_middleware(CorrelationIdMiddleware)
+    app.add_middleware(MetricsMiddleware)
 
     register_error_handlers(app)
     app.include_router(health.router)
