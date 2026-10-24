@@ -87,9 +87,10 @@ function ProfileSection({ dict, user }: { dict: Dictionary; user: User }) {
 }
 
 function PasswordSection({ dict, user }: { dict: Dictionary; user: User }) {
-  const { pending, error, run } = useAction(dict);
+  const { pending, error, setError, run } = useAction(dict);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
+  const [repeat, setRepeat] = useState("");
   const [done, setDone] = useState(false);
 
   if (!user.has_password) {
@@ -104,6 +105,10 @@ function PasswordSection({ dict, user }: { dict: Dictionary; user: User }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setDone(false);
+    if (next !== repeat) {
+      setError(dict.account.passwordMismatch);
+      return;
+    }
     const data = await run(() =>
       api.POST("/v1/auth/password/change", {
         body: { current_password: current, new_password: next },
@@ -113,6 +118,7 @@ function PasswordSection({ dict, user }: { dict: Dictionary; user: User }) {
       setDone(true);
       setCurrent("");
       setNext("");
+      setRepeat("");
     }
   }
 
@@ -137,6 +143,16 @@ function PasswordSection({ dict, user }: { dict: Dictionary; user: User }) {
         maxLength={128}
         value={next}
         onChange={(e) => setNext(e.target.value)}
+      />
+      <Field
+        label={dict.account.repeatPassword}
+        type="password"
+        autoComplete="new-password"
+        required
+        minLength={12}
+        maxLength={128}
+        value={repeat}
+        onChange={(e) => setRepeat(e.target.value)}
       />
       <FormMessage
         error={error}

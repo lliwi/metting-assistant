@@ -10,7 +10,6 @@
     "organizations": "Organizaciones",
     "account": "Mi cuenta",
     "login": "Iniciar sesión",
-    "register": "Crear cuenta",
     "logout": "Cerrar sesión",
     "recordings": "Grabaciones",
     "newRecording": "Nueva grabación",
@@ -49,22 +48,13 @@
   "auth": {
     "loginTitle": "Iniciar sesión",
     "loginSubmit": "Entrar",
-    "noAccount": "¿No tienes cuenta?",
+    "noAccount": "¿No tienes cuenta? Pide acceso a un administrador.",
     "forgotLink": "¿Has olvidado la contraseña?",
     "continueWith": "Continuar con {provider}",
     "mfaTitle": "Verificación en dos pasos",
     "mfaLead": "Introduce el código de 6 dígitos de tu app de autenticación o uno de tus códigos de recuperación.",
     "mfaCode": "Código",
     "mfaSubmit": "Verificar",
-    "registerTitle": "Crear cuenta",
-    "registerSubmit": "Crear cuenta",
-    "haveAccount": "¿Ya tienes cuenta?",
-    "registerDone": "Te hemos enviado un email para confirmar tu dirección. Revisa tu bandeja de entrada.",
-    "resendVerification": "Reenviar email de confirmación",
-    "resendDone": "Si la cuenta está pendiente de confirmar, te hemos enviado un nuevo email.",
-    "verifyTitle": "Confirmación de email",
-    "verifying": "Confirmando tu email…",
-    "verified": "Email confirmado. Ya puedes iniciar sesión.",
     "forgotTitle": "Recuperar contraseña",
     "forgotLead": "Te enviaremos un enlace para elegir una contraseña nueva.",
     "forgotSubmit": "Enviar enlace",
@@ -101,7 +91,9 @@
     "sessionCurrent": "Esta sesión",
     "sessionLastSeen": "Última actividad: {date}",
     "sessionRevoke": "Cerrar",
-    "unknownDevice": "Dispositivo desconocido"
+    "unknownDevice": "Dispositivo desconocido",
+    "repeatPassword": "Repite la contraseña nueva",
+    "passwordMismatch": "Las contraseñas nuevas no coinciden."
   },
   "orgs": {
     "title": "Organizaciones",
@@ -132,7 +124,7 @@
     "network": "No hay conexión con el servidor.",
     "validation_error": "Revisa los datos del formulario.",
     "invalid_credentials": "Email o contraseña incorrectos.",
-    "email_not_verified": "Confirma tu email antes de iniciar sesión.",
+    "email_not_verified": "La cuenta está pendiente de activar. Contacta con un administrador.",
     "invalid_token": "El enlace no es válido o ha caducado.",
     "invalid_mfa_code": "Código incorrecto.",
     "rate_limited": "Demasiados intentos. Espera unos minutos.",
@@ -174,7 +166,8 @@
     "unknown_speaker": "Hablante desconocido.",
     "nothing_to_export": "No hay contenido para exportar.",
     "not_editable": "El documento aún no está listo.",
-    "engine_unavailable": "Ese motor de transcripción no está disponible."
+    "engine_unavailable": "Ese motor de transcripción no está disponible.",
+    "no_account": "No hay ninguna cuenta con ese email. Pide acceso a un administrador."
   },
   "recording": {
     "newTitle": "Nueva grabación",

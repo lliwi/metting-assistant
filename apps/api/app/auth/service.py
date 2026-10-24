@@ -8,7 +8,6 @@ import uuid
 from dataclasses import dataclass
 
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import record_audit_event
@@ -22,7 +21,6 @@ from app.core.request_context import ClientInfo
 from app.core.security import hash_password, hash_token, password_needs_rehash, verify_password
 from app.models import AuditResult, TokenPurpose, User, UserStatus
 from app.notifications.email import EmailOutbox, build_email
-from app.orgs.service import create_personal_organization
 
 INVALID_CREDENTIALS = AppError("invalid_credentials", "Email o contraseña incorrectos", 401)
 
@@ -48,105 +46,6 @@ def _limit_by_email(
     limiter.hit(
         f"{scope}:email:{hash_token(normalize_email(email))}", limit=limit, window_seconds=window
     )
-
-
-def _send_verification(db: Session, outbox: EmailOutbox, user: User) -> None:
-    token = issue_user_token(db, user, TokenPurpose.EMAIL_VERIFICATION)
-    outbox.send(
-        build_email(
-            "verify_email",
-            to=user.email,
-            locale=user.locale,
-            name=user.name,
-            link=_link(f"/{user.locale}/verify-email", token),
-        )
-    )
-
-
-# --- Registro y verificación ---------------------------------------------------------------
-
-
-def register(
-    db: Session,
-    outbox: EmailOutbox,
-    limiter: RateLimiter,
-    client: ClientInfo,
-    *,
-    email: str,
-    password: str,
-    name: str,
-    locale: str,
-) -> None:
-    limiter.hit(f"register:ip:{client.ip_pseudonym}", limit=10, window_seconds=3600)
-    _limit_by_email(limiter, "register", email, limit=3, window=3600)
-
-    existing = find_user_by_email(db, email)
-    if existing is not None:
-        if existing.status is UserStatus.PENDING:
-            _send_verification(db, outbox, existing)
-        elif existing.status is UserStatus.ACTIVE:
-            outbox.send(
-                build_email(
-                    "account_exists",
-                    to=existing.email,
-                    locale=existing.locale,
-                    name=existing.name,
-                    link=f"{get_settings().public_app_url.rstrip('/')}/{existing.locale}/forgot-password",
-                )
-            )
-        db.commit()
-        return
-
-    user = User(
-        email=normalize_email(email),
-        name=name,
-        locale=locale,
-        status=UserStatus.PENDING,
-        password_hash=hash_password(password),
-    )
-    db.add(user)
-    try:
-        db.flush()
-    except IntegrityError:
-        # Registro concurrente con el mismo email: misma respuesta que si ya existiera.
-        db.rollback()
-        return
-    create_personal_organization(db, user)
-    _send_verification(db, outbox, user)
-    record_audit_event(
-        db,
-        action="auth.register",
-        client=client,
-        actor_id=user.id,
-        resource_type="user",
-        resource_id=user.id,
-    )
-    db.commit()
-
-
-def resend_verification(
-    db: Session, outbox: EmailOutbox, limiter: RateLimiter, client: ClientInfo, *, email: str
-) -> None:
-    limiter.hit(f"resend:ip:{client.ip_pseudonym}", limit=10, window_seconds=3600)
-    _limit_by_email(limiter, "resend", email, limit=3, window=3600)
-    user = find_user_by_email(db, email)
-    if user is not None and user.status is UserStatus.PENDING:
-        _send_verification(db, outbox, user)
-        db.commit()
-
-
-def verify_email(db: Session, client: ClientInfo, *, token: str) -> User:
-    row = find_valid_token(db, token, TokenPurpose.EMAIL_VERIFICATION)
-    if row is None:
-        raise AppError("invalid_token", "El enlace no es válido o ha caducado", 400)
-    user = db.get_one(User, row.user_id)
-    consume_token(row)
-    if user.status is UserStatus.PENDING:
-        user.status = UserStatus.ACTIVE
-    user.email_verified_at = user.email_verified_at or now()
-    record_audit_event(db, action="auth.email_verified", client=client, actor_id=user.id)
-    db.commit()
-    return user
 
 
 # --- Login ---------------------------------------------------------------------------------

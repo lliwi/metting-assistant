@@ -10,7 +10,6 @@
     "organizations": "Organitzacions",
     "account": "El meu compte",
     "login": "Inicia la sessió",
-    "register": "Crea un compte",
     "logout": "Tanca la sessió",
     "recordings": "Enregistraments",
     "newRecording": "Nou enregistrament",
@@ -49,22 +48,13 @@
   "auth": {
     "loginTitle": "Inicia la sessió",
     "loginSubmit": "Entra",
-    "noAccount": "No tens compte?",
+    "noAccount": "No tens compte? Demana accés a un administrador.",
     "forgotLink": "Has oblidat la contrasenya?",
     "continueWith": "Continua amb {provider}",
     "mfaTitle": "Verificació en dos passos",
     "mfaLead": "Introdueix el codi de 6 dígits de la teva app d'autenticació o un dels teus codis de recuperació.",
     "mfaCode": "Codi",
     "mfaSubmit": "Verifica",
-    "registerTitle": "Crea un compte",
-    "registerSubmit": "Crea el compte",
-    "haveAccount": "Ja tens compte?",
-    "registerDone": "T'hem enviat un correu per confirmar la teva adreça. Revisa la safata d'entrada.",
-    "resendVerification": "Reenvia el correu de confirmació",
-    "resendDone": "Si el compte està pendent de confirmar, t'hem enviat un correu nou.",
-    "verifyTitle": "Confirmació del correu",
-    "verifying": "S'està confirmant el teu correu…",
-    "verified": "Correu confirmat. Ja pots iniciar la sessió.",
     "forgotTitle": "Recupera la contrasenya",
     "forgotLead": "T'enviarem un enllaç per triar una contrasenya nova.",
     "forgotSubmit": "Envia l'enllaç",
@@ -101,7 +91,9 @@
     "sessionCurrent": "Aquesta sessió",
     "sessionLastSeen": "Darrera activitat: {date}",
     "sessionRevoke": "Tanca",
-    "unknownDevice": "Dispositiu desconegut"
+    "unknownDevice": "Dispositiu desconegut",
+    "repeatPassword": "Repeteix la contrasenya nova",
+    "passwordMismatch": "Les contrasenyes noves no coincideixen."
   },
   "orgs": {
     "title": "Organitzacions",
@@ -132,7 +124,7 @@
     "network": "No hi ha connexió amb el servidor.",
     "validation_error": "Revisa les dades del formulari.",
     "invalid_credentials": "Correu o contrasenya incorrectes.",
-    "email_not_verified": "Confirma el teu correu abans d'iniciar la sessió.",
+    "email_not_verified": "El compte està pendent d'activar. Contacta amb un administrador.",
     "invalid_token": "L'enllaç no és vàlid o ha caducat.",
     "invalid_mfa_code": "Codi incorrecte.",
     "rate_limited": "Massa intents. Espera uns minuts.",
@@ -174,7 +166,8 @@
     "unknown_speaker": "Parlant desconegut.",
     "nothing_to_export": "No hi ha contingut per exportar.",
     "not_editable": "El document encara no està a punt.",
-    "engine_unavailable": "Aquest motor de transcripció no està disponible."
+    "engine_unavailable": "Aquest motor de transcripció no està disponible.",
+    "no_account": "No hi ha cap compte amb aquest correu. Demana accés a un administrador."
   },
   "recording": {
     "newTitle": "Nou enregistrament",

@@ -2,10 +2,10 @@ from collections.abc import Callable
 
 import pyotp
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AuditEvent, AuditResult, Membership, Organization, Role, User, UserStatus
+from app.models import AuditEvent, AuditResult, User, UserStatus
 from tests.conftest import PASSWORD, ApiClient, MemoryOutbox
 
 pytestmark = pytest.mark.db
@@ -13,68 +13,24 @@ pytestmark = pytest.mark.db
 NEW_PASSWORD = "another long passphrase 42"
 
 
-def register(client: ApiClient, email: str = "ana@example.com", **extra: str) -> None:
-    res = client.post(
-        "/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "name": "Ana", **extra},
-    )
-    assert res.status_code == 202, res.text
+# --- Sin registro público ------------------------------------------------------------------
 
 
-# --- Registro y verificación ---------------------------------------------------------------
+@pytest.mark.parametrize("path", ["/v1/auth/register", "/v1/auth/verify-email"])
+def test_public_registration_is_disabled(client: ApiClient, path: str) -> None:
+    res = client.post(path, json={"email": "a@example.com", "password": PASSWORD, "name": "A"})
+    assert res.status_code in (404, 405)
 
 
-def test_register_creates_pending_user_with_personal_org(
-    client: ApiClient, db: Session, outbox: MemoryOutbox
+def test_pending_account_cannot_log_in(
+    client: ApiClient, make_user: Callable[..., User], db: Session
 ) -> None:
-    register(client, "Ana@Example.com", locale="ca")
-
-    user = db.scalars(select(User)).one()
-    assert user.email == "ana@example.com"
-    assert user.status is UserStatus.PENDING
-    assert user.locale == "ca"
-    membership = db.scalars(select(Membership)).one()
-    org = db.get_one(Organization, membership.organization_id)
-    assert (org.is_personal, membership.role) == (True, Role.OWNER)
-
-    email = outbox.last_to("ana@example.com")
-    assert "Confirma" in email.subject  # plantilla en catalán
-    assert "/ca/verify-email?token=" in email.body
-
-
-def test_login_requires_verified_email(client: ApiClient, outbox: MemoryOutbox) -> None:
-    register(client)
+    user = make_user("ana@example.com")
+    user.status = UserStatus.PENDING
+    db.commit()
     res = client.post("/v1/auth/login", json={"email": "ana@example.com", "password": PASSWORD})
     assert res.status_code == 403
     assert res.json()["error"]["code"] == "email_not_verified"
-
-    token = outbox.token_for("ana@example.com")
-    assert client.post("/v1/auth/verify-email", json={"token": token}).status_code == 200
-    # Un solo uso.
-    assert client.post("/v1/auth/verify-email", json={"token": token}).status_code == 400
-
-    res = client.post("/v1/auth/login", json={"email": "ana@example.com", "password": PASSWORD})
-    assert res.status_code == 200
-    me = client.get("/v1/auth/me").json()
-    assert me["email"] == "ana@example.com"
-    assert me["memberships"][0]["is_personal"] is True
-
-
-def test_register_existing_email_does_not_reveal_account(
-    client: ApiClient, db: Session, outbox: MemoryOutbox, make_user: Callable[..., User]
-) -> None:
-    make_user("ana@example.com")
-    register(client, "ANA@example.com")
-
-    assert db.scalar(select(func.count()).select_from(User)) == 1
-    assert "Intento de registro" in outbox.last_to("ana@example.com").subject
-
-
-def test_weak_password_rejected(client: ApiClient) -> None:
-    res = client.post(
-        "/v1/auth/register", json={"email": "a@example.com", "password": "short", "name": "A"}
-    )
-    assert res.status_code == 422
 
 
 # --- CSRF ----------------------------------------------------------------------------------
