@@ -43,9 +43,7 @@ def test_deletes_only_expired_recordings(
     run(db, storage, redis, expired_rec["id"], FakeAsr())
     expired = aged(db, expired_rec, 31)
     recent = aged(db, record(ana, tmp_path, org_id=team["id"]), 29)
-    busy = aged(
-        db, record(ana, tmp_path, org_id=team["id"]), 90, status=RecordingStatus.PROCESSING
-    )
+    busy = aged(db, record(ana, tmp_path, org_id=team["id"]), 90, status=RecordingStatus.PROCESSING)
     # El espacio personal no tiene retención: nada caduca.
     personal = aged(db, record(ana, tmp_path), 3650)
 
