@@ -42,8 +42,10 @@ def export_recording(
     transcript: bool = True,
     summary: bool = True,
     minutes: bool = True,
+    class_notes: bool = True,
 ) -> Response:
-    """Descarga la grabación en el formato indicado. Resumen y acta se incluyen si existen."""
+    """Descarga la grabación en el formato indicado. Resumen, acta y apuntes se incluyen si
+    existen."""
     rec = load_recording(db, user, recording_id, Action.RECORDING_READ)
     limiter.hit(f"export:user:{user.id}", limit=60, window_seconds=3600)
 
@@ -69,8 +71,10 @@ def export_recording(
             ctx.summary = documents[AiOutputKind.SUMMARY].content
         if minutes and AiOutputKind.MINUTES in documents:
             ctx.minutes = documents[AiOutputKind.MINUTES].content
+        if class_notes and AiOutputKind.CLASS_NOTES in documents:
+            ctx.class_notes = documents[AiOutputKind.CLASS_NOTES].content
 
-    if not (ctx.segments or ctx.summary or ctx.minutes):
+    if not (ctx.segments or ctx.summary or ctx.minutes or ctx.class_notes):
         raise AppError("nothing_to_export", "No hay contenido para exportar", 409)
 
     build, media_type = FORMATS[fmt]
@@ -88,6 +92,7 @@ def export_recording(
             "transcript": bool(ctx.segments),
             "summary": ctx.summary is not None,
             "minutes": ctx.minutes is not None,
+            "class_notes": ctx.class_notes is not None,
         },
     )
     db.commit()

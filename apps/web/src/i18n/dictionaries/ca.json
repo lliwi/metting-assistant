@@ -299,7 +299,14 @@
     "goTo": "Ves al moment {time} de la transcripció",
     "generatedWith": "Generat amb {model}",
     "generateHeading": "Documents amb IA",
-    "kind": "Document"
+    "kind": "Document",
+    "classNotes": "Apunts de classe",
+    "introduction": "Introducció",
+    "sections": "Seccions",
+    "concepts": "Conceptes clau",
+    "examples": "Exemples",
+    "review": "Per repassar",
+    "homework": "Deures"
   },
   "speakers": {
     "title": "Parlants",
@@ -329,6 +336,7 @@
     "transcript": "Transcripció",
     "summary": "Resum",
     "minutes": "Acta",
+    "class_notes": "Apunts",
     "formats": {
       "pdf": "PDF",
       "docx": "Word (DOCX)",
@@ -363,7 +371,10 @@
     "topicSummary": "Resum del tema",
     "text": "Text",
     "description": "Descripció",
-    "refsKept": "Es conserven les referències a la transcripció."
+    "refsKept": "Es conserven les referències a la transcripció.",
+    "content": "Contingut",
+    "term": "Terme",
+    "definition": "Definició"
   },
   "usage": {
     "title": "Consum d'IA",
@@ -382,7 +393,8 @@
     "kinds": {
       "transcription": "Transcripció",
       "summary": "Resum",
-      "minutes": "Acta"
+      "minutes": "Acta",
+      "class_notes": "Apunts"
     }
   }
 }

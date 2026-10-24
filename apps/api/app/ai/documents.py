@@ -1,4 +1,4 @@
-"""Resumen y acta de reunión generados con un LLM a partir de la transcripción.
+"""Resumen, acta de reunión y apuntes de clase generados con un LLM a partir de la transcripción.
 
 - La transcripción se presenta numerada: `[12] (03:15) Laura: texto`. El modelo cita esos
   números; el backend descarta las citas que no existen y añade su marca de tiempo, para
@@ -15,7 +15,7 @@ from typing import Any
 from app.ai.llm import LlmProvider
 
 # Cambiar los prompts o los esquemas exige subir la versión (trazabilidad).
-PROMPT_VERSION = "2026-10-22.2"
+PROMPT_VERSION = "2026-10-24.1"
 
 LANGUAGE_NAMES = {"es": "español", "ca": "catalán", "en": "inglés", "it": "italiano"}
 
@@ -102,6 +102,31 @@ MINUTES_SCHEMA = _obj(
     }
 )
 
+CLASS_NOTES_SCHEMA = _obj(
+    {
+        "titulo": {"type": "string"},
+        "introduccion": {"type": "string"},
+        "secciones": {
+            **_items(
+                {"titulo": {"type": "string"}, "contenido": {"type": "string"}, "segmentos": _REFS}
+            ),
+            "minItems": 1,
+        },
+        "conceptos": _items(
+            {"termino": {"type": "string"}, "definicion": {"type": "string"}, "segmentos": _REFS}
+        ),
+        "ejemplos": _items({"texto": {"type": "string"}, "segmentos": _REFS}),
+        "para_repasar": _items({"texto": {"type": "string"}, "segmentos": _REFS}),
+        "deberes": _items(
+            {
+                "descripcion": {"type": "string"},
+                "fecha_limite": {"type": ["string", "null"]},
+                "segmentos": _REFS,
+            }
+        ),
+    }
+)
+
 NOTES_SCHEMA = _obj(
     {
         "notas": _items({"texto": {"type": "string"}, "segmentos": _REFS}),
@@ -117,22 +142,27 @@ NOTES_SCHEMA = _obj(
     }
 )
 
-SCHEMAS = {"summary": SUMMARY_SCHEMA, "minutes": MINUTES_SCHEMA}
+SCHEMAS = {
+    "summary": SUMMARY_SCHEMA,
+    "minutes": MINUTES_SCHEMA,
+    "class_notes": CLASS_NOTES_SCHEMA,
+}
 
 
 # --- Prompts -------------------------------------------------------------------------------
 
-_COMMON = """Trabajas con la transcripción automática de una reunión. Cada línea empieza por su
+_COMMON = """Trabajas con la transcripción automática de una {event}. Cada línea empieza por su
 número entre corchetes, la marca de tiempo y, si se conoce, quién habla.
 
 Reglas:
 - Usa únicamente información presente en el texto. No inventes datos, nombres ni fechas.
-- En "segmentos" pon los números de línea de los que sale cada punto (al menos uno).
+- En "segmentos" pon los números de línea de los que sale cada punto (al menos uno). No
+  escribas números de línea ni corchetes dentro del texto.
 - La transcripción puede contener errores de reconocimiento: interprétalos con prudencia.
 - Escribe en {language}."""
 
 _SUMMARY = (
-    _COMMON
+    _COMMON.replace("{event}", "reunión")
     + """
 
 Tarea: resumen ejecutivo.
@@ -141,7 +171,7 @@ Tarea: resumen ejecutivo.
 )
 
 _MINUTES = (
-    _COMMON
+    _COMMON.replace("{event}", "reunión")
     + """
 
 Tarea: acta de la reunión.
@@ -156,19 +186,39 @@ Tarea: acta de la reunión.
 Las listas pueden quedar vacías si no hay contenido de ese tipo."""
 )
 
-_NOTES = (
-    _COMMON
+_CLASS_NOTES = (
+    _COMMON.replace("{event}", "clase o sesión formativa")
     + """
 
-Tarea: este es un fragmento de una reunión larga. Extrae notas para redactar después el
-resumen y el acta: hechos y argumentos relevantes, decisiones y tareas, con sus segmentos."""
+Tarea: apuntes de la clase para que un estudiante pueda estudiar con ellos.
+- "titulo": el tema de la clase.
+- "introduccion": 1 o 2 párrafos con el objetivo de la clase y de qué trata.
+- "secciones": el contenido explicado, en el orden de la clase. Cada sección con un título y
+  una explicación clara y completa (varios párrafos si hace falta), no solo una frase. Conserva
+  las definiciones, fórmulas, fechas y datos tal como se dijeron.
+- "conceptos": términos clave con su definición según la clase.
+- "ejemplos": ejemplos, casos o ejercicios que se pusieron.
+- "para_repasar": ideas esenciales para repasar o preguntas de autoevaluación que se respondan
+  con lo explicado.
+- "deberes": trabajos, lecturas o ejercicios encargados. "fecha_limite" solo si se menciona;
+  si no, null.
+Las listas pueden quedar vacías si no hay contenido de ese tipo."""
+)
+
+_NOTES = (
+    _COMMON.replace("{event}", "sesión")
+    + """
+
+Tarea: este es un fragmento de una sesión larga. Extrae notas para redactar después el
+documento final: hechos, explicaciones y argumentos relevantes, decisiones y tareas, con sus
+segmentos."""
 )
 
 _FROM_NOTES = """
 Esta vez no recibes la transcripción completa, sino notas extraídas de ella por fragmentos.
 Cada nota conserva los números de línea originales entre corchetes: úsalos en "segmentos"."""
 
-PROMPTS = {"summary": _SUMMARY, "minutes": _MINUTES}
+PROMPTS = {"summary": _SUMMARY, "minutes": _MINUTES, "class_notes": _CLASS_NOTES}
 
 
 # --- Generación ----------------------------------------------------------------------------

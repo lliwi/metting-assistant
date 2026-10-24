@@ -20,6 +20,7 @@ export function ExportPanel({
     transcript: true,
     summary: true,
     minutes: true,
+    class_notes: true,
   });
   const toggle = (key: keyof typeof parts) => () =>
     setParts((p) => ({ ...p, [key]: !p[key] }));
@@ -38,16 +39,18 @@ export function ExportPanel({
       <fieldset className="consent">
         <legend>{dict.export.include}</legend>
         <div className="row wrap">
-          {(["transcript", "summary", "minutes"] as const).map((key) => (
-            <label key={key} className="checkbox">
-              <input
-                type="checkbox"
-                checked={parts[key]}
-                onChange={toggle(key)}
-              />
-              {dict.export[key]}
-            </label>
-          ))}
+          {(["transcript", "summary", "minutes", "class_notes"] as const).map(
+            (key) => (
+              <label key={key} className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={parts[key]}
+                  onChange={toggle(key)}
+                />
+                {dict.export[key]}
+              </label>
+            ),
+          )}
         </div>
       </fieldset>
       <div className="row wrap">

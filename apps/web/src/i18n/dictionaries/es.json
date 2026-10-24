@@ -299,7 +299,14 @@
     "goTo": "Ir al momento {time} de la transcripción",
     "generatedWith": "Generado con {model}",
     "generateHeading": "Documentos con IA",
-    "kind": "Documento"
+    "kind": "Documento",
+    "classNotes": "Apuntes de clase",
+    "introduction": "Introducción",
+    "sections": "Secciones",
+    "concepts": "Conceptos clave",
+    "examples": "Ejemplos",
+    "review": "Para repasar",
+    "homework": "Deberes"
   },
   "speakers": {
     "title": "Hablantes",
@@ -329,6 +336,7 @@
     "transcript": "Transcripción",
     "summary": "Resumen",
     "minutes": "Acta",
+    "class_notes": "Apuntes",
     "formats": {
       "pdf": "PDF",
       "docx": "Word (DOCX)",
@@ -363,7 +371,10 @@
     "topicSummary": "Resumen del tema",
     "text": "Texto",
     "description": "Descripción",
-    "refsKept": "Las referencias a la transcripción se conservan."
+    "refsKept": "Las referencias a la transcripción se conservan.",
+    "content": "Contenido",
+    "term": "Término",
+    "definition": "Definición"
   },
   "usage": {
     "title": "Consumo de IA",
@@ -382,7 +393,8 @@
     "kinds": {
       "transcription": "Transcripción",
       "summary": "Resumen",
-      "minutes": "Acta"
+      "minutes": "Acta",
+      "class_notes": "Apuntes"
     }
   }
 }

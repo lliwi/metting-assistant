@@ -175,6 +175,77 @@ export function AiOutputEditor({
             onChange={set("puntos_clave")}
           />
         </>
+      ) : output.kind === "class_notes" ? (
+        <>
+          <Input
+            label={dict.edit.title}
+            value={String(content.titulo ?? "")}
+            onChange={set("titulo")}
+          />
+          <TextArea
+            label={dict.ai.introduction}
+            rows={4}
+            value={String(content.introduccion ?? "")}
+            onChange={set("introduccion")}
+          />
+          <ItemsEditor
+            dict={dict}
+            legend={dict.ai.sections}
+            items={items("secciones")}
+            fields={[
+              { key: "titulo", label: dict.edit.title },
+              { key: "contenido", label: dict.edit.content, multiline: true },
+            ]}
+            empty={{ titulo: "", contenido: "" }}
+            onChange={set("secciones")}
+          />
+          <ItemsEditor
+            dict={dict}
+            legend={dict.ai.concepts}
+            items={items("conceptos")}
+            fields={[
+              { key: "termino", label: dict.edit.term },
+              {
+                key: "definicion",
+                label: dict.edit.definition,
+                multiline: true,
+              },
+            ]}
+            empty={{ termino: "", definicion: "" }}
+            onChange={set("conceptos")}
+          />
+          <ItemsEditor
+            dict={dict}
+            legend={dict.ai.examples}
+            items={items("ejemplos")}
+            fields={[textField]}
+            empty={{ texto: "" }}
+            onChange={set("ejemplos")}
+          />
+          <ItemsEditor
+            dict={dict}
+            legend={dict.ai.review}
+            items={items("para_repasar")}
+            fields={[textField]}
+            empty={{ texto: "" }}
+            onChange={set("para_repasar")}
+          />
+          <ItemsEditor
+            dict={dict}
+            legend={dict.ai.homework}
+            items={items("deberes")}
+            fields={[
+              {
+                key: "descripcion",
+                label: dict.edit.description,
+                multiline: true,
+              },
+              { key: "fecha_limite", label: dict.ai.due, optional: true },
+            ]}
+            empty={{ descripcion: "", fecha_limite: null }}
+            onChange={set("deberes")}
+          />
+        </>
       ) : (
         <>
           <Input
