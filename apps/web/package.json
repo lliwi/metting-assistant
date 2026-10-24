@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "gen:api": "../../scripts/gen-api-types.sh",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "idb": "^8.0.4",
@@ -23,6 +24,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.19.2",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
