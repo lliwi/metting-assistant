@@ -168,6 +168,69 @@ function Minutes({
   );
 }
 
+const KINDS: Kind[] = ["summary", "minutes"];
+
+/** Un único botón para crear los documentos que aún no existen; el tipo se elige en la lista. */
+export function AiGenerate({
+  dict,
+  recordingId,
+  existing,
+  onRequested,
+}: {
+  dict: Dictionary;
+  recordingId: string;
+  existing: Kind[];
+  onRequested: (o: Output) => void;
+}) {
+  const { pending, error, run } = useAction(dict);
+  const missing = KINDS.filter((k) => !existing.includes(k));
+  const [choice, setChoice] = useState<Kind | null>(null);
+  // Si el elegido ya se ha generado, se pasa al siguiente que falte.
+  const kind = choice && missing.includes(choice) ? choice : missing[0];
+  if (!kind) return null;
+
+  async function generate(e: React.FormEvent) {
+    e.preventDefault();
+    const data = await run(() =>
+      api.POST("/v1/recordings/{recording_id}/ai-outputs", {
+        params: { path: { recording_id: recordingId } },
+        body: { kind },
+      }),
+    );
+    if (data) onRequested(data);
+  }
+
+  return (
+    <form
+      className="card stack"
+      aria-labelledby="ai-generate-heading"
+      onSubmit={generate}
+    >
+      <h2 id="ai-generate-heading">{dict.ai.generateHeading}</h2>
+      <div className="row ai-generate">
+        <label className="visually-hidden" htmlFor="ai-generate-kind">
+          {dict.ai.kind}
+        </label>
+        <select
+          id="ai-generate-kind"
+          value={kind}
+          onChange={(e) => setChoice(e.target.value as Kind)}
+        >
+          {missing.map((k) => (
+            <option key={k} value={k}>
+              {k === "summary" ? dict.ai.summary : dict.ai.minutes}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="button primary" disabled={pending}>
+          {dict.ai.generate}
+        </button>
+      </div>
+      <FormMessage error={error} />
+    </form>
+  );
+}
+
 export function AiOutputSection({
   dict,
   lang,
@@ -180,7 +243,7 @@ export function AiOutputSection({
   dict: Dictionary;
   lang: Locale;
   kind: Kind;
-  output?: Output;
+  output: Output;
   recordingId: string;
   canGenerate: boolean;
   onRequested: (o: Output) => void;
@@ -188,8 +251,8 @@ export function AiOutputSection({
   const { pending, error, run } = useAction(dict);
   const [editing, setEditing] = useState(false);
   const title = kind === "summary" ? dict.ai.summary : dict.ai.minutes;
-  const generating = output?.status === "pending";
-  const ready = output?.status === "ready";
+  const generating = output.status === "pending";
+  const ready = output.status === "ready";
 
   async function regenerate() {
     const data = await run(() =>
@@ -221,14 +284,14 @@ export function AiOutputSection({
               <Pencil aria-hidden="true" size={18} />
             </button>
           )}
-          {canGenerate && output && !generating && !editing && (
+          {canGenerate && !generating && !editing && (
             <button
               type="button"
               className="icon-link"
               onClick={regenerate}
               disabled={pending}
-              aria-label={output ? dict.ai.regenerate : dict.ai.generate}
-              title={output ? dict.ai.regenerate : dict.ai.generate}
+              aria-label={dict.ai.regenerate}
+              title={dict.ai.regenerate}
             >
               <RefreshCw aria-hidden="true" size={20} />
             </button>
@@ -236,34 +299,17 @@ export function AiOutputSection({
         </div>
       </div>
 
-      {!output && (
-        <div className="stack">
-          <p className="hint">{dict.ai.notStarted}</p>
-          {canGenerate && (
-            <button
-              type="button"
-              className="button primary"
-              onClick={regenerate}
-              disabled={pending}
-            >
-              {kind === "summary"
-                ? dict.ai.generateSummary
-                : dict.ai.generateMinutes}
-            </button>
-          )}
-        </div>
-      )}
       {generating && (
         <p role="status">
           {dict.ai.generating} <progress aria-label={dict.ai.generating} />
         </p>
       )}
-      {output?.status === "failed" && (
+      {output.status === "failed" && (
         <p className="alert error">
           {errorMessage(dict, output.error_code ?? "generation_failed")}
         </p>
       )}
-      {ready && editing && output && (
+      {ready && editing && (
         <AiOutputEditor
           dict={dict}
           output={output}
@@ -276,23 +322,22 @@ export function AiOutputSection({
       )}
       {ready &&
         !editing &&
-        output &&
         (kind === "summary" ? (
           <Summary dict={dict} content={output.content} />
         ) : (
           <Minutes dict={dict} content={output.content} />
         ))}
-      {ready && output?.edited_at && (
+      {ready && output.edited_at && (
         <p className="hint">
           {format(dict.edit.edited, {
             date: dateTime(lang, output.edited_at),
           })}
         </p>
       )}
-      {ready && output && output.edited_at && (
+      {ready && output.edited_at && (
         <Revisions dict={dict} lang={lang} kind={kind} outputId={output.id} />
       )}
-      {output?.status === "ready" && (
+      {output.status === "ready" && (
         <p className="notice" role="note">
           {dict.home.aiNotice}{" "}
           {output.model &&

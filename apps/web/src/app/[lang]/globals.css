@@ -613,6 +613,12 @@ details summary {
   color: var(--accent);
 }
 
+/* Generar documento: la lista ocupa el espacio que deja el botón. */
+.ai-generate select {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Volver a la lista: alineado con el borde del contenido pese al área táctil de 44 px. */
 .back-link {
   margin-left: -10px;

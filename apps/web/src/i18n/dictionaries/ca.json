@@ -298,9 +298,8 @@
     "empty": "Cap.",
     "goTo": "Ves al moment {time} de la transcripció",
     "generatedWith": "Generat amb {model}",
-    "notStarted": "Encara no s'ha generat.",
-    "generateSummary": "Genera el resum",
-    "generateMinutes": "Genera l'acta"
+    "generateHeading": "Documents amb IA",
+    "kind": "Document"
   },
   "speakers": {
     "title": "Parlants",
