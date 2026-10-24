@@ -19,6 +19,7 @@ sed \
   -e "s|^APP_SECRET_KEY=.*|APP_SECRET_KEY=$(hex 32)|" \
   -e "s|^DATA_ENCRYPTION_KEY=.*|DATA_ENCRYPTION_KEY=${fernet_key}|" \
   -e "s|^BACKUP_PASSPHRASE=.*|BACKUP_PASSPHRASE=$(hex 32)|" \
+  -e "s|^GRAFANA_ADMIN_PASSWORD=.*|GRAFANA_ADMIN_PASSWORD=$(hex 16)|" \
   .env.example > .env
 chmod 600 .env
 echo ".env generado."

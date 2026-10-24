@@ -3,6 +3,7 @@
 #   Base (producción inicial):  docker compose up -d
 #   Desarrollo:                 docker compose -f compose.yaml -f infra/compose/dev.yaml up
 #   Telemetría:                 añadir --profile observability
+#   Monitorización y alertas:   añadir --profile monitoring (Prometheus, Alertmanager, Grafana)
 #
 # Solo nginx publica puertos. Postgres, Redis, Garage y el worker viven en la red interna.
 
@@ -125,6 +126,8 @@ services:
     environment:
       <<: *api-env
       ROOT_PATH: /api
+      # Métricas agregadas de todos los procesos de gunicorn (tmpfs: se vacía al arrancar).
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
     networks: [edge, internal]
     depends_on:
       migrate:
@@ -319,6 +322,68 @@ services:
       - ./infra/otel/collector.yaml:/etc/otelcol/config.yaml:ro
     networks: [internal]
 
+  # --- Monitorización (perfil "monitoring") -------------------------------------------------
+  prometheus:
+    <<: *hardening
+    profiles: [monitoring]
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    networks: [internal]
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+
+  alertmanager:
+    <<: *hardening
+    profiles: [monitoring]
+    image: prom/alertmanager:v0.28.1
+    entrypoint: ["/bin/sh", "/etc/alertmanager/entrypoint.sh"]
+    environment:
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+    volumes:
+      - ./infra/monitoring/alertmanager.yml.tmpl:/etc/alertmanager/alertmanager.yml.tmpl:ro
+      - ./infra/monitoring/alertmanager-entrypoint.sh:/etc/alertmanager/entrypoint.sh:ro
+      - alertmanager_data:/alertmanager
+    # egress: el servidor SMTP suele ser externo.
+    networks: [internal, egress]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+  grafana:
+    <<: *hardening
+    profiles: [monitoring]
+    image: grafana/grafana-oss:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Falta GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/metting-agent.json
+      GF_PATHS_LOGS: /tmp/grafana
+    volumes:
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks: [internal]
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
 networks:
   edge: {}
   egress: {}
@@ -333,3 +398,6 @@ volumes:
   worker_scratch:
   whisper_models:
   clamav_db:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
