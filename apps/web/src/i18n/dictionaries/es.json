@@ -298,9 +298,8 @@
     "empty": "Ninguno.",
     "goTo": "Ir al momento {time} de la transcripción",
     "generatedWith": "Generado con {model}",
-    "notStarted": "Aún no se ha generado.",
-    "generateSummary": "Generar resumen",
-    "generateMinutes": "Generar acta"
+    "generateHeading": "Documentos con IA",
+    "kind": "Documento"
   },
   "speakers": {
     "title": "Hablantes",

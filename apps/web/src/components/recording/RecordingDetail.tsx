@@ -13,7 +13,7 @@ import { api, errorCode, type Schemas, type User } from "@/lib/api/client";
 import { useQuery } from "@/lib/api/useQuery";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
-import { AiOutputSection } from "./AiOutputs";
+import { AiGenerate, AiOutputSection } from "./AiOutputs";
 import { canDeleteRecording, DeleteRecording } from "./DeleteRecording";
 import { EditableTitle } from "./EditableTitle";
 import { ExportPanel } from "./ExportPanel";
@@ -109,6 +109,8 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
   }, [recordingId, transcribed, aiTick]);
   const { data: outputs = [], setData: setOutputs } = useQuery(fetchOutputs);
   const byKind = Object.fromEntries(outputs.map((o) => [o.kind, o]));
+  const onAiRequested = (o: (typeof outputs)[number]) =>
+    setOutputs([...outputs.filter((x) => x.kind !== o.kind), o]);
 
   if (loadError)
     return <p className="alert error">{errorMessage(dict, loadError)}</p>;
@@ -152,20 +154,29 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
         </div>
 
         {transcribed &&
-          (["summary", "minutes"] as const).map((kind) => (
-            <AiOutputSection
-              key={kind}
-              dict={dict}
-              lang={lang}
-              kind={kind}
-              output={byKind[kind]}
-              recordingId={recording.id}
-              canGenerate
-              onRequested={(o) =>
-                setOutputs([...outputs.filter((x) => x.kind !== o.kind), o])
-              }
-            />
-          ))}
+          (["summary", "minutes"] as const).map(
+            (kind) =>
+              byKind[kind] && (
+                <AiOutputSection
+                  key={kind}
+                  dict={dict}
+                  lang={lang}
+                  kind={kind}
+                  output={byKind[kind]}
+                  recordingId={recording.id}
+                  canGenerate
+                  onRequested={onAiRequested}
+                />
+              ),
+          )}
+        {transcribed && (
+          <AiGenerate
+            dict={dict}
+            recordingId={recording.id}
+            existing={outputs.map((o) => o.kind)}
+            onRequested={onAiRequested}
+          />
+        )}
 
         <section
           className="card stack"
