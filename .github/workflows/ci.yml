@@ -79,6 +79,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/generate-env.sh
+      - name: Cookies sin Secure (la CI sirve por HTTP)
+        run: sed -i 's/^COOKIE_SECURE=.*/COOKIE_SECURE=false/' .env
       - name: Arranque con health checks
         run: docker compose up -d --build --wait --wait-timeout 300
       - name: Smoke test a través del reverse proxy
@@ -90,6 +92,26 @@ jobs:
           published=$(docker compose config --format json | jq -r '.services | to_entries[] | select(.value.ports) | .key')
           echo "Servicios con puertos publicados: $published"
           test "$published" = "nginx"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Pruebas E2E (Playwright)
+        working-directory: apps/web
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          npm run e2e -- --reporter=list
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            apps/web/e2e-report
+            apps/web/e2e-results
       - name: Escaneo de imágenes
         uses: aquasecurity/trivy-action@0.33.1
         with:

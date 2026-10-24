@@ -262,8 +262,9 @@ Orden acordado:
      idioma del audio (peticiones del 24/10).
    - ✅ Monitorización: métricas Prometheus (HTTP por ruta, colas, grabaciones, fallos, coste),
      8 alertas por email (Alertmanager) y panel de Grafana (perfil `monitoring`).
-   - Pendiente: Playwright, carga, seguridad, aceptación con audio real, TLS real (dominio) y
-     remoto para la CI.
+   - ✅ Pruebas E2E con Playwright (11 escenarios, escritorio y móvil), también en la CI.
+   - Pendiente: carga, seguridad, aceptación con audio real, TLS real (dominio) y remoto
+     para la CI.
 
 Mejoras de calidad: vocabulario por organización (nombres propios para el ASR), riesgos en
 el acta, ofrecer regenerar al renombrar hablantes, aviso al terminar (email/push),

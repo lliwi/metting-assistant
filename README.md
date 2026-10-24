@@ -131,6 +131,22 @@ npm run lint && npm run check:i18n && npm test && npm run typecheck && npm run b
 npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que están al día)
 ```
 
+### Pruebas E2E (Playwright)
+
+Contra la aplicación levantada con Docker Compose. Crean (o reactivan) la cuenta
+`playwright.e2e@example.com` con `scripts/users.sh` y recorren: acceso sin registro, importar
+un audio y transcribirlo, buscar, corregir una frase, exportar, grabar con un micrófono
+simulado, cambiar la contraseña, crear y eliminar una organización y la vista móvil.
+
+```sh
+cd apps/web
+npx playwright install chromium     # la primera vez
+npm run e2e                         # E2E_BASE_URL=… para otro entorno
+```
+
+La transcripción usa el motor configurado: con OpenAI cuesta ~0,01 $ por ejecución. La CI las
+ejecuta con el motor local (sin coste).
+
 > Next.js 16 tiene cambios incompatibles con versiones anteriores (`middleware` → `proxy`, `cacheComponents`).
 > Consulta `apps/web/node_modules/next/dist/docs/` antes de usar una API.
 
