@@ -126,3 +126,20 @@ def test_readiness_reports_failing_dependency(
     res = client.get("/readyz")
     assert res.status_code == 503
     assert res.json()["checks"] == {"database": "ok", "redis": "error"}
+
+
+def test_trailing_slash_is_not_redirected(client: TestClient) -> None:
+    # Una redirección se construiría con el esquema y host internos (auditoría M-01).
+    for method in ("GET", "POST"):
+        res = client.request(method, "/healthz/", follow_redirects=False)
+        assert res.status_code == 404
+        assert "location" not in res.headers
+
+
+def test_openapi_hidden_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import Environment, get_settings
+
+    monkeypatch.setattr(get_settings(), "environment", Environment.PRODUCTION)
+    with TestClient(create_app()) as c:
+        assert c.get("/openapi.json").status_code == 404
+        assert c.get("/docs").status_code == 404

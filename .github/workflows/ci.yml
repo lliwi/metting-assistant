@@ -91,7 +91,7 @@ jobs:
       - name: Smoke test a través del reverse proxy
         run: |
           curl -fsS -o /dev/null http://127.0.0.1:8080/es
-          curl -fsS http://127.0.0.1:8080/api/readyz
+          curl -fsS http://127.0.0.1:8080/api/healthz
       - name: Cabeceras de seguridad y rutas internas
         run: |
           headers=$(curl -fsSI http://127.0.0.1:8080/es)
@@ -100,6 +100,18 @@ jobs:
           echo "$headers" | grep -qi "^x-content-type-options: nosniff"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/metrics)" = 404
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/docs)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/openapi.json)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/readyz)" = 404
+      - name: Redirecciones sin esquema, host ni puerto interno (auditoría M-01)
+        run: |
+          test "$(curl -s -o /dev/null -w '%{redirect_url}' http://127.0.0.1:8080/api)" = "http://127.0.0.1:8080/api/"
+          curl -s -D - -o /dev/null http://127.0.0.1:8080/api | grep -qi "^location: /api/"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/auth/me/)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{}' http://127.0.0.1:8080/api/v1/auth/login/)" = 404
+      - name: HSTS solo tras el proxy HTTPS (auditoría B-01)
+        run: |
+          curl -fsSI -H 'X-Forwarded-Proto: https' http://127.0.0.1:8080/es | grep -qi "^strict-transport-security: max-age="
+          ! curl -fsSI http://127.0.0.1:8080/es | grep -qi "^strict-transport-security"
       - name: Solo nginx publica puertos
         run: |
           published=$(docker compose config --format json | jq -r '.services | to_entries[] | select(.value.ports) | .key')

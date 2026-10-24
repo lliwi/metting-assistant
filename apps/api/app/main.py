@@ -25,8 +25,13 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Metting Agent API",
         version="0.1.0",
+        # En producción no se publica el inventario de la API (ni la interfaz ni el esquema).
         docs_url=None if settings.is_production else "/docs",
+        openapi_url=None if settings.is_production else "/openapi.json",
         redoc_url=None,
+        # Sin redirecciones de barra final: Starlette las construye con el esquema y el host
+        # que ve detrás del proxy (http, sin /api). Con barra final, la ruta no existe (404).
+        redirect_slashes=False,
         responses={
             422: {"model": ErrorResponse, "description": "Error de validación"},
             500: {"model": ErrorResponse, "description": "Error interno"},
