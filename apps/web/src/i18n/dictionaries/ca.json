@@ -112,6 +112,7 @@
     "removeConfirm": "Vols treure {name} de l'organització?",
     "settings": "Configuració",
     "retentionDays": "Retenció (dies, 0 = sense esborrat automàtic)",
+    "retentionHint": "Cada nit s'eliminen definitivament els enregistraments més antics que aquest termini, amb l'àudio, les transcripcions i els documents.",
     "personalNoMembers": "L'espai personal és només teu: no admet membres.",
     "you": "tu",
     "acceptTitle": "Invitació",
