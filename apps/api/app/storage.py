@@ -110,6 +110,12 @@ def get_storage() -> ObjectStorage:
             connect_timeout=5,
             read_timeout=30,
             retries={"max_attempts": 3, "mode": "standard"},
+            # boto3 >= 1.36 calcula y valida sumas CRC por defecto. En los objetos subidos por
+            # partes (upload_file, > 8 MB) la que devuelve Garage no coincide con la que calcula
+            # el cliente y get_object falla aunque el objeto esté bien: el audio de toda grabación
+            # larga quedaba sin poder transcribirse. Solo cuando la operación lo exige.
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
         ),
     )
     return ObjectStorage(client, settings.s3_bucket, settings.s3_server_side_encryption)
