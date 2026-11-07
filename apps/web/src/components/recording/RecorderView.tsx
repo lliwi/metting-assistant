@@ -14,6 +14,8 @@ import { useUploaderStats } from "@/lib/recorder/useUploaderStats";
 
 import { UploadStatus } from "./UploadStatus";
 
+const COMPLETE_RETRY_MS = 15_000;
+
 type Props = {
   dict: Dictionary;
   lang: Locale;
@@ -57,11 +59,24 @@ export function RecorderView({
   useEffect(() => {
     if (!finishRequested || localPending > 0 || result?.kind === "done") return;
     let cancelled = false;
-    void tryComplete(recordingId).then((r) => {
-      if (!cancelled) setResult(r);
-    });
+    // Cada resultado vuelve a lanzar este efecto: los reintentos, espaciados. Sin la espera, una
+    // captura que no se puede cerrar repetiría la petición sin pausa.
+    const timer = setTimeout(
+      () => {
+        void tryComplete(recordingId).then(
+          (r) => {
+            if (!cancelled) setResult(r);
+          },
+          () => {
+            if (!cancelled) setResult({ kind: "error", code: "network" });
+          },
+        );
+      },
+      result ? COMPLETE_RETRY_MS : 0,
+    );
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [finishRequested, localPending, recordingId, result]);
 

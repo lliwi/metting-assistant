@@ -23,6 +23,14 @@ export async function sha256Hex(blob: Blob): Promise<string> {
   ).join("");
 }
 
+/**
+ * Margen de una subida: fijo más lo que tardaría a ~200 kbit/s. Sin límite, una conexión colgada
+ * (cambio de wifi a datos, móvil suspendido) bloquearía para siempre la cola, que sube en serie.
+ */
+export function uploadTimeoutMs(sizeBytes: number): number {
+  return 60_000 + Math.ceil(sizeBytes / 25);
+}
+
 export async function sendSegment(
   segment: StoredSegment,
 ): Promise<SendOutcome> {
@@ -33,16 +41,27 @@ export async function sendSegment(
   form.set("duration_ms", String(segment.durationMs));
   form.set("sha256", segment.sha256);
   form.set("file", segment.blob, `segment-${segment.track}-${segment.seq}`);
-  const response = await fetch(
-    `/api/v1/recordings/${segment.recordingId}/segments`,
-    {
-      method: "POST",
-      body: form,
-      credentials: "same-origin",
-      headers: { [CSRF_HEADER]: await csrfToken() },
-    },
+  const headers = { [CSRF_HEADER]: await csrfToken() };
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new Error("upload_timeout")),
+    uploadTimeoutMs(segment.blob.size),
   );
-  return classifyResponse(response);
+  try {
+    const response = await fetch(
+      `/api/v1/recordings/${segment.recordingId}/segments`,
+      {
+        method: "POST",
+        body: form,
+        credentials: "same-origin",
+        headers,
+        signal: controller.signal,
+      },
+    );
+    return await classifyResponse(response);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 let singleton: { store: SegmentStore; uploader: SegmentUploader } | null = null;
@@ -105,6 +124,9 @@ export async function tryComplete(
           string,
           number
         >,
+        // Aquí ya no queda nada en el dispositivo: lo que falte no llegará nunca, y es mejor
+        // transcribir el resto (con un aviso) que dejar bloqueada toda la grabación.
+        allow_gaps: true,
       },
     },
   );

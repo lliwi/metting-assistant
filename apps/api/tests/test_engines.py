@@ -2,12 +2,14 @@
 
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import fakeredis
 import pytest
 from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
+from app.ai import asr as asr_module
 from app.ai.asr import AsrError, FasterWhisperProvider, OpenAIAsrProvider, get_asr_provider
 from app.ai.diarization import PyannoteDiarizer, get_diarizer
 from app.ai.speakers import SpeakerTurn
@@ -29,6 +31,28 @@ def settings(**overrides: object) -> Settings:
         "hf_token": SecretStr(""),
     }
     return Settings(_env_file=None, **{**base, **overrides})  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("size", "minutes", "fits"),
+    [
+        (1024, 10, True),
+        (1024, 20, True),
+        # Cabe en 24 MB (64 kbit/s), pero supera la duración que admiten los modelos gpt-4o.
+        (20 * 1024 * 1024, 45, False),
+        (25 * 1024 * 1024, 10, False),
+    ],
+)
+def test_openai_splits_by_size_or_duration(
+    size: int, minutes: int, fits: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    audio = tmp_path / "audio.m4a"
+    with audio.open("wb") as f:
+        f.truncate(size)
+    monkeypatch.setattr(
+        asr_module, "probe", lambda _: SimpleNamespace(duration_ms=minutes * 60_000)
+    )
+    assert asr_module._fits_in_one_request(audio) is fits
 
 
 def test_default_engine_follows_configuration() -> None:

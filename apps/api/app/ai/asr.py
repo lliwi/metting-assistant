@@ -13,7 +13,7 @@ import structlog
 
 from app.ai.usage import Usage
 from app.core.config import TranscriptionEngine, get_settings
-from app.media.ffmpeg import split_audio
+from app.media.ffmpeg import probe, split_audio
 
 log = structlog.get_logger(__name__)
 
@@ -156,9 +156,17 @@ class FasterWhisperProvider:
 
 # --- OpenAI (o servidor compatible) --------------------------------------------------------
 
-# La API rechaza archivos de más de 25 MB: se trocea por tiempo con margen.
+# La API rechaza archivos de más de 25 MB y los modelos gpt-4o limitan además la duración (unos
+# 23-25 min): a 64 kbit/s, un audio de 50 min aún cabe en 24 MB. Se trocea por lo que llegue antes.
 OPENAI_MAX_BYTES = 24 * 1024 * 1024
 OPENAI_PIECE_SECONDS = 20 * 60
+
+
+def _fits_in_one_request(path: Path) -> bool:
+    return (
+        path.stat().st_size <= OPENAI_MAX_BYTES
+        and probe(path).duration_ms <= OPENAI_PIECE_SECONDS * 1000
+    )
 
 
 class OpenAIAsrProvider:
@@ -177,7 +185,7 @@ class OpenAIAsrProvider:
         with tempfile.TemporaryDirectory(dir=path.parent) as tmp:
             pieces = (
                 [(path, 0)]
-                if path.stat().st_size <= OPENAI_MAX_BYTES
+                if _fits_in_one_request(path)
                 else split_audio(path, Path(tmp), OPENAI_PIECE_SECONDS)
             )
             segments: list[AsrSegment] = []

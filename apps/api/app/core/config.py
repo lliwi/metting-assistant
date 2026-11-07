@@ -47,7 +47,9 @@ class Settings(BaseSettings):
 
     # Captura por segmentos.
     segment_max_bytes: int = 10 * 1024 * 1024
-    segment_max_duration_ms: int = 120_000
+    # Holgado a propósito: con el móvil suspendido un segmento puede durar mucho más de 30 s, y
+    # rechazarlo perdería ese audio. El tamaño ya lo limita segment_max_bytes.
+    segment_max_duration_ms: int = 3_600_000
     recording_max_duration_minutes: int = 240
 
     # Importación de archivos (subidos en bloques por el mismo endpoint de segmentos).

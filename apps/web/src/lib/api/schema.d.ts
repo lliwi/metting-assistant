@@ -1027,6 +1027,11 @@ export interface components {
             tracks: {
                 [key: string]: number;
             };
+            /**
+             * Allow Gaps
+             * @default false
+             */
+            allow_gaps: boolean;
         };
         /** CsrfResponse */
         CsrfResponse: {

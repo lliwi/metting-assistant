@@ -27,7 +27,6 @@ export type RecorderOptions = {
 type Active = {
   recorder: MediaRecorder;
   chunks: Blob[];
-  seq: number;
   activeMs: number; // tiempo grabado, sin pausas
   resumedAt: number | null;
   done: Promise<void>;
@@ -113,23 +112,27 @@ export class SegmentedRecorder {
     const active: Active = {
       recorder,
       chunks: [],
-      seq: this.nextSeq++,
       activeMs: 0,
       resumedAt: this.now(),
       done: Promise.resolve(),
     };
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) active.chunks.push(event.data);
+      // Con la pantalla apagada el navegador frena los temporizadores, no estos eventos: sin
+      // esto, el segmento crece hasta superar el máximo que acepta el servidor.
+      this.tick();
     };
     recorder.onerror = (event) => this.options.onError?.(event);
     active.done = new Promise<void>((resolve) => {
       recorder.onstop = () => {
         const mimeType = recorder.mimeType || this.options.mimeType;
         const blob = new Blob(active.chunks, { type: mimeType });
+        // El número se asigna al entregar: un segmento vacío o una grabadora que no llega a
+        // arrancar dejarían un hueco, y el servidor nunca podría cerrar la captura.
         Promise.resolve(
           blob.size > 0
             ? this.options.onSegment({
-                seq: active.seq,
+                seq: this.nextSeq++,
                 blob,
                 durationMs: Math.round(active.activeMs),
                 mimeType,
@@ -166,9 +169,19 @@ export class SegmentedRecorder {
   private tick(): void {
     const c = this.current;
     if (!c || this.paused) return;
-    if (this.currentSegmentMs() < this.options.segmentMs) return;
+    // Una grabadora que se detuvo sola (error, interrupción) no captura nada: se sustituye ya.
+    const stopped = c.recorder.state === "inactive";
+    if (!stopped && this.currentSegmentMs() < this.options.segmentMs) return;
     // Primero el siguiente, luego cerrar el actual: sin hueco entre segmentos.
-    this.current = this.open();
+    let next: Active;
+    try {
+      next = this.open();
+    } catch (error) {
+      // Se sigue con la grabadora actual y se reintenta en el siguiente tick.
+      this.options.onError?.(error);
+      return;
+    }
+    this.current = next;
     this.close(c);
   }
 }

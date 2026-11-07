@@ -9,7 +9,9 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models import Membership, Role, User
+from app.db import get_sessionmaker
+from app.models import AudioSegment, Membership, Role, User
+from app.recordings import router as recordings_router
 from tests.conftest import ApiClient, MemoryStorage
 
 pytestmark = pytest.mark.db
@@ -163,6 +165,45 @@ def test_retry_is_idempotent(ana: ApiClient, storage: MemoryStorage) -> None:
     assert ana.get(f"/v1/recordings/{rec['id']}").json()["duration_ms"] == 30_000
 
 
+def test_concurrent_retry_of_same_segment_is_idempotent(
+    ana: ApiClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """El otro envío guarda el segmento justo después de comprobar que no existía."""
+    rec = create_recording(ana)
+    segment_id = str(uuid.uuid4())
+    data = audio(0)
+    sha = hashlib.sha256(data).hexdigest()
+    real_load = recordings_router.load_own_uploading
+
+    def load_after_other_request_commits(db: Session, user: User, recording_id: uuid.UUID):  # type: ignore[no-untyped-def]
+        with get_sessionmaker()() as other:
+            other.add(
+                AudioSegment(
+                    id=uuid.UUID(segment_id),
+                    recording_id=recording_id,
+                    track=0,
+                    seq=0,
+                    duration_ms=30_000,
+                    mime_type="audio/webm",
+                    size_bytes=len(data),
+                    sha256=sha,
+                    object_key=f"test/{segment_id}.webm",
+                )
+            )
+            other.commit()
+        return real_load(db, user, recording_id)
+
+    monkeypatch.setattr(recordings_router, "load_own_uploading", load_after_other_request_commits)
+    res = upload(ana, rec["id"], seq=0, segment_id=segment_id, data=data)
+    assert res.status_code == 200, res.text
+    assert res.json()["duplicate"] is True
+
+
+def test_long_segment_from_suspended_phone_is_accepted(ana: ApiClient) -> None:
+    rec = create_recording(ana)
+    assert upload(ana, rec["id"], seq=0, duration_ms=10 * 60_000).status_code == 201
+
+
 def test_same_id_with_other_content_conflicts(ana: ApiClient) -> None:
     rec = create_recording(ana)
     segment_id = str(uuid.uuid4())
@@ -238,6 +279,46 @@ def test_complete_reports_missing_segments(ana: ApiClient) -> None:
     assert res.status_code == 409
     assert res.json()["error"]["details"] == [{"track": 0, "seq": 1}, {"track": 0, "seq": 3}]
     assert ana.get(f"/v1/recordings/{rec['id']}").json()["status"] == "uploading"
+
+
+def test_complete_with_gaps_closes_capture_and_warns(ana: ApiClient) -> None:
+    rec = create_recording(ana)
+    upload(ana, rec["id"], seq=0)
+    upload(ana, rec["id"], seq=2)
+    res = ana.post(
+        f"/v1/recordings/{rec['id']}/complete", json={"tracks": {"0": 4}, "allow_gaps": True}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "pending"
+    assert res.json()["capture_warning"] == "audio_gaps"
+
+
+def test_complete_without_gaps_does_not_warn(ana: ApiClient) -> None:
+    rec = create_recording(ana)
+    upload(ana, rec["id"], seq=0)
+    res = ana.post(
+        f"/v1/recordings/{rec['id']}/complete", json={"tracks": {"0": 1}, "allow_gaps": True}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["capture_warning"] is None
+
+
+def test_import_cannot_complete_with_gaps(ana: ApiClient) -> None:
+    rec = create_recording(ana, source="import", filename="reunion.webm")
+    upload(ana, rec["id"], seq=0)
+    res = ana.post(
+        f"/v1/recordings/{rec['id']}/complete", json={"tracks": {"0": 2}, "allow_gaps": True}
+    )
+    assert res.status_code == 409
+    assert res.json()["error"]["code"] == "missing_segments"
+
+
+def test_capture_without_audio_cannot_complete_even_with_gaps(ana: ApiClient) -> None:
+    rec = create_recording(ana)
+    res = ana.post(
+        f"/v1/recordings/{rec['id']}/complete", json={"tracks": {"0": 2}, "allow_gaps": True}
+    )
+    assert res.json()["error"]["code"] == "empty_recording"
 
 
 def test_complete_is_idempotent_and_closes_capture(ana: ApiClient) -> None:

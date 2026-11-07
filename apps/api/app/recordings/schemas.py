@@ -71,6 +71,8 @@ class CompleteRequest(BaseModel):
     que los tiene todos antes de cerrar la captura."""
 
     tracks: dict[int, int] = Field(min_length=1)
+    # Cerrar una captura del navegador aunque falten segmentos que ya no se pueden recuperar.
+    allow_gaps: bool = False
 
 
 class MissingSegment(BaseModel):

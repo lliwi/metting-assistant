@@ -74,7 +74,7 @@ function Importer({ dict, lang }: Props) {
       );
       const done = await api.POST("/v1/recordings/{recording_id}/complete", {
         params: { path: { recording_id: data.id } },
-        body: { tracks: { "0": chunks } },
+        body: { tracks: { "0": chunks }, allow_gaps: false },
       });
       if (!done.response.ok) throw new ImportUploadError(errorCode(done.error));
       setPhase({ kind: "processing", recordingId: data.id });

@@ -576,6 +576,29 @@ def upload_segment(
         db.commit()
     except IntegrityError:
         db.rollback()
+        # Dos envíos simultáneos del mismo segmento (reintento tras un timeout, otra pestaña):
+        # el otro ya lo guardó, así que este también ha terminado bien.
+        stored = db.get(AudioSegment, segment_id)
+        if stored is not None and (
+            stored.recording_id,
+            stored.track,
+            stored.seq,
+            stored.sha256,
+        ) == (
+            recording_id,
+            track,
+            seq,
+            sha256,
+        ):
+            response.status_code = status.HTTP_200_OK
+            return SegmentOut(
+                id=stored.id,
+                track=stored.track,
+                seq=stored.seq,
+                sha256=stored.sha256,
+                size_bytes=stored.size_bytes,
+                duplicate=True,
+            )
         raise AppError("segment_conflict", "Ya existe otro segmento en esa posición", 409) from None
 
     events.publish(
@@ -621,7 +644,9 @@ def complete_recording(
         for seq in range(count)
         if (track, seq) not in present
     ]
-    if missing:
+    # Un archivo importado sin un bloque quedaría corrupto; a una captura solo le falta ese tramo.
+    gaps_allowed = body.allow_gaps and rec.source is RecordingSource.BROWSER
+    if missing and not gaps_allowed:
         raise AppError(
             "missing_segments",
             "Faltan segmentos por subir",
@@ -631,6 +656,8 @@ def complete_recording(
     if not present:
         raise AppError("empty_recording", "La grabación no tiene audio", 409)
 
+    if missing:
+        rec.capture_warning = "audio_gaps"
     rec.status = RecordingStatus.PENDING
     rec.completed_at = now()
     record_audit_event(
@@ -641,7 +668,11 @@ def complete_recording(
         organization_id=rec.organization_id,
         resource_type="recording",
         resource_id=rec.id,
-        metadata={"segments": len(present), "duration_ms": rec.duration_ms},
+        metadata={
+            "segments": len(present),
+            "missing_segments": len(missing),
+            "duration_ms": rec.duration_ms,
+        },
     )
     db.commit()
     tasks.process(rec.id)
