@@ -17,6 +17,7 @@ from app.audit import record_audit_event
 from app.core.config import get_settings
 from app.media.antivirus import Scanner
 from app.media.ffmpeg import concat_audio, decoded_duration_ms, probe
+from app.media.gaps import Piece, locate, missing_positions
 from app.media.imports import audio_key, prepare_import
 from app.models import (
     AudioSegment,
@@ -68,21 +69,30 @@ def normalize_browser_capture(
         )
     )
     key = audio_key(rec)
+    missing = missing_positions(rec.audio_gaps)
     db.rollback()
     inputs = []
+    pieces = [Piece(track, seq, None) for track, seq in missing]
     captured_ms = 0
     for i, segment in enumerate(segments):
         path = workdir / f"{i:05d}.{segment.object_key.rsplit('.', 1)[-1]}"
         path.write_bytes(storage.get(segment.object_key))
-        captured_ms += decoded_duration_ms(path)
+        segment_ms = decoded_duration_ms(path)
+        captured_ms += segment_ms
+        pieces.append(Piece(segment.track, segment.seq, segment_ms, segment.duration_ms))
         inputs.append(path)
     output = workdir / "audio.m4a"
     concat_audio(inputs, output)
     duration_ms = probe(output).duration_ms
     storage.put_file(key, str(output), "audio/mp4")
+    gaps = locate(pieces, duration_ms)
 
     rec = db.get_one(Recording, recording_id, with_for_update=True)
     rec.audio_object_key = key
+    rec.audio_gaps = [g.to_json() for g in gaps]
+    # Una reanudación la conoce quien grabó; el aviso general es para audio que se perdió.
+    if any(g.kind != "interruption" for g in gaps):
+        rec.capture_warning = "audio_gaps"
     # La duración medida sustituye a la declarada por el navegador.
     rec.duration_ms = duration_ms or rec.duration_ms
     # Referencia: la línea de tiempo del audio unido (huecos rellenados con silencio), no la

@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from app.media.gaps import AudioGap, describe
+
 LABELS: dict[str, dict[str, str]] = {
     "es": {
         "transcript": "Transcripción",
@@ -72,6 +74,8 @@ class ExportContext:
     locale: str
     segments: list[Segment] = field(default_factory=list)
     speaker_names: dict[str, str] = field(default_factory=dict)
+    # Huecos de audio, intercalados en la transcripción donde ocurrieron.
+    gaps: list[AudioGap] = field(default_factory=list)
     summary: dict[str, Any] | None = None
     minutes: dict[str, Any] | None = None
     class_notes: dict[str, Any] | None = None
@@ -86,6 +90,19 @@ class ExportContext:
         return (
             self.speaker_names.get(label) or f"{self.labels['speaker']} {label.removeprefix('H')}"
         )
+
+    def transcript(self) -> list[Segment | AudioGap]:
+        """Frases y huecos de audio en orden: cada hueco, antes de la primera frase posterior."""
+        items: list[Segment | AudioGap] = []
+        gaps = sorted(self.gaps, key=lambda g: g.start_ms)
+        for seg in self.segments:
+            while gaps and gaps[0].start_ms <= seg.start_ms:
+                items.append(gaps.pop(0))
+            items.append(seg)
+        return items + gaps
+
+    def gap_text(self, gap: AudioGap) -> str:
+        return f"[{clock(gap.start_ms)}] ⚠ {describe(gap, self.locale)}"
 
 
 def clock(ms: int, *, fraction: str | None = None) -> str:
@@ -163,9 +180,12 @@ def blocks(ctx: ExportContext) -> list[Block]:
         out += _class_notes(ctx.class_notes, lb)
     if ctx.segments:
         out.append(Block("h2", lb["transcript"]))
-        for seg in ctx.segments:
-            who = ctx.speaker(seg.speaker)
-            out.append(Block("p", f"{who + ': ' if who else ''}{seg.text}", clock(seg.start_ms)))
+        for item in ctx.transcript():
+            if isinstance(item, AudioGap):
+                out.append(Block("notice", ctx.gap_text(item)))
+                continue
+            who = ctx.speaker(item.speaker)
+            out.append(Block("p", f"{who + ': ' if who else ''}{item.text}", clock(item.start_ms)))
     return out
 
 
@@ -239,9 +259,12 @@ def to_markdown(ctx: ExportContext) -> bytes:
 
 def to_text(ctx: ExportContext) -> bytes:
     lines = [ctx.title, ""]
-    for seg in ctx.segments:
-        who = ctx.speaker(seg.speaker)
-        lines.append(f"[{clock(seg.start_ms)}] {who + ': ' if who else ''}{seg.text}")
+    for item in ctx.transcript():
+        if isinstance(item, AudioGap):
+            lines.append(ctx.gap_text(item))
+            continue
+        who = ctx.speaker(item.speaker)
+        lines.append(f"[{clock(item.start_ms)}] {who + ': ' if who else ''}{item.text}")
     return ("\n".join(lines) + "\n").encode()
 
 

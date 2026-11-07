@@ -19,11 +19,20 @@ from app.models import Recording
 from app.notifications.email import deliver_via_smtp
 from app.storage import get_storage
 from app.worker.celery_app import celery_app
-from app.worker.jobs import AI_LOCK_TTL, PROCESSING_LOCK_TTL, exclusive, mark_queued
+from app.worker.jobs import exclusive, mark_queued, requeues_key
 from app.worker.retention import apply_retention
 from app.worker.sweeper import sweep
 
 log = structlog.get_logger(__name__)
+
+# Errores no previstos (un fallo de programación, un servicio que responde algo inesperado):
+# unos pocos reintentos por si era pasajero y, después, fallida con aviso. Sin esto la grabación
+# se quedaba "procesando" para siempre y el barrido la reintentaba cada 10 minutos.
+UNEXPECTED_RETRIES = 3
+
+
+def _unexpected_countdown(retries: int) -> int:
+    return int(60 * 2**retries)
 
 
 @celery_app.task(name="app.worker.tasks.ping")  # type: ignore[untyped-decorator]
@@ -50,7 +59,7 @@ def process_recording_task(self: Any, recording_id: str) -> None:
     """Prepara el audio (importación o captura del navegador) y lo transcribe."""
     rid = uuid.UUID(recording_id)
     with (
-        exclusive(get_redis(), "recording", rid, PROCESSING_LOCK_TTL) as owned,
+        exclusive(get_redis(), "recording", rid) as owned,
         get_sessionmaker()() as db,
     ):
         if not owned:
@@ -91,6 +100,18 @@ def process_recording_task(self: Any, recording_id: str) -> None:
             log.error("processing_failed", recording_id=recording_id, error=str(exc))
             db.rollback()
             mark_failed(db, get_redis(), rid, exc.code)
+        except Exception as exc:
+            db.rollback()
+            if self.request.retries < UNEXPECTED_RETRIES:
+                log.exception("processing_retry_unexpected", recording_id=recording_id)
+                mark_queued(get_redis(), "recording", rid)
+                raise self.retry(
+                    exc=exc, countdown=_unexpected_countdown(self.request.retries)
+                ) from exc
+            log.exception("processing_failed_unexpected", recording_id=recording_id)
+            mark_failed(db, get_redis(), rid, "processing_failed")
+        else:
+            get_redis().delete(requeues_key("recording", rid))
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
@@ -100,7 +121,7 @@ def generate_ai_output_task(self: Any, output_id: str) -> None:
     """Resumen o acta con el LLM configurado (Ollama u OpenAI)."""
     oid = uuid.UUID(output_id)
     with (
-        exclusive(get_redis(), "ai_output", oid, AI_LOCK_TTL) as owned,
+        exclusive(get_redis(), "ai_output", oid) as owned,
         get_sessionmaker()() as db,
     ):
         if not owned:
@@ -115,6 +136,18 @@ def generate_ai_output_task(self: Any, output_id: str) -> None:
                 raise self.retry(exc=exc, countdown=min(600, 20 * 2**self.request.retries)) from exc
             log.error("ai_output_failed", output_id=output_id, error=str(exc))
             mark_output_failed(db, get_redis(), oid, "generation_failed")
+        except Exception as exc:
+            db.rollback()
+            if self.request.retries < UNEXPECTED_RETRIES:
+                log.exception("ai_output_retry_unexpected", output_id=output_id)
+                mark_queued(get_redis(), "ai_output", oid)
+                raise self.retry(
+                    exc=exc, countdown=_unexpected_countdown(self.request.retries)
+                ) from exc
+            log.exception("ai_output_failed_unexpected", output_id=output_id)
+            mark_output_failed(db, get_redis(), oid, "generation_failed")
+        else:
+            get_redis().delete(requeues_key("ai_output", oid))
 
 
 def enqueue_recording(recording_id: uuid.UUID) -> None:

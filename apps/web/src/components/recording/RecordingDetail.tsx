@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { errorMessage, FormMessage, useAction } from "@/components/forms";
@@ -21,7 +21,7 @@ import { MOVABLE, MoveRecording } from "./MoveRecording";
 import { TranscriptHistory } from "./TranscriptHistory";
 import { PlayerProvider, scrollToSegment, usePlayer } from "./Player";
 import { type Language, LANGUAGES } from "./SetupFields";
-import { speakerName, SpeakersEditor } from "./SpeakersEditor";
+import { speakerName, SpeakersEditor, speakersKey } from "./SpeakersEditor";
 
 type Props = { dict: Dictionary; lang: Locale };
 type Recording = Schemas["RecordingDetail"];
@@ -193,6 +193,7 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
             <TranscriptView
               dict={dict}
               transcript={transcript}
+              gaps={recording.audio_gaps}
               recordingId={recording.id}
               onUpdated={setTranscript}
             />
@@ -212,7 +213,7 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
 
         {transcript && (
           <SpeakersEditor
-            key={transcript.id}
+            key={speakersKey(transcript)}
             dict={dict}
             recordingId={recording.id}
             transcript={transcript}
@@ -282,14 +283,55 @@ function StatusMessage({
   }
 }
 
+type AudioGap = Schemas["AudioGapOut"];
+
+function gapText(dict: Dictionary, gap: AudioGap): string {
+  const seconds = Math.round((gap.lost_ms ?? 0) / 1000);
+  switch (gap.kind) {
+    case "missing":
+      return format(dict.detail.gapMissing, {
+        count: gap.segments ?? 0,
+        seconds,
+      });
+    case "dropped":
+      return format(dict.detail.gapDropped, { seconds });
+    default:
+      return dict.detail.gapInterruption;
+  }
+}
+
+/** Aviso de audio perdido en su sitio de la transcripción: no es una frase ni se edita. */
+function GapMarker({ dict, gap }: { dict: Dictionary; gap: AudioGap }) {
+  return (
+    <li className="audio-gap" role="note">
+      <time
+        className="timestamp"
+        dateTime={`PT${Math.floor(gap.start_ms / 1000)}S`}
+      >
+        {formatDuration(gap.start_ms)}
+      </time>
+      <span>
+        <TriangleAlert
+          aria-hidden="true"
+          size={16}
+          style={{ verticalAlign: "-3px" }}
+        />{" "}
+        {gapText(dict, gap)}
+      </span>
+    </li>
+  );
+}
+
 function TranscriptView({
   dict,
   transcript,
+  gaps,
   recordingId,
   onUpdated,
 }: {
   dict: Dictionary;
   transcript: Transcript;
+  gaps: AudioGap[];
   recordingId: string;
   onUpdated: (t: Transcript) => void;
 }) {
@@ -323,81 +365,110 @@ function TranscriptView({
         <p>{dict.detail.empty}</p>
       ) : (
         <ol className="transcript" lang={transcript.language}>
-          {transcript.segments.map((s) => {
+          {transcript.segments.map((s, i) => {
             const low = s.confidence !== null && s.confidence < LOW_CONFIDENCE;
+            // Cada hueco, antes de la primera frase que empieza después de él.
+            const previous = i > 0 ? segments[i - 1].start_ms : -1;
+            const before = gaps.filter(
+              (g) => g.start_ms > previous && g.start_ms <= s.start_ms,
+            );
+            const after =
+              i === segments.length - 1
+                ? gaps.filter((g) => g.start_ms > s.start_ms)
+                : [];
             return (
-              <li
-                key={s.idx}
-                id={`seg-${s.idx}`}
-                className={
-                  [low && "low-confidence", s.idx === active && "playing"]
-                    .filter(Boolean)
-                    .join(" ") || undefined
-                }
-                aria-current={s.idx === active ? "true" : undefined}
-              >
-                {player.available ? (
-                  <button
-                    type="button"
-                    className="timestamp link-button"
-                    onClick={() => player.seek(s.start_ms)}
-                    aria-label={format(dict.player.playFrom, {
-                      time: formatDuration(s.start_ms),
-                    })}
-                  >
-                    {formatDuration(s.start_ms)}
-                  </button>
-                ) : (
-                  <time
-                    className="timestamp"
-                    dateTime={`PT${Math.floor(s.start_ms / 1000)}S`}
-                  >
-                    {formatDuration(s.start_ms)}
-                  </time>
-                )}
-                {editingIdx === s.idx ? (
-                  <SegmentEditor
+              <Fragment key={s.idx}>
+                {before.map((g) => (
+                  <GapMarker
+                    key={`gap-${g.start_ms}-${g.kind}`}
                     dict={dict}
-                    recordingId={recordingId}
-                    segment={s}
-                    labels={labels}
-                    names={transcript.speaker_names}
-                    onDone={(t) => {
-                      setEditingIdx(null);
-                      if (t) onUpdated(t);
-                    }}
+                    gap={g}
                   />
-                ) : (
-                  <span>
-                    {s.speaker && (
-                      <strong className="speaker">
-                        {speakerName(dict, s.speaker, transcript.speaker_names)}
-                        :{" "}
-                      </strong>
-                    )}
-                    {s.text}
-                    {low && (
-                      <span className="visually-hidden">
-                        {" "}
-                        ({dict.detail.lowConfidence})
-                      </span>
-                    )}
-                  </span>
-                )}
-                {editingIdx !== s.idx && (
-                  <button
-                    type="button"
-                    className="icon-link segment-edit"
-                    onClick={() => setEditingIdx(s.idx)}
-                    aria-label={format(dict.edit.editSegment, {
-                      time: formatDuration(s.start_ms),
-                    })}
-                    title={dict.edit.edit}
-                  >
-                    <Pencil aria-hidden="true" size={16} />
-                  </button>
-                )}
-              </li>
+                ))}
+                <li
+                  key={s.idx}
+                  id={`seg-${s.idx}`}
+                  className={
+                    [low && "low-confidence", s.idx === active && "playing"]
+                      .filter(Boolean)
+                      .join(" ") || undefined
+                  }
+                  aria-current={s.idx === active ? "true" : undefined}
+                >
+                  {player.available ? (
+                    <button
+                      type="button"
+                      className="timestamp link-button"
+                      onClick={() => player.seek(s.start_ms)}
+                      aria-label={format(dict.player.playFrom, {
+                        time: formatDuration(s.start_ms),
+                      })}
+                    >
+                      {formatDuration(s.start_ms)}
+                    </button>
+                  ) : (
+                    <time
+                      className="timestamp"
+                      dateTime={`PT${Math.floor(s.start_ms / 1000)}S`}
+                    >
+                      {formatDuration(s.start_ms)}
+                    </time>
+                  )}
+                  {editingIdx === s.idx ? (
+                    <SegmentEditor
+                      dict={dict}
+                      recordingId={recordingId}
+                      segment={s}
+                      labels={labels}
+                      names={transcript.speaker_names}
+                      onDone={(t) => {
+                        setEditingIdx(null);
+                        if (t) onUpdated(t);
+                      }}
+                    />
+                  ) : (
+                    <span>
+                      {s.speaker && (
+                        <strong className="speaker">
+                          {speakerName(
+                            dict,
+                            s.speaker,
+                            transcript.speaker_names,
+                          )}
+                          :{" "}
+                        </strong>
+                      )}
+                      {s.text}
+                      {low && (
+                        <span className="visually-hidden">
+                          {" "}
+                          ({dict.detail.lowConfidence})
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {editingIdx !== s.idx && (
+                    <button
+                      type="button"
+                      className="icon-link segment-edit"
+                      onClick={() => setEditingIdx(s.idx)}
+                      aria-label={format(dict.edit.editSegment, {
+                        time: formatDuration(s.start_ms),
+                      })}
+                      title={dict.edit.edit}
+                    >
+                      <Pencil aria-hidden="true" size={16} />
+                    </button>
+                  )}
+                </li>
+                {after.map((g) => (
+                  <GapMarker
+                    key={`gap-${g.start_ms}-${g.kind}`}
+                    dict={dict}
+                    gap={g}
+                  />
+                ))}
+              </Fragment>
             );
           })}
         </ol>

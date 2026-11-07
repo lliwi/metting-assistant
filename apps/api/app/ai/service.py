@@ -7,12 +7,21 @@ from redis import Redis
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.ai.documents import PROMPT_VERSION, Line, attach_references, clean_attendees, generate
+from app.ai.documents import (
+    GAP_IDX,
+    PROMPT_VERSION,
+    Line,
+    attach_references,
+    clean_attendees,
+    generate,
+    with_gaps,
+)
 from app.ai.llm import LlmProvider
 from app.ai.usage import record_usage
 from app.audit import record_audit_event
 from app.auth.sessions import now
 from app.core.config import get_settings
+from app.media.gaps import located_gaps
 from app.models import (
     AiOutput,
     AiOutputKind,
@@ -120,7 +129,10 @@ def run_output(db: Session, llm: LlmProvider, redis: Redis, output_id: uuid.UUID
         return
     transcript = db.get_one(Transcript, output.transcript_id)
     rec = db.get_one(Recording, output.recording_id)
-    lines = [Line(s.idx, s.start_ms, s.speaker, s.text) for s in transcript.segments]
+    lines = with_gaps(
+        [Line(s.idx, s.start_ms, s.speaker, s.text) for s in transcript.segments],
+        located_gaps(rec.audio_gaps),
+    )
     names = dict(transcript.speaker_names or {})
     language = transcript.language or rec.language
     kind = output.kind.value
@@ -135,7 +147,8 @@ def run_output(db: Session, llm: LlmProvider, redis: Redis, output_id: uuid.UUID
     if output.status is not AiOutputStatus.PENDING:
         return
     content = clean_attendees(result.content, {line.speaker for line in lines if line.speaker})
-    output.content = attach_references(content, {line.idx: line.start_ms for line in lines})
+    starts = {line.idx: line.start_ms for line in lines if line.idx != GAP_IDX}
+    output.content = attach_references(content, starts)
     output.provider = result.provider
     output.model = result.model
     output.status = AiOutputStatus.READY

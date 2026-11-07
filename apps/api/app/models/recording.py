@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, Timestamps, UUIDPrimaryKey, str_enum
@@ -57,6 +59,11 @@ class Recording(UUIDPrimaryKey, Timestamps, Base):
     error_code: Mapped[str | None] = mapped_column(String(64))
     # Aviso no bloqueante sobre la captura (p. ej. "audio_gaps": el navegador perdió audio).
     capture_warning: Mapped[str | None] = mapped_column(String(64))
+    # Huecos de audio (app.media.gaps). Al cerrar la captura: segmentos que faltaban
+    # ({track, seq}); al unir el audio: su posición ({start_ms, kind, lost_ms, segments}).
+    audio_gaps: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
     # Motor de transcripción pedido ("local" | "openai"); None = el de la configuración.
     transcription_engine: Mapped[str | None] = mapped_column(String(16))
 

@@ -302,3 +302,64 @@ def test_outsider_cannot_read_transcript(
     eve = login("eve@example.com")
     assert eve.get(f"/v1/recordings/{rec['id']}/transcript").status_code == 404
     assert eve.post(f"/v1/recordings/{rec['id']}/reprocess", json={}).status_code == 404
+
+
+def test_gaps_are_located_in_the_joined_audio(
+    ana: ApiClient,
+    queue: Queue,
+    db: Session,
+    storage: MemoryStorage,
+    redis: fakeredis.FakeRedis,
+    tmp_path: Path,
+) -> None:
+    """Pista 0: segmentos 0 y 2 (el 1 se perdió). Pista 1: una reanudación."""
+    org_id = ana.get("/v1/organizations").json()[0]["id"]
+    rec = ana.post(
+        "/v1/recordings", json={"organization_id": org_id, "title": "R", "consent": True}
+    ).json()
+    ana.post(f"/v1/recordings/{rec['id']}/tracks")
+    for track, seq in [(0, 0), (0, 2), (1, 0)]:
+        data = webm_segment(tmp_path, track * 10 + seq)
+        res = ana.post(
+            f"/v1/recordings/{rec['id']}/segments",
+            data={
+                "segment_id": str(uuid.uuid4()),
+                "track": str(track),
+                "seq": str(seq),
+                "duration_ms": "3000",
+                "sha256": hashlib.sha256(data).hexdigest(),
+            },
+            files={"file": ("s.webm", data, "audio/webm")},
+        )
+        assert res.status_code == 201, res.text
+    res = ana.post(
+        f"/v1/recordings/{rec['id']}/complete",
+        json={"tracks": {"0": 3, "1": 1}, "allow_gaps": True},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["audio_gaps"] == []  # aún sin situar
+
+    result = run(db, storage, redis, rec["id"], FakeAsr())
+    assert result.status is RecordingStatus.TRANSCRIBED
+
+    gaps = ana.get(f"/v1/recordings/{rec['id']}").json()["audio_gaps"]
+    assert [(g["kind"], g["segments"]) for g in gaps] == [("missing", 1), ("interruption", None)]
+    missing, interruption = gaps
+    assert 2_500 <= missing["start_ms"] <= 3_500  # tras el primer segmento de 3 s
+    assert 5_500 <= interruption["start_ms"] <= 6_500  # tras los dos de la pista 0
+    assert ana.get(f"/v1/recordings/{rec['id']}").json()["capture_warning"] == "audio_gaps"
+
+
+def test_resume_alone_does_not_warn_of_lost_audio(
+    ana: ApiClient,
+    queue: Queue,
+    db: Session,
+    storage: MemoryStorage,
+    redis: fakeredis.FakeRedis,
+    tmp_path: Path,
+) -> None:
+    rec = record(ana, tmp_path)  # pista 0 completa y una reanudación
+    run(db, storage, redis, rec["id"], FakeAsr())
+    body = ana.get(f"/v1/recordings/{rec['id']}").json()
+    assert [g["kind"] for g in body["audio_gaps"]] == ["interruption"]
+    assert body["capture_warning"] is None

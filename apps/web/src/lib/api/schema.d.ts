@@ -707,6 +707,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recordings/{recording_id}/transcript/speaker-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Speaker Merges
+         * @description Pide al LLM qué etiquetas son la misma persona. No cambia nada: solo propone.
+         */
+        post: operations["suggest_speaker_merges_v1_recordings__recording_id__transcript_speaker_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/transcript/speakers/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Speakers
+         * @description Une varias etiquetas en la que aparece antes. Cada frase reasignada queda en el
+         *     historial, como una corrección manual.
+         */
+        post: operations["merge_speakers_v1_recordings__recording_id__transcript_speakers_merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/transcript/speakers": {
         parameters: {
             query?: never;
@@ -975,6 +1016,20 @@ export interface components {
             content: {
                 [key: string]: unknown;
             };
+        };
+        /** AudioGapOut */
+        AudioGapOut: {
+            /** Start Ms */
+            start_ms: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "missing" | "interruption" | "dropped";
+            /** Lost Ms */
+            lost_ms: number | null;
+            /** Segments */
+            segments: number | null;
         };
         /** AuditEventOut */
         AuditEventOut: {
@@ -1306,6 +1361,11 @@ export interface components {
             error_code: string | null;
             /** Capture Warning */
             capture_warning: string | null;
+            /**
+             * Audio Gaps
+             * @default []
+             */
+            audio_gaps: components["schemas"]["AudioGapOut"][];
             /** Transcription Engine */
             transcription_engine: string | null;
             /**
@@ -1352,6 +1412,11 @@ export interface components {
             error_code: string | null;
             /** Capture Warning */
             capture_warning: string | null;
+            /**
+             * Audio Gaps
+             * @default []
+             */
+            audio_gaps: components["schemas"]["AudioGapOut"][];
             /** Transcription Engine */
             transcription_engine: string | null;
             /**
@@ -1474,6 +1539,16 @@ export interface components {
             current: boolean;
         };
         /**
+         * SpeakerMerge
+         * @description Unir etiquetas de hablante en una (la que aparece antes). `name`: nombre para la unión.
+         */
+        SpeakerMerge: {
+            /** Labels */
+            labels: string[];
+            /** Name */
+            name?: string | null;
+        };
+        /**
          * SpeakerNamesUpdate
          * @description Nombre por etiqueta de hablante. Cadena vacía = quitar el nombre.
          */
@@ -1482,6 +1557,23 @@ export interface components {
             names: {
                 [key: string]: string;
             };
+        };
+        /**
+         * SpeakerSuggestion
+         * @description Etiquetas que probablemente son la misma persona (propuesta del LLM, sin aplicar).
+         */
+        SpeakerSuggestion: {
+            /** Labels */
+            labels: string[];
+            /** Name */
+            name: string | null;
+            /** Reason */
+            reason: string;
+        };
+        /** SpeakerSuggestionsOut */
+        SpeakerSuggestionsOut: {
+            /** Suggestions */
+            suggestions: components["schemas"]["SpeakerSuggestion"][];
         };
         /** TotpCodeRequest */
         TotpCodeRequest: {
@@ -3587,6 +3679,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TranscriptEditOut"][];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    suggest_speaker_merges_v1_recordings__recording_id__transcript_speaker_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeakerSuggestionsOut"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    merge_speakers_v1_recordings__recording_id__transcript_speakers_merge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeakerMerge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptOut"];
                 };
             };
             /** @description Error de validación */

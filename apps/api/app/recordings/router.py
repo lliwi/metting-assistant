@@ -3,6 +3,7 @@ import json
 import time
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -14,6 +15,9 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
+from app.ai.llm import LlmError, get_llm_provider
+from app.ai.speaker_merge import spans, suggest
+from app.ai.usage import record_usage
 from app.audit import record_audit_event
 from app.auth.dependencies import CurrentUser, DbSession, require_csrf
 from app.auth.sessions import now
@@ -28,6 +32,7 @@ from app.media.containers import (
     SEGMENT_CONTAINERS,
     sniff_container,
 )
+from app.media.gaps import located_gaps
 from app.models import (
     AudioSegment,
     Membership,
@@ -44,6 +49,7 @@ from app.models import (
 from app.orgs.permissions import Action, authorize
 from app.recordings import events
 from app.recordings.schemas import (
+    AudioGapOut,
     CompleteRequest,
     EnginesOut,
     MissingSegment,
@@ -57,7 +63,10 @@ from app.recordings.schemas import (
     SearchMatch,
     SegmentOut,
     SegmentUpdate,
+    SpeakerMerge,
     SpeakerNamesUpdate,
+    SpeakerSuggestion,
+    SpeakerSuggestionsOut,
     TrackOut,
     TrackSummary,
     TranscriptEditOut,
@@ -115,6 +124,7 @@ def _recording_out(rec: Recording) -> RecordingOut:
         audio_ready=rec.audio_object_key is not None,
         error_code=rec.error_code,
         capture_warning=rec.capture_warning,
+        audio_gaps=[AudioGapOut(**g.to_json()) for g in located_gaps(rec.audio_gaps)],
         transcription_engine=rec.transcription_engine,
         created_at=rec.created_at,
         completed_at=rec.completed_at,
@@ -658,6 +668,8 @@ def complete_recording(
 
     if missing:
         rec.capture_warning = "audio_gaps"
+        # Se sitúan en el audio al unirlo (app.media.gaps).
+        rec.audio_gaps = [{"track": m.track, "seq": m.seq} for m in missing]
     rec.status = RecordingStatus.PENDING
     rec.completed_at = now()
     record_audit_event(
@@ -821,6 +833,118 @@ def transcript_history(
         )
         for e, name in rows
     ]
+
+
+@dataclass(frozen=True)
+class _Said:
+    start_ms: int
+    end_ms: int
+    speaker: str | None
+    text: str
+
+
+@router.post("/recordings/{recording_id}/transcript/speaker-suggestions")
+def suggest_speaker_merges(
+    recording_id: uuid.UUID, user: CurrentUser, db: DbSession, limiter: Limiter
+) -> SpeakerSuggestionsOut:
+    """Pide al LLM qué etiquetas son la misma persona. No cambia nada: solo propone."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE)
+    transcript = _latest_transcript(db, rec.id)
+    said = [_Said(s.start_ms, s.end_ms, s.speaker, s.text) for s in transcript.segments]
+    names = dict(transcript.speaker_names or {})
+    language = transcript.language or rec.language
+    organization_id, rid = rec.organization_id, rec.id
+    db.rollback()  # sin transacción abierta mientras el modelo trabaja
+
+    llm = get_llm_provider()
+    started = time.monotonic()
+    try:
+        found = suggest(llm, said, names, language)
+    except LlmError as exc:
+        raise AppError(
+            "suggestions_failed", "El modelo de IA no ha podido analizar los hablantes", 503
+        ) from exc
+    if llm.usage.input_tokens or llm.usage.output_tokens:
+        # Solo si hubo llamada: sin etiquetas que unificar no se consulta al modelo.
+        limiter.hit(f"speaker_suggestions:user:{user.id}", limit=20, window_seconds=3600)
+        record_usage(
+            db,
+            organization_id=organization_id,
+            recording_id=rid,
+            kind="speaker_suggestions",
+            provider=llm.name,
+            model=llm.model,
+            input_tokens=llm.usage.input_tokens,
+            output_tokens=llm.usage.output_tokens,
+            processing_ms=int((time.monotonic() - started) * 1000),
+        )
+        db.commit()
+    return SpeakerSuggestionsOut(
+        suggestions=[
+            SpeakerSuggestion(labels=s.labels, name=s.name, reason=s.reason) for s in found
+        ]
+    )
+
+
+@router.post("/recordings/{recording_id}/transcript/speakers/merge")
+def merge_speakers(
+    recording_id: uuid.UUID,
+    body: SpeakerMerge,
+    user: CurrentUser,
+    db: DbSession,
+    client: Client,
+) -> TranscriptOut:
+    """Une varias etiquetas en la que aparece antes. Cada frase reasignada queda en el
+    historial, como una corrección manual."""
+    rec = load_recording(db, user, recording_id, Action.RECORDING_CREATE)
+    transcript = _latest_transcript(db, rec.id)
+    found = spans(transcript.segments)
+    labels = list(dict.fromkeys(body.labels))
+    unknown = sorted(set(labels) - set(found))
+    if unknown:
+        raise AppError("unknown_speaker", "Hablante desconocido", 422, details=unknown)
+    if len(labels) < 2:
+        raise AppError("validation_error", "Hacen falta al menos dos hablantes", 422)
+    target = min(labels, key=lambda lb: (found[lb].first_ms, lb))
+    merged = set(labels) - {target}
+
+    names = dict(transcript.speaker_names or {})
+    name = (body.name or "").strip()[:100] or next(
+        (names[lb] for lb in [target, *sorted(merged)] if names.get(lb)), None
+    )
+    changed = 0
+    for segment in transcript.segments:
+        if segment.speaker in merged:
+            db.add(
+                TranscriptEdit(
+                    transcript_id=transcript.id,
+                    segment_idx=segment.idx,
+                    field="speaker",
+                    old_value=segment.speaker,
+                    new_value=target,
+                    editor_id=user.id,
+                )
+            )
+            segment.speaker = target
+            changed += 1
+    for label in merged:
+        names.pop(label, None)
+    if name:
+        names[target] = name
+    # Asignación nueva (no mutación): SQLAlchemy detecta el cambio del JSONB.
+    transcript.speaker_names = names
+    record_audit_event(
+        db,
+        action="transcript.speakers_merged",
+        client=client,
+        actor_id=user.id,
+        organization_id=rec.organization_id,
+        resource_type="transcript",
+        resource_id=transcript.id,
+        metadata={"into": target, "merged": sorted(merged), "segments": changed},
+    )
+    db.commit()
+    return _transcript_out(transcript)
 
 
 @router.patch("/recordings/{recording_id}/transcript/speakers")

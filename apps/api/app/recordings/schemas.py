@@ -27,6 +27,13 @@ class TrackSummary(BaseModel):
     duration_ms: int
 
 
+class AudioGapOut(BaseModel):
+    start_ms: int
+    kind: Literal["missing", "interruption", "dropped"]
+    lost_ms: int | None
+    segments: int | None
+
+
 class RecordingOut(BaseModel):
     id: uuid.UUID
     organization_id: uuid.UUID
@@ -43,6 +50,8 @@ class RecordingOut(BaseModel):
     audio_ready: bool
     error_code: str | None
     capture_warning: str | None
+    # Huecos de audio situados en el audio unido (vacío hasta procesar la captura).
+    audio_gaps: list[AudioGapOut] = []
     transcription_engine: str | None
     created_at: datetime
     completed_at: datetime | None
@@ -119,6 +128,25 @@ class SpeakerNamesUpdate(BaseModel):
     """Nombre por etiqueta de hablante. Cadena vacía = quitar el nombre."""
 
     names: dict[str, str] = Field(max_length=50)
+
+
+class SpeakerSuggestion(BaseModel):
+    """Etiquetas que probablemente son la misma persona (propuesta del LLM, sin aplicar)."""
+
+    labels: list[str]
+    name: str | None
+    reason: str
+
+
+class SpeakerSuggestionsOut(BaseModel):
+    suggestions: list[SpeakerSuggestion]
+
+
+class SpeakerMerge(BaseModel):
+    """Unir etiquetas de hablante en una (la que aparece antes). `name`: nombre para la unión."""
+
+    labels: list[str] = Field(min_length=2, max_length=50)
+    name: str | None = Field(default=None, max_length=100)
 
 
 class SearchMatch(BaseModel):

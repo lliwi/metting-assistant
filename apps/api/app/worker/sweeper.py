@@ -9,14 +9,19 @@ from redis import Redis
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai.service import mark_output_failed
 from app.auth.sessions import now
+from app.media.imports import mark_failed
 from app.models import AiOutput, AiOutputStatus, Recording, RecordingStatus
-from app.worker.jobs import is_busy
+from app.worker.jobs import count_requeue, is_busy
 
 log = structlog.get_logger(__name__)
 
 # Margen antes de considerar perdido algo que no está ni en cola ni en ejecución.
 STALE_AFTER = timedelta(minutes=10)
+# Un trabajo que se pierde una y otra vez (el worker muere siempre con él: falta de memoria, un
+# audio que cuelga FFmpeg) se da por fallido: el usuario lo ve y puede reprocesarlo.
+MAX_REQUEUES = 3
 
 
 def sweep(
@@ -39,12 +44,30 @@ def sweep(
     ).all()
     db.rollback()
 
-    requeued_recordings = [r for r in recordings if not is_busy(redis, "recording", r)]
-    requeued_outputs = [o for o in outputs if not is_busy(redis, "ai_output", o)]
-    for recording_id in requeued_recordings:
+    requeued_recordings = []
+    for recording_id in recordings:
+        if is_busy(redis, "recording", recording_id):
+            continue
+        if count_requeue(redis, "recording", recording_id) > MAX_REQUEUES:
+            log.error("recording_given_up", recording_id=str(recording_id))
+            mark_failed(
+                db, redis, recording_id, "processing_stuck", action="recording.processing_stuck"
+            )
+            continue
+        requeued_recordings.append(recording_id)
         enqueue_recording(recording_id)
-    for output_id in requeued_outputs:
+
+    requeued_outputs = []
+    for output_id in outputs:
+        if is_busy(redis, "ai_output", output_id):
+            continue
+        if count_requeue(redis, "ai_output", output_id) > MAX_REQUEUES:
+            log.error("ai_output_given_up", output_id=str(output_id))
+            mark_output_failed(db, redis, output_id, "generation_stuck")
+            continue
+        requeued_outputs.append(output_id)
         enqueue_output(output_id)
+
     if requeued_recordings or requeued_outputs:
         log.warning(
             "stuck_jobs_requeued",

@@ -14,6 +14,7 @@ from app.core.errors import AppError
 from app.core.rate_limit import RateLimiter, get_rate_limiter
 from app.core.request_context import ClientInfo, get_client_info
 from app.exports.builders import FORMATS, ExportContext, Segment
+from app.media.gaps import located_gaps
 from app.models import AiOutput, AiOutputKind, AiOutputStatus
 from app.orgs.permissions import Action
 from app.recordings.router import load_recording
@@ -59,6 +60,7 @@ def export_recording(
     )
     if latest and (transcript or fmt in TRANSCRIPT_ONLY):
         ctx.segments = [Segment(s.start_ms, s.end_ms, s.speaker, s.text) for s in latest.segments]
+        ctx.gaps = located_gaps(rec.audio_gaps)
     if fmt not in TRANSCRIPT_ONLY:
         documents: dict[AiOutputKind, AiOutput] = {}
         for output in db.scalars(

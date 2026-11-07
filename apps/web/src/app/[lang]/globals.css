@@ -511,6 +511,16 @@ meter {
   align-items: start;
 }
 
+/* Hueco de audio: no es una frase; ocupa toda la fila y no se edita. */
+.transcript li.audio-gap {
+  grid-template-columns: 4.5rem 1fr;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--notice-bg);
+  color: var(--notice-text);
+  font-size: 0.875rem;
+}
+
 .segment-edit {
   width: 32px;
   height: 32px;
@@ -787,4 +797,16 @@ mark {
 
 .danger-zone h2 {
   color: var(--danger);
+}
+
+.speaker-suggestions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.speaker-suggestions > li {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }

@@ -13,9 +13,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.ai.llm import LlmProvider
+from app.media.gaps import AudioGap, describe
 
 # Cambiar los prompts o los esquemas exige subir la versión (trazabilidad).
-PROMPT_VERSION = "2026-10-24.1"
+PROMPT_VERSION = "2026-11-07.1"
 
 LANGUAGE_NAMES = {"es": "español", "ca": "catalán", "en": "inglés", "it": "italiano"}
 
@@ -25,10 +26,26 @@ CHARS_PER_TOKEN = 3.0
 
 @dataclass(frozen=True)
 class Line:
-    idx: int
+    idx: int  # GAP_IDX: aviso de audio perdido, no una frase (no se puede citar)
     start_ms: int
     speaker: str | None
     text: str
+
+
+GAP_IDX = -1
+
+
+def with_gaps(lines: Sequence[Line], gaps: Sequence[AudioGap]) -> list[Line]:
+    """Intercala los huecos de audio donde ocurrieron, como líneas sin número."""
+    out: list[Line] = []
+    pending = sorted(gaps, key=lambda g: g.start_ms)
+    for line in lines:
+        while pending and pending[0].start_ms <= line.start_ms:
+            gap = pending.pop(0)
+            out.append(Line(GAP_IDX, gap.start_ms, None, describe(gap)))
+        out.append(line)
+    out += [Line(GAP_IDX, g.start_ms, None, describe(g)) for g in pending]
+    return out
 
 
 def _clock(ms: int) -> str:
@@ -48,6 +65,9 @@ def speaker_label(speaker: str | None, names: dict[str, str]) -> str:
 def format_lines(lines: Sequence[Line], names: dict[str, str]) -> str:
     out = []
     for line in lines:
+        if line.idx == GAP_IDX:
+            out.append(f"({_clock(line.start_ms)}) [AUDIO PERDIDO] {line.text}")
+            continue
         who = speaker_label(line.speaker, names)
         out.append(f"[{line.idx}] ({_clock(line.start_ms)}) {who + ': ' if who else ''}{line.text}")
     return "\n".join(out)
@@ -159,6 +179,9 @@ Reglas:
 - En "segmentos" pon los números de línea de los que sale cada punto (al menos uno). No
   escribas números de línea ni corchetes dentro del texto.
 - La transcripción puede contener errores de reconocimiento: interprétalos con prudencia.
+- Las líneas marcadas [AUDIO PERDIDO] no tienen número: ahí falta audio. No supongas lo que
+  se dijo en ese tramo ni lo cites; si afecta a un punto, indica que la información está
+  incompleta.
 - Escribe en {language}."""
 
 _SUMMARY = (
