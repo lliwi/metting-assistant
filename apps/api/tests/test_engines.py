@@ -1,10 +1,15 @@
 """Modo híbrido: motor de transcripción local (Whisper + pyannote) u OpenAI por grabación."""
 
+import threading
+import time
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import fakeredis
+import httpx
+import openai
 import pytest
 from pydantic import SecretStr
 from sqlalchemy.orm import Session
@@ -176,3 +181,85 @@ def test_transient_diarization_failure_is_retried(
             db, storage, CleanScanner(), FakeAsr(), redis, uuid.UUID(rec["id"]),  # type: ignore[arg-type]
             diarizer=BrokenDiarizer(transient=True),
         )  # fmt: skip
+
+
+def test_openai_waits_long_enough_for_a_full_piece(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regresión: a ~0,5 s por segundo de audio, un trozo de 20 min tarda unos 600 s, justo el
+    límite que había; la petición se cortaba y la grabación nunca terminaba."""
+    monkeypatch.setattr(get_settings(), "openai_api_key", SecretStr("sk-x"))
+    provider = get_asr_provider("openai")
+    assert isinstance(provider, OpenAIAsrProvider)
+    expected_s = asr_module.OPENAI_PIECE_SECONDS * 0.5
+    assert provider.client.timeout >= 2.5 * expected_s
+
+
+class _FakeTranscriptions:
+    """Simula la API: cada trozo responde con una frase de su hablante "A"."""
+
+    def __init__(self, barrier: threading.Barrier | None = None, fail_on: str = "") -> None:
+        self.barrier = barrier
+        self.fail_on = fail_on
+
+    def create(self, *, model: str, file: Any, **_: Any) -> SimpleNamespace:
+        name = Path(file.name).stem
+        if self.barrier is not None:
+            # Solo pasa si los trozos están en vuelo a la vez.
+            self.barrier.wait()
+        if name == self.fail_on:
+            raise openai.BadRequestError(
+                "audio inválido",
+                response=httpx.Response(400, request=httpx.Request("POST", "http://x")),
+                body=None,
+            )
+        # El último trozo responde antes: el resultado debe seguir el orden del audio.
+        time.sleep(0.05 if name != "piece-002" else 0)
+        return SimpleNamespace(
+            language="spanish",
+            usage=SimpleNamespace(type="tokens", input_tokens=10, output_tokens=2),
+            segments=[SimpleNamespace(text=f"hola {name}", start=1.0, end=2.0, speaker="A")],
+        )
+
+
+def _pieces(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    audio = tmp_path / "audio.m4a"
+    audio.write_bytes(b"x")
+    pieces = []
+    for i in range(3):
+        piece = tmp_path / f"piece-{i:03d}.ogg"
+        piece.write_bytes(b"x")
+        pieces.append((piece, i * 1_200_000))
+    monkeypatch.setattr(asr_module, "_fits_in_one_request", lambda _: False)
+    monkeypatch.setattr(asr_module, "split_audio", lambda *_: pieces)
+    return audio
+
+
+def test_openai_pieces_are_sent_in_parallel_and_merged_in_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    audio = _pieces(tmp_path, monkeypatch)
+    client = SimpleNamespace(
+        audio=SimpleNamespace(transcriptions=_FakeTranscriptions(threading.Barrier(3, timeout=5)))
+    )
+    result = OpenAIAsrProvider(client, "gpt-4o-transcribe-diarize").transcribe(audio, None)
+
+    assert [s.text for s in result.segments] == [
+        "hola piece-000",
+        "hola piece-001",
+        "hola piece-002",
+    ]
+    assert [s.start_ms for s in result.segments] == [1_000, 1_201_000, 2_401_000]
+    assert [s.speaker for s in result.segments] == ["1-A", "2-A", "3-A"]
+    assert (result.input_tokens, result.output_tokens) == (30, 6)
+    assert result.language == "es"
+
+
+def test_openai_failed_piece_fails_the_transcription(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    audio = _pieces(tmp_path, monkeypatch)
+    client = SimpleNamespace(
+        audio=SimpleNamespace(transcriptions=_FakeTranscriptions(fail_on="piece-001"))
+    )
+    with pytest.raises(AsrError) as exc:
+        OpenAIAsrProvider(client, "gpt-4o-transcribe-diarize").transcribe(audio, None)
+    assert exc.value.transient is False

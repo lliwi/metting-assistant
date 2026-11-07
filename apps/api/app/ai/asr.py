@@ -4,7 +4,8 @@ import math
 import re
 import tempfile
 import time
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Protocol
@@ -160,6 +161,11 @@ class FasterWhisperProvider:
 # 23-25 min): a 64 kbit/s, un audio de 50 min aún cabe en 24 MB. Se trocea por lo que llegue antes.
 OPENAI_MAX_BYTES = 24 * 1024 * 1024
 OPENAI_PIECE_SECONDS = 20 * 60
+# Medido en producción: gpt-4o-transcribe-diarize tarda ~0,5 s por segundo de audio, así que un
+# trozo de 20 min necesita unos 10 min. Con el límite anterior (600 s) se cortaba siempre.
+OPENAI_REQUEST_TIMEOUT_S = 30 * 60
+# Trozos enviados a la vez. Pocos: cada uno ocupa una petición larga de la cuota de la API.
+OPENAI_PARALLEL_PIECES = 3
 
 
 def _fits_in_one_request(path: Path) -> bool:
@@ -179,8 +185,6 @@ class OpenAIAsrProvider:
         self.diarize = "diarize" in model
 
     def transcribe(self, path: Path, language: str | None) -> AsrResult:
-        import openai
-
         started = time.monotonic()
         with tempfile.TemporaryDirectory(dir=path.parent) as tmp:
             pieces = (
@@ -188,59 +192,16 @@ class OpenAIAsrProvider:
                 if _fits_in_one_request(path)
                 else split_audio(path, Path(tmp), OPENAI_PIECE_SECONDS)
             )
-            segments: list[AsrSegment] = []
-            tokens = Usage()
-            detected = language or ""
-            for piece_index, (piece, offset) in enumerate(pieces, start=1):
-                try:
-                    with piece.open("rb") as f:
-                        options: dict[str, Any] = (
-                            {"response_format": "diarized_json", "chunking_strategy": "auto"}
-                            if self.diarize
-                            else {
-                                "response_format": "verbose_json",
-                                "timestamp_granularities": ["segment"],
-                            }
-                        )
-                        response = self.client.audio.transcriptions.create(
-                            model=self.model,
-                            file=f,
-                            language=language or openai.NOT_GIVEN,
-                            **options,
-                        )
-                except (
-                    openai.APIConnectionError,
-                    openai.RateLimitError,
-                    openai.InternalServerError,
-                ) as exc:
-                    raise AsrError(str(exc), transient=True) from exc
-                except openai.APIError as exc:
-                    raise AsrError(str(exc), transient=False) from exc
-                usage = getattr(response, "usage", None)
-                if usage is not None and getattr(usage, "type", "tokens") == "tokens":
-                    tokens.add(
-                        getattr(usage, "input_tokens", 0), getattr(usage, "output_tokens", 0)
-                    )
-                detected = detected or getattr(response, "language", "") or ""
-                for s in getattr(response, "segments", None) or []:
-                    text = (s.text or "").strip()
-                    if text and not is_hallucination(
-                        text, getattr(s, "no_speech_prob", None), getattr(s, "avg_logprob", None)
-                    ):
-                        speaker = getattr(s, "speaker", None)
-                        if speaker and len(pieces) > 1:
-                            # Cada trozo se diariza por separado: "A" del trozo 1 no es
-                            # necesariamente "A" del trozo 2.
-                            speaker = f"{piece_index}-{speaker}"
-                        segments.append(
-                            AsrSegment(
-                                start_ms=offset + int(s.start * 1000),
-                                end_ms=offset + int(s.end * 1000),
-                                text=text,
-                                confidence=_confidence(getattr(s, "avg_logprob", None)),
-                                speaker=speaker,
-                            )
-                        )
+            results = self._transcribe_pieces(pieces, language)
+
+        segments: list[AsrSegment] = []
+        tokens = Usage()
+        detected = language or ""
+        # En el orden del audio, aunque los trozos terminen en otro orden.
+        for piece in results:
+            segments.extend(piece.segments)
+            tokens.add(piece.input_tokens, piece.output_tokens)
+            detected = detected or piece.language
         return AsrResult(
             language=_iso_language(detected),
             segments=segments,
@@ -250,6 +211,89 @@ class OpenAIAsrProvider:
             input_tokens=tokens.input_tokens,
             output_tokens=tokens.output_tokens,
         )
+
+    def _transcribe_pieces(
+        self, pieces: list[tuple[Path, int]], language: str | None
+    ) -> list["_PieceResult"]:
+        """Los trozos son independientes: en paralelo, el total es lo que tarde el más lento y
+        no la suma (a ~0,5 s por segundo de audio, 4 h en serie eran 2 h)."""
+        if len(pieces) == 1:
+            piece, offset = pieces[0]
+            return [self._transcribe_piece(piece, offset, None, language)]
+        pool = ThreadPoolExecutor(
+            max_workers=min(OPENAI_PARALLEL_PIECES, len(pieces)), thread_name_prefix="asr-piece"
+        )
+        futures = [
+            pool.submit(self._transcribe_piece, piece, offset, index, language)
+            for index, (piece, offset) in enumerate(pieces, start=1)
+        ]
+        try:
+            return [future.result() for future in futures]
+        finally:
+            # Si un trozo falla, no se envían los que aún esperan turno (se reintentará todo).
+            pool.shutdown(wait=True, cancel_futures=True)
+
+    def _transcribe_piece(
+        self, piece: Path, offset: int, piece_index: int | None, language: str | None
+    ) -> "_PieceResult":
+        import openai
+
+        options: dict[str, Any] = (
+            {"response_format": "diarized_json", "chunking_strategy": "auto"}
+            if self.diarize
+            else {"response_format": "verbose_json", "timestamp_granularities": ["segment"]}
+        )
+        try:
+            with piece.open("rb") as f:
+                response = self.client.audio.transcriptions.create(
+                    model=self.model,
+                    file=f,
+                    language=language or openai.NOT_GIVEN,
+                    **options,
+                )
+        except (
+            openai.APIConnectionError,
+            openai.RateLimitError,
+            openai.InternalServerError,
+        ) as exc:
+            raise AsrError(str(exc), transient=True) from exc
+        except openai.APIError as exc:
+            raise AsrError(str(exc), transient=False) from exc
+
+        result = _PieceResult(language=getattr(response, "language", "") or "")
+        usage = getattr(response, "usage", None)
+        if usage is not None and getattr(usage, "type", "tokens") == "tokens":
+            result.input_tokens = getattr(usage, "input_tokens", 0) or 0
+            result.output_tokens = getattr(usage, "output_tokens", 0) or 0
+        for s in getattr(response, "segments", None) or []:
+            text = (s.text or "").strip()
+            if not text or is_hallucination(
+                text, getattr(s, "no_speech_prob", None), getattr(s, "avg_logprob", None)
+            ):
+                continue
+            speaker = getattr(s, "speaker", None)
+            if speaker and piece_index is not None:
+                # Cada trozo se diariza por separado: "A" del trozo 1 no es necesariamente
+                # "A" del trozo 2.
+                speaker = f"{piece_index}-{speaker}"
+            result.segments.append(
+                AsrSegment(
+                    start_ms=offset + int(s.start * 1000),
+                    end_ms=offset + int(s.end * 1000),
+                    text=text,
+                    confidence=_confidence(getattr(s, "avg_logprob", None)),
+                    speaker=speaker,
+                )
+            )
+        return result
+
+
+@dataclass
+class _PieceResult:
+    language: str
+    segments: list[AsrSegment] = field(default_factory=list)
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 _LANGUAGE_NAMES = {"spanish": "es", "catalan": "ca", "english": "en", "italian": "it"}
@@ -270,8 +314,9 @@ def get_asr_provider(engine: TranscriptionEngine | None = None) -> AsrProvider:
         client = OpenAI(
             api_key=settings.openai_api_key.get_secret_value(),
             base_url=settings.openai_base_url,
-            timeout=600,
-            max_retries=2,
+            timeout=OPENAI_REQUEST_TIMEOUT_S,
+            # Un reintento: la tarea ya reintenta los fallos transitorios con espera creciente.
+            max_retries=1,
         )
         # Con la diarización desactivada se usa el modelo de transcripción sin hablantes.
         model = (
