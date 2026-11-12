@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { errorMessage, Field, FormMessage } from "@/components/forms";
@@ -10,28 +10,31 @@ import { format } from "@/i18n/format";
 import { api, errorCode, type Schemas, type User } from "@/lib/api/client";
 import { useQuery } from "@/lib/api/useQuery";
 import { getRecorderQueue, SegmentStore } from "@/lib/recorder";
+import {
+  type CaptureMode,
+  type CaptureSource,
+  meetingSource,
+  MIC_CONSTRAINTS,
+  microphoneSource,
+  NoDisplayAudioError,
+  requestDisplayAudio,
+  supportsMeetingCapture,
+} from "@/lib/recorder/captureSource";
 
 import { RecorderView } from "./RecorderView";
 import { SetupFields, useSetupState } from "./SetupFields";
 
 type Props = { dict: Dictionary; lang: Locale };
-type Active = {
-  stream: MediaStream;
+type CaptureChoice = { mode: CaptureMode; includeMic: boolean };
+type Active = CaptureChoice & {
+  source: CaptureSource;
   recordingId: string;
   track: number;
   title: string;
 };
 
-const AUDIO_CONSTRAINTS: MediaStreamConstraints = {
-  audio: {
-    echoCancellation: true,
-    noiseSuppression: true,
-    autoGainControl: true,
-  },
-};
-
-/** Pide el micrófono antes de crear nada en el servidor; traduce los errores habituales. */
-async function requestMicrophone(dict: Dictionary): Promise<MediaStream> {
+/** Comprobaciones previas comunes a cualquier fuente; no espera nada (conserva el gesto). */
+function checkSupport(dict: Dictionary): void {
   // Sin contexto seguro (HTTPS o localhost) el navegador oculta el micrófono, aunque el
   // usuario le haya dado permiso: es la causa más habitual al entrar desde el móvil por IP.
   if (!window.isSecureContext) {
@@ -44,8 +47,50 @@ async function requestMicrophone(dict: Dictionary): Promise<MediaStream> {
   if (typeof MediaRecorder === "undefined") {
     throw new Error(dict.recording.noMediaRecorder);
   }
+}
+
+/**
+ * Pide los permisos antes de crear nada en el servidor. En una reunión online se pide primero
+ * la pestaña: el navegador solo la ofrece con una activación del usuario reciente, y el
+ * diálogo del micrófono la consumiría.
+ */
+async function requestCapture(
+  dict: Dictionary,
+  { mode, includeMic }: CaptureChoice,
+): Promise<CaptureSource> {
+  checkSupport(dict);
+  if (mode === "microphone") {
+    return microphoneSource(await requestMicrophone(dict));
+  }
+  if (!supportsMeetingCapture()) {
+    throw new Error(dict.recording.meetingUnsupported);
+  }
+  let display: MediaStream;
   try {
-    return await navigator.mediaDevices.getUserMedia(AUDIO_CONSTRAINTS);
+    display = await requestDisplayAudio();
+  } catch (e) {
+    if (e instanceof NoDisplayAudioError) {
+      throw new Error(dict.recording.meetingNoAudio);
+    }
+    const name = e instanceof DOMException ? e.name : String(e);
+    if (name === "NotAllowedError" || name === "AbortError") {
+      throw new Error(dict.recording.meetingDenied);
+    }
+    throw new Error(`${dict.recording.meetingUnsupported} (${name})`);
+  }
+  try {
+    const mic = includeMic ? await requestMicrophone(dict) : null;
+    return meetingSource(display, mic);
+  } catch (e) {
+    display.getTracks().forEach((t) => t.stop());
+    throw e;
+  }
+}
+
+/** Pide el micrófono; traduce los errores habituales. */
+async function requestMicrophone(dict: Dictionary): Promise<MediaStream> {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio: MIC_CONSTRAINTS });
   } catch (e) {
     const name = e instanceof DOMException ? e.name : String(e);
     if (name === "NotAllowedError" || name === "SecurityError") {
@@ -87,11 +132,11 @@ function Recorder({ dict, lang, user }: Props & { user: User }) {
 
   /** Abre una pista nueva en una grabación existente (reanudación). */
   const resume = useCallback(
-    async (recordingId: string, title: string) => {
+    async (recordingId: string, title: string, choice: CaptureChoice) => {
       setBusy(true);
       setError(null);
       try {
-        const stream = await requestMicrophone(dict);
+        const source = await requestCapture(dict, choice);
         const { data, error: apiError } = await api.POST(
           "/v1/recordings/{recording_id}/tracks",
           {
@@ -99,12 +144,12 @@ function Recorder({ dict, lang, user }: Props & { user: User }) {
           },
         );
         if (!data) {
-          stream.getTracks().forEach((t) => t.stop());
+          source.dispose();
           setError(errorMessage(dict, errorCode(apiError)));
           return;
         }
         await getRecorderQueue().store.ensureTrack(recordingId, data.track);
-        setActive({ stream, recordingId, track: data.track, title });
+        setActive({ ...choice, source, recordingId, track: data.track, title });
       } catch (e) {
         setError(e instanceof Error ? e.message : dict.errors.unknown);
       } finally {
@@ -122,12 +167,18 @@ function Recorder({ dict, lang, user }: Props & { user: User }) {
           key={`${active.recordingId}-${active.track}`}
           dict={dict}
           lang={lang}
-          stream={active.stream}
+          source={active.source}
+          mode={active.mode}
           recordingId={active.recordingId}
           track={active.track}
           title={active.title}
           ownerId={user.id}
-          onResume={() => void resume(active.recordingId, active.title)}
+          onResume={() =>
+            void resume(active.recordingId, active.title, {
+              mode: active.mode,
+              includeMic: active.includeMic,
+            })
+          }
         />
       </>
     );
@@ -151,24 +202,25 @@ function Recorder({ dict, lang, user }: Props & { user: User }) {
           lang={lang}
           busy={busy}
           error={error}
-          onStart={async (body) => {
+          onStart={async (body, choice) => {
             setBusy(true);
             setError(null);
             try {
-              const stream = await requestMicrophone(dict);
+              const source = await requestCapture(dict, choice);
               const { data, error: apiError } = await api.POST(
                 "/v1/recordings",
                 { body },
               );
               if (!data) {
-                stream.getTracks().forEach((t) => t.stop());
+                source.dispose();
                 setError(errorMessage(dict, errorCode(apiError)));
                 return;
               }
               void SegmentStore.requestPersistence();
               await getRecorderQueue().store.ensureTrack(data.id, 0);
               setActive({
-                stream,
+                ...choice,
+                source,
                 recordingId: data.id,
                 track: 0,
                 title: data.title,
@@ -196,9 +248,13 @@ function NewRecordingForm({
   lang: Locale;
   busy: boolean;
   error: string | null;
-  onStart: (body: Schemas["RecordingCreate"]) => Promise<void>;
+  onStart: (
+    body: Schemas["RecordingCreate"],
+    choice: CaptureChoice,
+  ) => Promise<void>;
 }) {
   const setup = useSetupState(lang);
+  const capture = useCaptureChoice();
   const { consent, language, organizationId: selectedOrg } = setup;
   const [title, setTitle] = useState(() =>
     format(dict.recording.defaultTitle, {
@@ -215,13 +271,16 @@ function NewRecordingForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!consent || !selectedOrg) return;
-        void onStart({
-          organization_id: selectedOrg,
-          title,
-          language,
-          source: "browser",
-          consent: true,
-        });
+        void onStart(
+          {
+            organization_id: selectedOrg,
+            title,
+            language,
+            source: "browser",
+            consent: true,
+          },
+          capture.choice,
+        );
       }}
     >
       <h1>{dict.recording.newTitle}</h1>
@@ -232,10 +291,11 @@ function NewRecordingForm({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
       />
+      <CaptureFields dict={dict} state={capture} />
       <SetupFields dict={dict} state={setup} />
 
       <FormMessage error={error} />
-      {busy && <p role="status">{dict.recording.requestingMic}</p>}
+      {busy && <RequestingStatus dict={dict} mode={capture.choice.mode} />}
       <button
         type="submit"
         className="button primary large"
@@ -260,8 +320,13 @@ function ResumeForm({
   recordingId: string;
   busy: boolean;
   error: string | null;
-  onStart: (recordingId: string, title: string) => Promise<void>;
+  onStart: (
+    recordingId: string,
+    title: string,
+    choice: CaptureChoice,
+  ) => Promise<void>;
 }) {
+  const capture = useCaptureChoice();
   const fetchRecording = useCallback(async () => {
     const { data, error: apiError } = await api.GET(
       "/v1/recordings/{recording_id}",
@@ -289,16 +354,102 @@ function ResumeForm({
     <div className="card stack">
       <h1>{format(dict.recording.resumeTitle, { title: rec.title })}</h1>
       <p className="hint">{dict.recording.consentCheck}</p>
+      <CaptureFields dict={dict} state={capture} />
       <FormMessage error={error} />
-      {busy && <p role="status">{dict.recording.requestingMic}</p>}
+      {busy && <RequestingStatus dict={dict} mode={capture.choice.mode} />}
       <button
         type="button"
         className="button primary large"
         disabled={busy}
-        onClick={() => void onStart(rec.id, rec.title)}
+        onClick={() => void onStart(rec.id, rec.title, capture.choice)}
       >
         {dict.recording.continue}
       </button>
     </div>
+  );
+}
+
+const noSubscription = () => () => undefined;
+
+function useCaptureChoice() {
+  // En el servidor no hay navigator: allí se renderiza como no disponible.
+  const supported = useSyncExternalStore(
+    noSubscription,
+    supportsMeetingCapture,
+    () => false,
+  );
+  const [mode, setMode] = useState<CaptureMode>("microphone");
+  const [includeMic, setIncludeMic] = useState(true);
+  return {
+    supported,
+    choice: {
+      mode: supported ? mode : "microphone",
+      includeMic,
+    } satisfies CaptureChoice,
+    setMode,
+    setIncludeMic,
+  };
+}
+
+function CaptureFields({
+  dict,
+  state,
+}: {
+  dict: Dictionary;
+  state: ReturnType<typeof useCaptureChoice>;
+}) {
+  if (!state.supported) return null;
+  const { mode, includeMic } = state.choice;
+  return (
+    <fieldset className="field">
+      <legend>{dict.recording.sourceLabel}</legend>
+      <label className="checkbox">
+        <input
+          type="radio"
+          name="capture-mode"
+          checked={mode === "microphone"}
+          onChange={() => state.setMode("microphone")}
+        />
+        {dict.recording.sourceMicrophone}
+      </label>
+      <label className="checkbox">
+        <input
+          type="radio"
+          name="capture-mode"
+          checked={mode === "meeting"}
+          onChange={() => state.setMode("meeting")}
+        />
+        {dict.recording.sourceMeeting}
+      </label>
+      {mode === "meeting" && (
+        <>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={includeMic}
+              onChange={(e) => state.setIncludeMic(e.target.checked)}
+            />
+            {dict.recording.meetingIncludeMic}
+          </label>
+          <p className="hint">{dict.recording.meetingHelp}</p>
+        </>
+      )}
+    </fieldset>
+  );
+}
+
+function RequestingStatus({
+  dict,
+  mode,
+}: {
+  dict: Dictionary;
+  mode: CaptureMode;
+}) {
+  return (
+    <p role="status">
+      {mode === "meeting"
+        ? dict.recording.requestingMeeting
+        : dict.recording.requestingMic}
+    </p>
   );
 }

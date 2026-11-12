@@ -236,7 +236,18 @@
     "audioGapsDetected": "Es va perdre part de l'àudio durant la captura o la pujada, així que hi pot haver salts. La transcripció pot estar incompleta.",
     "insecureContext": "El navegador només permet fer servir el micròfon en connexions segures. Obre l'aplicació per HTTPS: {url}",
     "noMediaRecorder": "Aquest navegador no permet enregistrar àudio (falta MediaRecorder). Actualitza el navegador o prova amb Chrome, Firefox o Safari recents.",
-    "micBusy": "No es pot fer servir el micròfon: una altra aplicació l'està fent servir o el sistema l'ha bloquejat. Tanca-la i torna-ho a provar."
+    "micBusy": "No es pot fer servir el micròfon: una altra aplicació l'està fent servir o el sistema l'ha bloquejat. Tanca-la i torna-ho a provar.",
+    "sourceLabel": "Què cal enregistrar",
+    "sourceMicrophone": "Reunió presencial (micròfon)",
+    "sourceMeeting": "Reunió en línia: Meet, Teams, Zoom… (àudio de la pestanya o pantalla)",
+    "meetingIncludeMic": "Inclou també el meu micròfon",
+    "meetingHelp": "En començar, tria la pestanya de la reunió i activa «Comparteix l'àudio de la pestanya». Si fas servir l'app d'escriptori de Teams o Zoom, comparteix la pantalla completa amb «Comparteix l'àudio del sistema» (només a Windows i ChromeOS). Fes servir auriculars perquè el micròfon no reculli els altres dues vegades.",
+    "requestingMeeting": "Tria la pestanya o pantalla de la reunió i activa compartir l'àudio…",
+    "meetingDenied": "No s'ha compartit cap pestanya ni pantalla. Torna-ho a provar i tria la de la reunió.",
+    "meetingNoAudio": "S'ha compartit sense àudio. Torna-ho a provar i activa «Comparteix l'àudio de la pestanya» (o «del sistema») al diàleg del navegador.",
+    "meetingUnsupported": "Aquest navegador no pot capturar l'àudio d'una altra pestanya. Fes servir Chrome o Edge en un ordinador.",
+    "meetingKeepSharing": "Pots canviar a la pestanya de la reunió. No premis «Deixa de compartir» fins que acabis.",
+    "interruptedMeeting": "La captura s'ha interromput (s'ha deixat de compartir la reunió o s'ha desconnectat el micròfon). L'àudio enregistrat fins ara està a recer."
   },
   "recordings": {
     "title": "Enregistraments",

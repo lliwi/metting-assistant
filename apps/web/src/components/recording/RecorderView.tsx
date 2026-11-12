@@ -9,6 +9,7 @@ import {
   tryComplete,
   type CompleteResult,
 } from "@/lib/recorder";
+import type { CaptureMode, CaptureSource } from "@/lib/recorder/captureSource";
 import { formatDuration, useCapture } from "@/lib/recorder/useCapture";
 import { useUploaderStats } from "@/lib/recorder/useUploaderStats";
 
@@ -19,7 +20,8 @@ const COMPLETE_RETRY_MS = 15_000;
 type Props = {
   dict: Dictionary;
   lang: Locale;
-  stream: MediaStream;
+  source: CaptureSource;
+  mode: CaptureMode;
   recordingId: string;
   track: number;
   title: string;
@@ -30,14 +32,15 @@ type Props = {
 export function RecorderView({
   dict,
   lang,
-  stream,
+  source,
+  mode,
   recordingId,
   track,
   title,
   ownerId,
   onResume,
 }: Props) {
-  const capture = useCapture({ stream, recordingId, track, ownerId });
+  const capture = useCapture({ source, recordingId, track, ownerId });
   const [finishing, setFinishing] = useState(false);
   // Solo tras entregar el último segmento a la cola: antes, "0 pendientes" no significa
   // que no quede audio por subir.
@@ -104,7 +107,9 @@ export function RecorderView({
       {capture.phase === "interrupted" ? (
         <div className="stack">
           <p className="alert error" role="alert">
-            {dict.recording.interrupted}
+            {mode === "meeting"
+              ? dict.recording.interruptedMeeting
+              : dict.recording.interrupted}
           </p>
           <button type="button" className="button primary" onClick={onResume}>
             {dict.recording.continue}
@@ -174,6 +179,9 @@ export function RecorderView({
             </div>
           )}
           {!finishing && <p className="hint">{dict.recording.keepOpen}</p>}
+          {!finishing && mode === "meeting" && (
+            <p className="hint">{dict.recording.meetingKeepSharing}</p>
+          )}
         </>
       )}
 

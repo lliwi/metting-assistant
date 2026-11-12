@@ -236,7 +236,18 @@
     "audioGapsDetected": "Se perdió parte del audio durante la captura o la subida, así que puede haber saltos. La transcripción puede estar incompleta.",
     "insecureContext": "El navegador solo permite usar el micrófono en conexiones seguras. Abre la aplicación por HTTPS: {url}",
     "noMediaRecorder": "Este navegador no permite grabar audio (falta MediaRecorder). Actualiza el navegador o prueba con Chrome, Firefox o Safari recientes.",
-    "micBusy": "No se puede usar el micrófono: otra aplicación lo está usando o el sistema lo ha bloqueado. Ciérrala y vuelve a intentarlo."
+    "micBusy": "No se puede usar el micrófono: otra aplicación lo está usando o el sistema lo ha bloqueado. Ciérrala y vuelve a intentarlo.",
+    "sourceLabel": "Qué grabar",
+    "sourceMicrophone": "Reunión presencial (micrófono)",
+    "sourceMeeting": "Reunión online: Meet, Teams, Zoom… (audio de la pestaña o pantalla)",
+    "meetingIncludeMic": "Incluir también mi micrófono",
+    "meetingHelp": "Al empezar, elige la pestaña de la reunión y activa «Compartir audio de la pestaña». Si usas la app de escritorio de Teams o Zoom, comparte la pantalla completa con «Compartir audio del sistema» (solo en Windows y ChromeOS). Usa auriculares para que tu micrófono no recoja a los demás dos veces.",
+    "requestingMeeting": "Elige la pestaña o pantalla de la reunión y activa compartir el audio…",
+    "meetingDenied": "No se ha compartido ninguna pestaña ni pantalla. Vuelve a intentarlo y elige la de la reunión.",
+    "meetingNoAudio": "Se ha compartido sin audio. Vuelve a intentarlo y activa «Compartir audio de la pestaña» (o «del sistema») en el diálogo del navegador.",
+    "meetingUnsupported": "Este navegador no puede capturar el audio de otra pestaña. Usa Chrome o Edge en un ordenador.",
+    "meetingKeepSharing": "Puedes cambiar a la pestaña de la reunión. No pulses «Dejar de compartir» hasta que termines.",
+    "interruptedMeeting": "La captura se ha interrumpido (se ha dejado de compartir la reunión o se ha desconectado el micrófono). El audio grabado hasta ahora está a salvo."
   },
   "recordings": {
     "title": "Grabaciones",

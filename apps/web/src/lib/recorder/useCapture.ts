@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { capturedMs, hasCaptureGaps } from "./captureCheck";
+import type { CaptureSource } from "./captureSource";
 import { getRecorderQueue, sha256Hex } from "./index";
 import { pickMimeType, SegmentedRecorder } from "./segmentedRecorder";
 
@@ -12,14 +13,15 @@ export type CapturePhase =
   "recording" | "paused" | "stopping" | "stopped" | "interrupted";
 
 type Params = {
-  stream: MediaStream;
+  source: CaptureSource;
   recordingId: string;
   track: number;
   ownerId: string;
 };
 
 /** Ciclo de vida de una pista de grabación: grabadora, nivel, wake lock y cola local. */
-export function useCapture({ stream, recordingId, track, ownerId }: Params) {
+export function useCapture({ source, recordingId, track, ownerId }: Params) {
+  const { stream } = source;
   const [phase, setPhase] = useState<CapturePhase>("recording");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [level, setLevel] = useState(0);
@@ -62,12 +64,12 @@ export function useCapture({ stream, recordingId, track, ownerId }: Params) {
     recorderRef.current = recorder;
     recorder.start(0);
 
-    const audioTrack = stream.getAudioTracks()[0];
+    // Micrófono desconectado, permiso revocado o "Dejar de compartir" en la reunión.
     const onEnded = () => {
       setPhase("interrupted");
-      void recorder.stop();
+      void recorder.stop().finally(source.dispose);
     };
-    audioTrack?.addEventListener("ended", onEnded);
+    source.inputs.forEach((t) => t.addEventListener("ended", onEnded));
 
     const tick = setInterval(() => {
       setElapsedMs(savedMsRef.current + recorder.currentSegmentMs());
@@ -75,11 +77,11 @@ export function useCapture({ stream, recordingId, track, ownerId }: Params) {
 
     return () => {
       clearInterval(tick);
-      audioTrack?.removeEventListener("ended", onEnded);
+      source.inputs.forEach((t) => t.removeEventListener("ended", onEnded));
       void recorder.stop();
-      stream.getTracks().forEach((t) => t.stop());
+      source.dispose();
     };
-  }, [stream, recordingId, track, ownerId]);
+  }, [source, stream, recordingId, track, ownerId]);
 
   // Nivel de entrada (RMS), ~10 actualizaciones por segundo.
   useEffect(() => {
@@ -143,9 +145,9 @@ export function useCapture({ stream, recordingId, track, ownerId }: Params) {
   const stop = useCallback(async () => {
     setPhase("stopping");
     await recorderRef.current?.stop();
-    stream.getTracks().forEach((t) => t.stop());
+    source.dispose();
     setPhase("stopped");
-  }, [stream]);
+  }, [source]);
 
   return { phase, elapsedMs, level, error, audioGaps, pause, resume, stop };
 }
