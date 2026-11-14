@@ -138,7 +138,7 @@ cd apps/web
 npm ci
 API_PROXY_TARGET=http://localhost:8080 npm run dev   # http://localhost:3000, /api → stack
 npm run lint && npm run check:i18n && npm test && npm run typecheck && npm run build
-npm run gen:api    # regenera los tipos TS tras cambiar la API (CI comprueba que están al día)
+npm run gen:api    # regenera los tipos TS tras cambiar la API
 ```
 
 ### Pruebas E2E (Playwright)
@@ -154,8 +154,8 @@ npx playwright install chromium     # la primera vez
 npm run e2e                         # E2E_BASE_URL=… para otro entorno
 ```
 
-La transcripción usa el motor configurado: con OpenAI cuesta ~0,01 $ por ejecución. La CI las
-ejecuta con el motor local (sin coste).
+La transcripción usa el motor configurado: con OpenAI cuesta ~0,01 $ por ejecución; con el
+motor local no tiene coste.
 
 > Next.js 16 tiene cambios incompatibles con versiones anteriores (`middleware` → `proxy`, `cacheComponents`).
 > Consulta `apps/web/node_modules/next/dist/docs/` antes de usar una API.

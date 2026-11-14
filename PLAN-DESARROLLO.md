@@ -71,7 +71,7 @@ Estimación orientativa para un equipo de 2–3 personas (1 frontend, 1 backend,
 - Health checks en todos los servicios (incluido `api`, que la especificación usa en `depends_on` pero no define).
 - FastAPI base: configuración por entorno, logs estructurados JSON, middleware `correlation_id`, formato de error único, `/healthz` y `/readyz`.
 - Alembic y primera migración: `users`, `organizations`, `memberships`, `audit_events`.
-- CI (GitHub Actions): lint, tests, build de imágenes, escaneo de dependencias (pip-audit, npm audit) e imágenes (Trivy).
+- CI (GitHub Actions, retirada: las comprobaciones se ejecutan en local): lint, tests, build de imágenes, escaneo de dependencias (pip-audit, npm audit) e imágenes (Trivy).
 - Next.js base: layout, i18n `es`/`ca`, sistema de diseño accesible, manifest PWA.
 
 **Hecho cuando:** `docker compose --profile dev up` arranca todo, espera health checks y la web responde solo a través de `nginx`.
