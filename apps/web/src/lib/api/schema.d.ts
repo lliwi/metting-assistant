@@ -1107,9 +1107,9 @@ export interface components {
              * Default
              * @enum {string}
              */
-            default: "local" | "openai";
+            default: "local" | "openai" | "elevenlabs";
             /** Available */
-            available: ("local" | "openai")[];
+            available: ("local" | "openai" | "elevenlabs")[];
             /** Local Speakers */
             local_speakers: boolean;
         };
@@ -1465,7 +1465,7 @@ export interface components {
             /** Language */
             language?: ("es" | "ca" | "en" | "it") | null;
             /** Engine */
-            engine?: ("local" | "openai") | null;
+            engine?: ("local" | "openai" | "elevenlabs") | null;
         };
         /**
          * Role

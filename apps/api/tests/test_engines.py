@@ -196,16 +196,30 @@ def test_openai_waits_long_enough_for_a_full_piece(monkeypatch: pytest.MonkeyPat
 class _FakeTranscriptions:
     """Simula la API: cada trozo responde con una frase de su hablante "A"."""
 
-    def __init__(self, barrier: threading.Barrier | None = None, fail_on: str = "") -> None:
+    def __init__(
+        self,
+        barrier: threading.Barrier | None = None,
+        fail_on: str = "",
+        reject_references: bool = False,
+    ) -> None:
         self.barrier = barrier
         self.fail_on = fail_on
+        self.reject_references = reject_references
+        self.known: dict[str, list[str]] = {}
 
-    def create(self, *, model: str, file: Any, **_: Any) -> SimpleNamespace:
+    def create(self, *, model: str, file: Any, **options: Any) -> SimpleNamespace:
         name = Path(file.name).stem
-        if self.barrier is not None:
-            # Solo pasa si los trozos están en vuelo a la vez.
+        known = options.get("known_speaker_names")
+        if known:
+            self.known[name] = list(known)
+            assert all(
+                ref.startswith("data:audio/wav;base64,")
+                for ref in options["known_speaker_references"]
+            )
+        if self.barrier is not None and name != "piece-000":
+            # Solo pasa si los trozos (salvo el primero, que va solo) están en vuelo a la vez.
             self.barrier.wait()
-        if name == self.fail_on:
+        if name == self.fail_on or (known and self.reject_references):
             raise openai.BadRequestError(
                 "audio inválido",
                 response=httpx.Response(400, request=httpx.Request("POST", "http://x")),
@@ -216,7 +230,12 @@ class _FakeTranscriptions:
         return SimpleNamespace(
             language="spanish",
             usage=SimpleNamespace(type="tokens", input_tokens=10, output_tokens=2),
-            segments=[SimpleNamespace(text=f"hola {name}", start=1.0, end=2.0, speaker="A")],
+            # Con voces de referencia, la API devuelve el nombre del hablante reconocido.
+            segments=[
+                SimpleNamespace(
+                    text=f"hola {name}", start=1.0, end=5.0, speaker=known[0] if known else "A"
+                )
+            ],
         )
 
 
@@ -238,7 +257,7 @@ def test_openai_pieces_are_sent_in_parallel_and_merged_in_order(
 ) -> None:
     audio = _pieces(tmp_path, monkeypatch)
     client = SimpleNamespace(
-        audio=SimpleNamespace(transcriptions=_FakeTranscriptions(threading.Barrier(3, timeout=5)))
+        audio=SimpleNamespace(transcriptions=_FakeTranscriptions(threading.Barrier(2, timeout=5)))
     )
     result = OpenAIAsrProvider(client, "gpt-4o-transcribe-diarize").transcribe(audio, None)
 
@@ -248,9 +267,62 @@ def test_openai_pieces_are_sent_in_parallel_and_merged_in_order(
         "hola piece-002",
     ]
     assert [s.start_ms for s in result.segments] == [1_000, 1_201_000, 2_401_000]
+    # Sin muestras de voz (aquí el recorte falla: los trozos no son audio), cada trozo
+    # conserva sus propias etiquetas.
     assert [s.speaker for s in result.segments] == ["1-A", "2-A", "3-A"]
     assert (result.input_tokens, result.output_tokens) == (30, 6)
     assert result.language == "es"
+
+
+def _fake_clips(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, int]]:
+    cuts: list[tuple[int, int]] = []
+
+    def cut_clip(source: Path, target: Path, start_ms: int, duration_ms: int) -> None:
+        cuts.append((start_ms, duration_ms))
+        target.write_bytes(b"RIFF")
+
+    monkeypatch.setattr(asr_module, "cut_clip", cut_clip)
+    return cuts
+
+
+def test_openai_later_pieces_reuse_the_speakers_of_the_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    audio = _pieces(tmp_path, monkeypatch)
+    cuts = _fake_clips(monkeypatch)
+    fake = _FakeTranscriptions()
+    client = SimpleNamespace(audio=SimpleNamespace(transcriptions=fake))
+    result = OpenAIAsrProvider(client, "gpt-4o-transcribe-diarize").transcribe(audio, None)
+
+    # La voz del hablante del primer trozo viaja con los demás, que la reconocen.
+    assert fake.known == {"piece-001": ["speaker1"], "piece-002": ["speaker1"]}
+    assert cuts == [(1_150, 3_700)]
+    assert [s.speaker for s in result.segments] == ["1-A", "1-A", "1-A"]
+
+
+def test_openai_rejected_speaker_references_fall_back_to_plain_pieces(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    audio = _pieces(tmp_path, monkeypatch)
+    _fake_clips(monkeypatch)
+    client = SimpleNamespace(
+        audio=SimpleNamespace(transcriptions=_FakeTranscriptions(reject_references=True))
+    )
+    result = OpenAIAsrProvider(client, "gpt-4o-transcribe-diarize").transcribe(audio, None)
+
+    assert [s.speaker for s in result.segments] == ["1-A", "2-A", "3-A"]
+
+
+def test_openai_without_diarization_sends_no_speaker_references(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    audio = _pieces(tmp_path, monkeypatch)
+    _fake_clips(monkeypatch)
+    fake = _FakeTranscriptions(threading.Barrier(2, timeout=5))
+    client = SimpleNamespace(audio=SimpleNamespace(transcriptions=fake))
+    OpenAIAsrProvider(client, "whisper-1").transcribe(audio, None)
+
+    assert fake.known == {}
 
 
 def test_openai_failed_piece_fails_the_transcription(
@@ -263,3 +335,97 @@ def test_openai_failed_piece_fails_the_transcription(
     with pytest.raises(AsrError) as exc:
         OpenAIAsrProvider(client, "gpt-4o-transcribe-diarize").transcribe(audio, None)
     assert exc.value.transient is False
+
+
+# --- ElevenLabs ----------------------------------------------------------------------------
+
+
+def _word(text: str, start: float, end: float, speaker: str | None = "speaker_0") -> dict[str, Any]:
+    return {
+        "text": text, "start": start, "end": end, "type": "word", "speaker_id": speaker,
+        "logprob": -0.1,
+    }  # fmt: skip
+
+
+_SPACE = {"text": " ", "start": 0.0, "end": 0.0, "type": "spacing", "speaker_id": None}
+
+
+def test_elevenlabs_words_become_sentences_per_speaker() -> None:
+    words = [
+        _word("Hola,", 0.0, 0.4), _SPACE, _word("Laura.", 0.5, 0.9), _SPACE,
+        _word("¿Empezamos?", 1.0, 1.6), _SPACE,
+        # Cambio de hablante a media frase y evento de audio, que se ignora.
+        _word("Sí", 1.7, 1.9, "speaker_1"), _SPACE,
+        {"text": "(risas)", "start": 1.9, "end": 2.4, "type": "audio_event", "speaker_id": None},
+        _SPACE, _word("claro", 2.5, 2.9, "speaker_1"), _SPACE,
+        # Pausa larga sin puntuación: frase nueva.
+        _word("vamos", 6.0, 6.4, "speaker_1"),
+    ]  # fmt: skip
+    segments = asr_module._segments_from_words(words)
+
+    assert [(s.speaker, s.text, s.start_ms, s.end_ms) for s in segments] == [
+        ("speaker_0", "Hola, Laura.", 0, 900),
+        ("speaker_0", "¿Empezamos?", 1_000, 1_600),
+        ("speaker_1", "Sí claro", 1_700, 2_900),
+        ("speaker_1", "vamos", 6_000, 6_400),
+    ]
+    assert segments[0].confidence == 0.905
+
+
+def _elevenlabs(handler: Any, *, diarize: bool = True) -> asr_module.ElevenLabsAsrProvider:
+    http = httpx.Client(base_url="http://elevenlabs", transport=httpx.MockTransport(handler))
+    return asr_module.ElevenLabsAsrProvider(http, "scribe_v3", diarize=diarize)
+
+
+def test_elevenlabs_sends_the_whole_recording_in_one_request(tmp_path: Path) -> None:
+    audio = tmp_path / "audio.m4a"
+    audio.write_bytes(b"x")
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "language_code": "spa",
+                "text": "Hola. Adiós.",
+                "words": [_word("Hola.", 0.0, 0.5), _SPACE, _word("Adiós.", 0.6, 1.0, "speaker_1")],
+            },
+        )
+
+    result = _elevenlabs(handler).transcribe(audio, None)
+
+    assert len(requests) == 1
+    assert requests[0].url.path == "/v1/speech-to-text"
+    body = requests[0].content.decode(errors="replace")
+    assert 'name="model_id"\r\n\r\nscribe_v3' in body
+    assert 'name="diarize"\r\n\r\ntrue' in body
+    assert "language_code" not in body  # sin idioma pedido, lo detecta el modelo
+    assert (result.provider, result.model, result.language) == ("elevenlabs", "scribe_v3", "es")
+    assert [(s.speaker, s.text) for s in result.segments] == [
+        ("speaker_0", "Hola."),
+        ("speaker_1", "Adiós."),
+    ]
+
+
+@pytest.mark.parametrize(("status", "transient"), [(429, True), (503, True), (401, False)])
+def test_elevenlabs_errors(tmp_path: Path, status: int, transient: bool) -> None:
+    audio = tmp_path / "audio.m4a"
+    audio.write_bytes(b"x")
+    provider = _elevenlabs(lambda _: httpx.Response(status, json={"detail": "x"}))
+    with pytest.raises(AsrError) as exc:
+        provider.transcribe(audio, "es")
+    assert exc.value.transient is transient
+
+
+def test_elevenlabs_engine_needs_its_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    current = get_settings()
+    monkeypatch.setattr(current, "elevenlabs_api_key", SecretStr(""))
+    assert "elevenlabs" not in current.available_engines
+
+    monkeypatch.setattr(current, "elevenlabs_api_key", SecretStr("sk_x"))
+    assert "elevenlabs" in current.available_engines
+    assert current.default_engine != "elevenlabs"  # disponible, pero no el predeterminado
+    provider = get_asr_provider("elevenlabs")
+    assert isinstance(provider, asr_module.ElevenLabsAsrProvider)
+    assert get_diarizer("elevenlabs") is None  # los hablantes vienen en la transcripción

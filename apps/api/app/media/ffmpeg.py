@@ -135,6 +135,39 @@ def split_audio(path: Path, workdir: Path, piece_seconds: int) -> list[tuple[Pat
     return offsets
 
 
+def cut_clip(source: Path, target: Path, start_ms: int, duration_ms: int) -> None:
+    """Recorta un fragmento a WAV mono 16 kHz (muestra de voz de un hablante)."""
+    try:
+        subprocess.run(  # noqa: S603 - argumentos fijos, sin shell
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                *SAFE_INPUT,
+                "-ss",
+                f"{start_ms / 1000:.3f}",
+                "-t",
+                f"{duration_ms / 1000:.3f}",
+                "-i",
+                str(source),
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-c:a",
+                "pcm_s16le",
+                "-y",
+                str(target),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        raise MediaError("unreadable_media", str(exc)) from exc
+
+
 def concat_audio(inputs: list[Path], target: Path, timeout: int = 3600) -> None:
     """Une segmentos independientes en un único AAC mono (M4A). Todos deben estar en el mismo
     directorio que `target` (la lista del demuxer usa nombres relativos)."""

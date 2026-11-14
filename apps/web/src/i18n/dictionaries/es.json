@@ -293,11 +293,13 @@
     "engine": "Motor de transcripción",
     "engines": {
       "local": "Local (este servidor)",
-      "openai": "OpenAI (en la nube)"
+      "openai": "OpenAI (en la nube)",
+      "elevenlabs": "ElevenLabs (en la nube)"
     },
     "engineLocalHint": "Whisper y pyannote en la GPU del servidor: el audio no sale, es rápido y sin coste por uso.",
     "engineLocalNoSpeakersHint": "Whisper en el servidor: el audio no sale. Sin identificación de hablantes (falta configurar pyannote).",
     "engineOpenaiHint": "El audio se envía a OpenAI. Identifica hablantes; tarda más y tiene coste por minuto.",
+    "engineElevenlabsHint": "El audio se envía a ElevenLabs. Identifica hablantes sobre la grabación entera; tiene coste por minuto.",
     "deleteHeading": "Eliminar grabación",
     "delete": "Eliminar grabación",
     "deleteWarning": "Se eliminarán definitivamente el audio, las transcripciones, el historial de cambios, el resumen y el acta. No se puede deshacer.",

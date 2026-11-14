@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Motor de transcripción: "local" (Whisper + pyannote en el worker; el audio no sale) u
-# "openai" (gpt-4o-transcribe-diarize, o el modelo de transcripción sin hablantes).
-TranscriptionEngine = Literal["local", "openai"]
+# "openai" (gpt-4o-transcribe-diarize, o el modelo de transcripción sin hablantes) o
+# "elevenlabs" (Scribe: la grabación entera en una petición, con hablantes).
+TranscriptionEngine = Literal["local", "openai", "elevenlabs"]
 
 
 class ModelPrice(BaseModel):
@@ -96,8 +97,8 @@ class Settings(BaseSettings):
 
     # --- Transcripción (ASR) ---------------------------------------------------------------
     # "faster_whisper": local en el worker (el audio no sale). "openai": API de OpenAI o un
-    # servidor compatible (OPENAI_BASE_URL).
-    asr_provider: Literal["faster_whisper", "openai"] = "faster_whisper"
+    # servidor compatible (OPENAI_BASE_URL). "elevenlabs": API de ElevenLabs (Scribe).
+    asr_provider: Literal["faster_whisper", "openai", "elevenlabs"] = "faster_whisper"
     whisper_model: str = "small"  # tiny | base | small | medium | large-v3 | turbo
     whisper_device: str = "cpu"  # cpu | cuda
     whisper_compute_type: str = "int8"  # int8 (CPU) | float16 (GPU)
@@ -133,6 +134,12 @@ class Settings(BaseSettings):
     openai_transcription_model: str = "whisper-1"
     openai_llm_model: str = ""
 
+    # --- ElevenLabs (opcional: ASR con hablantes) -------------------------------------------
+    elevenlabs_api_key: SecretStr = SecretStr("")
+    # Residencia en la UE (planes de empresa): https://api.eu.residency.elevenlabs.io
+    elevenlabs_base_url: str = "https://api.elevenlabs.io"
+    elevenlabs_model: str = "scribe_v3"
+
     # --- Coste estimado ---------------------------------------------------------------------
     # JSON {modelo: {input_per_mtok, output_per_mtok, per_audio_minute}} en USD. Consulta los
     # precios vigentes del proveedor; sin entrada, se registra el consumo sin coste.
@@ -146,16 +153,21 @@ class Settings(BaseSettings):
     @property
     def default_engine(self) -> TranscriptionEngine:
         """Motor con el que se transcribe si la grabación no pide otro."""
+        if self.asr_provider == "elevenlabs":
+            return "elevenlabs"
         if "openai" in (self.asr_provider, self.diarization_provider):
             return "openai"
         return "local"
 
     @property
     def available_engines(self) -> list[TranscriptionEngine]:
-        """local: Whisper en el worker (+ pyannote si hay HF_TOKEN). openai: requiere clave."""
+        """local: Whisper en el worker (+ pyannote si hay HF_TOKEN). openai y elevenlabs:
+        requieren su clave."""
         engines: list[TranscriptionEngine] = ["local"]
         if self.openai_api_key.get_secret_value():
             engines.append("openai")
+        if self.elevenlabs_api_key.get_secret_value():
+            engines.append("elevenlabs")
         return engines
 
     @property
@@ -180,6 +192,8 @@ class Settings(BaseSettings):
             self.openai_api_key.get_secret_value()
         ):
             missing.append("openai_api_key")
+        if self.asr_provider == "elevenlabs" and not self.elevenlabs_api_key.get_secret_value():
+            missing.append("elevenlabs_api_key")
         if self.llm_provider == "openai" and not self.openai_llm_model:
             missing.append("openai_llm_model")
         if self.diarization_provider == "pyannote" and not self.hf_token.get_secret_value():

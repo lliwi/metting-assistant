@@ -22,6 +22,8 @@ def main() -> int:
     if asr.name == "faster_whisper":  # type: ignore[attr-defined]
         device = f"{settings.whisper_device}/{settings.whisper_compute_type}"
         print(f"ASR: faster_whisper (modelo {model}, {device})")
+    elif asr.name == "elevenlabs":  # type: ignore[attr-defined]
+        print(f"ASR: elevenlabs (modelo {model}, {settings.elevenlabs_base_url})")
     else:
         print(f"ASR: openai (modelo {model}, {settings.openai_base_url})")
     print(f"Hablantes: {settings.diarization_provider}")

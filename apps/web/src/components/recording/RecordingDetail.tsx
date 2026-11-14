@@ -556,7 +556,9 @@ function Reprocess({
               ? engines.local_speakers
                 ? dict.detail.engineLocalHint
                 : dict.detail.engineLocalNoSpeakersHint
-              : dict.detail.engineOpenaiHint}
+              : (engine || current) === "elevenlabs"
+                ? dict.detail.engineElevenlabsHint
+                : dict.detail.engineOpenaiHint}
           </p>
         </div>
       )}
