@@ -184,7 +184,13 @@
     "engine_unavailable": "Aquest motor de transcripció no està disponible.",
     "no_account": "No hi ha cap compte amb aquest correu. Demana accés a un administrador.",
     "confirmation_mismatch": "El nom no coincideix.",
-    "same_organization": "L'enregistrament ja és en aquesta organització."
+    "same_organization": "L'enregistrament ja és en aquesta organització.",
+    "already_translating": "Ja s'està traduint.",
+    "same_language": "La transcripció ja és en aquest idioma.",
+    "translation_not_found": "No hi ha traducció a aquest idioma.",
+    "translation_not_ready": "Aquesta traducció no està disponible.",
+    "translation_failed": "El model d'IA no ha pogut traduir la transcripció. El que ja s'ha traduït es conserva.",
+    "translation_stuck": "La traducció s'ha interromput diverses vegades sense acabar. Torna-la a demanar."
   },
   "recording": {
     "newTitle": "Nou enregistrament",
@@ -305,6 +311,20 @@
     "deleteWarning": "S'eliminaran definitivament l'àudio, les transcripcions, l'historial de canvis, el resum i l'acta. No es pot desfer.",
     "deleteSubmit": "Eliminar definitivament"
   },
+  "translation": {
+    "label": "Idioma de la transcripció",
+    "original": "Original ({language})",
+    "translate": "Tradueix",
+    "translating": "Traduint… {done} de {total} frases",
+    "hint": "La IA tradueix cada frase; els temps i els parlants es conserven. El text s'envia al model configurat.",
+    "notice": "Traducció automàtica: pot contenir errors.",
+    "pendingLines": "Frases sense traduir o corregides després: {count}.",
+    "update": "Actualitza la traducció",
+    "again": "Torna a traduir",
+    "outdated": "L'original ha canviat",
+    "untranslated": "Sense traduir",
+    "editOriginal": "Per corregir frases, torna a l'idioma original."
+  },
   "move": {
     "title": "Moure a una altra organització",
     "target": "Organització de destinació",
@@ -387,7 +407,8 @@
       "srt": "Subtítols SRT",
       "vtt": "Subtítols VTT"
     },
-    "subtitlesHint": "TXT, SRT i VTT només contenen la transcripció amb marques de temps."
+    "subtitlesHint": "TXT, SRT i VTT només contenen la transcripció amb marques de temps.",
+    "language": "Idioma de la transcripció"
   },
   "edit": {
     "edit": "Edita",
@@ -436,7 +457,8 @@
       "transcription": "Transcripció",
       "summary": "Resum",
       "minutes": "Acta",
-      "class_notes": "Apunts"
+      "class_notes": "Apunts",
+      "translation": "Traducció"
     }
   }
 }

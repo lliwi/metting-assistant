@@ -12,7 +12,12 @@ from app.models.identity import (
     UserStatus,
 )
 from app.models.recording import AudioSegment, Recording, RecordingSource, RecordingStatus
-from app.models.transcript import Transcript, TranscriptEdit, TranscriptSegment
+from app.models.transcript import (
+    Transcript,
+    TranscriptEdit,
+    TranscriptSegment,
+    TranscriptTranslation,
+)
 from app.models.usage import UsageRecord
 
 __all__ = [
@@ -36,6 +41,7 @@ __all__ = [
     "Transcript",
     "TranscriptEdit",
     "TranscriptSegment",
+    "TranscriptTranslation",
     "UsageRecord",
     "User",
     "UserIdentity",

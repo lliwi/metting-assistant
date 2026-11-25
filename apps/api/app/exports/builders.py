@@ -31,6 +31,11 @@ LABELS: dict[str, dict[str, str]] = {
         "date": "Fecha",
         "duration": "Duración",
         "ai_notice": "Contenido generado por IA: puede contener errores y requiere revisión humana.",
+        "translated": "Traducción automática ({language}): puede contener errores.",
+        "lang_es": "español",
+        "lang_ca": "catalán",
+        "lang_en": "inglés",
+        "lang_it": "italiano",
     },
     "ca": {
         "transcript": "Transcripció",
@@ -54,6 +59,11 @@ LABELS: dict[str, dict[str, str]] = {
         "date": "Data",
         "duration": "Durada",
         "ai_notice": "Contingut generat per IA: pot contenir errors i requereix revisió humana.",
+        "translated": "Traducció automàtica ({language}): pot contenir errors.",
+        "lang_es": "castellà",
+        "lang_ca": "català",
+        "lang_en": "anglès",
+        "lang_it": "italià",
     },
 }
 
@@ -79,10 +89,18 @@ class ExportContext:
     summary: dict[str, Any] | None = None
     minutes: dict[str, Any] | None = None
     class_notes: dict[str, Any] | None = None
+    # Idioma de la transcripción traducida; None = la original.
+    translated_to: str | None = None
 
     @property
     def labels(self) -> dict[str, str]:
         return LABELS.get(self.locale, LABELS["es"])
+
+    def translation_notice(self) -> str | None:
+        if not self.translated_to:
+            return None
+        language = self.labels.get(f"lang_{self.translated_to}", self.translated_to)
+        return self.labels["translated"].format(language=language)
 
     def speaker(self, label: str | None) -> str | None:
         if not label:
@@ -180,6 +198,8 @@ def blocks(ctx: ExportContext) -> list[Block]:
         out += _class_notes(ctx.class_notes, lb)
     if ctx.segments:
         out.append(Block("h2", lb["transcript"]))
+        if notice := ctx.translation_notice():
+            out.append(Block("notice", notice))
         for item in ctx.transcript():
             if isinstance(item, AudioGap):
                 out.append(Block("notice", ctx.gap_text(item)))
@@ -259,6 +279,8 @@ def to_markdown(ctx: ExportContext) -> bytes:
 
 def to_text(ctx: ExportContext) -> bytes:
     lines = [ctx.title, ""]
+    if notice := ctx.translation_notice():
+        lines += [notice, ""]
     for item in ctx.transcript():
         if isinstance(item, AudioGap):
             lines.append(ctx.gap_text(item))

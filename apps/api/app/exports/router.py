@@ -8,6 +8,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 
 from app.ai.service import latest_transcript
+from app.ai.translation import find_translation, translated_text
 from app.audit import record_audit_event
 from app.auth.dependencies import CurrentUser, DbSession
 from app.core.errors import AppError
@@ -18,6 +19,7 @@ from app.media.gaps import located_gaps
 from app.models import AiOutput, AiOutputKind, AiOutputStatus
 from app.orgs.permissions import Action
 from app.recordings.router import load_recording
+from app.recordings.schemas import Language
 
 router = APIRouter(prefix="/v1", tags=["exports"])
 
@@ -44,9 +46,10 @@ def export_recording(
     summary: bool = True,
     minutes: bool = True,
     class_notes: bool = True,
+    language: Language | None = None,
 ) -> Response:
     """Descarga la grabación en el formato indicado. Resumen, acta y apuntes se incluyen si
-    existen."""
+    existen. `language`: transcripción traducida a ese idioma (debe existir la traducción)."""
     rec = load_recording(db, user, recording_id, Action.RECORDING_READ)
     limiter.hit(f"export:user:{user.id}", limit=60, window_seconds=3600)
 
@@ -59,7 +62,18 @@ def export_recording(
         speaker_names=dict(latest.speaker_names or {}) if latest else {},
     )
     if latest and (transcript or fmt in TRANSCRIPT_ONLY):
-        ctx.segments = [Segment(s.start_ms, s.end_ms, s.speaker, s.text) for s in latest.segments]
+        texts: dict[int, str] = {}
+        if language and language != latest.language:
+            translation = find_translation(db, latest.id, language)
+            if translation is None or translation.status is not AiOutputStatus.READY:
+                raise AppError("translation_not_ready", "Esa traducción no está disponible", 409)
+            texts = translated_text(translation)
+            ctx.translated_to = language
+        # Una frase sin traducir se exporta en el idioma original.
+        ctx.segments = [
+            Segment(s.start_ms, s.end_ms, s.speaker, texts.get(s.idx, s.text))
+            for s in latest.segments
+        ]
         ctx.gaps = located_gaps(rec.audio_gaps)
     if fmt not in TRANSCRIPT_ONLY:
         documents: dict[AiOutputKind, AiOutput] = {}
@@ -95,10 +109,11 @@ def export_recording(
             "summary": ctx.summary is not None,
             "minutes": ctx.minutes is not None,
             "class_notes": ctx.class_notes is not None,
+            **({"language": ctx.translated_to} if ctx.translated_to else {}),
         },
     )
     db.commit()
-    name = filename(rec.title, fmt)
+    name = filename(f"{rec.title} {ctx.translated_to or ''}", fmt)
     return Response(
         body,
         media_type=media_type,

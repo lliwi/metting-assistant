@@ -907,6 +907,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recordings/{recording_id}/translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Translations
+         * @description Traducciones de la última versión de la transcripción (sin el texto).
+         */
+        get: operations["list_translations_v1_recordings__recording_id__translations_get"];
+        put?: never;
+        /**
+         * Request Translation
+         * @description Traduce la última versión de la transcripción. Si ya estaba traducida, completa las
+         *     frases que faltan o han cambiado; si no hay ninguna, la traduce de nuevo entera.
+         */
+        post: operations["request_translation_v1_recordings__recording_id__translations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/translations/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Translation */
+        get: operations["get_translation_v1_recordings__recording_id__translations__language__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/exports/{fmt}": {
         parameters: {
             query?: never;
@@ -917,7 +959,7 @@ export interface paths {
         /**
          * Export Recording
          * @description Descarga la grabación en el formato indicado. Resumen, acta y apuntes se incluyen si
-         *     existen.
+         *     existen. `language`: transcripción traducida a ese idioma (debe existir la traducción).
          */
         get: operations["export_recording_v1_recordings__recording_id__exports__fmt__get"];
         put?: never;
@@ -1665,6 +1707,94 @@ export interface components {
             text: string;
             /** Confidence */
             confidence: number | null;
+        };
+        /** TranslatedSegmentOut */
+        TranslatedSegmentOut: {
+            /** Idx */
+            idx: number;
+            /** Text */
+            text: string;
+            /** Outdated */
+            outdated: boolean;
+        };
+        /** TranslationDetail */
+        TranslationDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Transcript Id
+             * Format: uuid
+             */
+            transcript_id: string;
+            /** Language */
+            language: string;
+            status: components["schemas"]["AiOutputStatus"];
+            /** Provider */
+            provider: string | null;
+            /** Model */
+            model: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Completed At */
+            completed_at: string | null;
+            /** Total */
+            total: number;
+            /** Translated */
+            translated: number;
+            /** Segments */
+            segments: components["schemas"]["TranslatedSegmentOut"][];
+        };
+        /**
+         * TranslationOut
+         * @description Estado de una traducción de la última versión de la transcripción.
+         */
+        TranslationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Transcript Id
+             * Format: uuid
+             */
+            transcript_id: string;
+            /** Language */
+            language: string;
+            status: components["schemas"]["AiOutputStatus"];
+            /** Provider */
+            provider: string | null;
+            /** Model */
+            model: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Completed At */
+            completed_at: string | null;
+            /** Total */
+            total: number;
+            /** Translated */
+            translated: number;
+        };
+        /** TranslationRequest */
+        TranslationRequest: {
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "es" | "ca" | "en" | "it";
         };
         /** UpdateMeRequest */
         UpdateMeRequest: {
@@ -4155,6 +4285,131 @@ export interface operations {
             };
         };
     };
+    list_translations_v1_recordings__recording_id__translations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationOut"][];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    request_translation_v1_recordings__recording_id__translations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranslationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationOut"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_translation_v1_recordings__recording_id__translations__language__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                language: "es" | "ca" | "en" | "it";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationDetail"];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     export_recording_v1_recordings__recording_id__exports__fmt__get: {
         parameters: {
             query?: {
@@ -4162,6 +4417,7 @@ export interface operations {
                 summary?: boolean;
                 minutes?: boolean;
                 class_notes?: boolean;
+                language?: ("es" | "ca" | "en" | "it") | null;
             };
             header?: never;
             path: {

@@ -4,6 +4,9 @@ import { Download } from "lucide-react";
 import { useState } from "react";
 
 import type { Dictionary } from "@/i18n/client";
+import { format } from "@/i18n/format";
+
+import { languageName } from "./Translation";
 
 const FORMATS = ["pdf", "docx", "md", "txt", "srt", "vtt"] as const;
 const TRANSCRIPT_ONLY = new Set(["txt", "srt", "vtt"]);
@@ -12,9 +15,14 @@ const TRANSCRIPT_ONLY = new Set(["txt", "srt", "vtt"]);
 export function ExportPanel({
   dict,
   recordingId,
+  original,
+  translations,
 }: {
   dict: Dictionary;
   recordingId: string;
+  /** Idioma de la transcripción y aquellos a los que está traducida. */
+  original: string;
+  translations: string[];
 }) {
   const [parts, setParts] = useState({
     transcript: true,
@@ -22,14 +30,19 @@ export function ExportPanel({
     minutes: true,
     class_notes: true,
   });
+  const [choice, setChoice] = useState("");
+  const language = translations.includes(choice) ? choice : "";
   const toggle = (key: keyof typeof parts) => () =>
     setParts((p) => ({ ...p, [key]: !p[key] }));
 
   function href(fmt: (typeof FORMATS)[number]) {
     const params = new URLSearchParams(
-      Object.entries(parts).map(([k, v]) => [k, String(v)]),
+      TRANSCRIPT_ONLY.has(fmt)
+        ? []
+        : Object.entries(parts).map(([k, v]) => [k, String(v)]),
     );
-    const query = TRANSCRIPT_ONLY.has(fmt) ? "" : `?${params}`;
+    if (language) params.set("language", language);
+    const query = params.size ? `?${params}` : "";
     return `/api/v1/recordings/${recordingId}/exports/${fmt}${query}`;
   }
 
@@ -53,6 +66,27 @@ export function ExportPanel({
           )}
         </div>
       </fieldset>
+      {translations.length > 0 && (
+        <div className="field">
+          <label htmlFor="export-language">{dict.export.language}</label>
+          <select
+            id="export-language"
+            value={language}
+            onChange={(e) => setChoice(e.target.value)}
+          >
+            <option value="">
+              {format(dict.translation.original, {
+                language: languageName(dict, original),
+              })}
+            </option>
+            {translations.map((l) => (
+              <option key={l} value={l}>
+                {languageName(dict, l)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="row wrap">
         {FORMATS.map((fmt) => (
           <a key={fmt} className="button small" href={href(fmt)} download>

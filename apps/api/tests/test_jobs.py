@@ -105,7 +105,7 @@ def test_sweeper_requeues_only_lost_jobs(db: Session, make_user: Callable[..., U
 
     requeued: list[uuid.UUID] = []
     outputs: list[uuid.UUID] = []
-    assert sweep(db, redis, requeued.append, outputs.append) == (2, 1)
+    assert sweep(db, redis, requeued.append, outputs.append, lambda _: None) == (2, 1, 0)
     assert set(requeued) == {lost.id, crashed.id}
     assert outputs == [output.id]
     assert recent.id not in requeued
@@ -163,10 +163,10 @@ def test_sweeper_gives_up_on_a_job_that_never_finishes(
 
     requeued: list[uuid.UUID] = []
     for _ in range(MAX_REQUEUES):
-        sweep(db, redis, requeued.append, lambda _: None)
+        sweep(db, redis, requeued.append, lambda _: None, lambda _: None)
     assert requeued == [rec.id] * MAX_REQUEUES
 
-    sweep(db, redis, requeued.append, lambda _: None)
+    sweep(db, redis, requeued.append, lambda _: None, lambda _: None)
     assert len(requeued) == MAX_REQUEUES
     db.expire_all()
     failed = db.get_one(Recording, rec.id)

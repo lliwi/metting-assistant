@@ -187,6 +187,11 @@ motor local no tiene coste.
   - `pyannote`: local, en la GPU, tras Whisper. Requiere `infra/compose/gpu.yaml` y un
     `HF_TOKEN` de una cuenta de huggingface.co que haya aceptado las condiciones de
     `PYANNOTE_MODEL` (https://huggingface.co/pyannote/speaker-diarization-community-1).
+- **Traducción**: en la página de cada grabación se elige el idioma en que leer la transcripción
+  (es, ca, en, it) y se traduce bajo demanda con el LLM configurado, frase a frase: se conservan
+  tiempos y hablantes, y se puede exportar en ese idioma (también SRT/VTT). Si después se corrige
+  una frase, "Actualizar traducción" solo vuelve a traducir las cambiadas. El resumen y el acta
+  siguen en el idioma original. Volver a transcribir crea una versión nueva, sin traducciones.
 - Los hablantes aparecen como "Hablante 1, 2…"; en la página de la grabación se les puede
   poner nombre. El acta y el resumen usan esos nombres al regenerarlos.
 - Al cerrar una grabación se encola `process_recording` (cola `asr`): une la captura del

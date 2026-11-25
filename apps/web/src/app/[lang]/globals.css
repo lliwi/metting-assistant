@@ -581,6 +581,15 @@ details summary {
   font-weight: 600;
 }
 
+/* Selector de idioma de la transcripción: no ocupa toda la fila. */
+.transcript-language {
+  width: auto;
+}
+
+.transcript .badge {
+  margin-left: 0.5rem;
+}
+
 .timestamp {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;

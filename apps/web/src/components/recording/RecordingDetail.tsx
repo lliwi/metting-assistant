@@ -22,6 +22,11 @@ import { TranscriptHistory } from "./TranscriptHistory";
 import { PlayerProvider, scrollToSegment, usePlayer } from "./Player";
 import { type Language, LANGUAGES } from "./SetupFields";
 import { speakerName, SpeakersEditor, speakersKey } from "./SpeakersEditor";
+import {
+  type TranslatedSegments,
+  type Translation,
+  TranslationBar,
+} from "./Translation";
 
 type Props = { dict: Dictionary; lang: Locale };
 type Recording = Schemas["RecordingDetail"];
@@ -43,6 +48,8 @@ function useLiveRecording(recordingId: string) {
   const [loadError, setLoadError] = useState<string | null>(null);
   // Se incrementa con cada cambio de un documento de IA: dispara su recarga.
   const [aiTick, setAiTick] = useState(0);
+  // Igual, con cada avance de una traducción.
+  const [translationTick, setTranslationTick] = useState(0);
 
   useEffect(() => {
     const source = new EventSource(`/api/v1/recordings/${recordingId}/events`);
@@ -65,6 +72,9 @@ function useLiveRecording(recordingId: string) {
       );
     });
     source.addEventListener("ai_output", () => setAiTick((t) => t + 1));
+    source.addEventListener("translation", () =>
+      setTranslationTick((t) => t + 1),
+    );
     source.onerror = () => {
       // 404/401: EventSource no da el código; se consulta para mostrar el error real.
       if (source.readyState === EventSource.CLOSED) {
@@ -81,12 +91,12 @@ function useLiveRecording(recordingId: string) {
     return () => source.close();
   }, [recordingId]);
 
-  return { recording, setRecording, loadError, aiTick };
+  return { recording, setRecording, loadError, aiTick, translationTick };
 }
 
 function Detail({ dict, lang, user }: Props & { user: User }) {
   const recordingId = useParams<{ recordingId: string }>().recordingId;
-  const { recording, setRecording, loadError, aiTick } =
+  const { recording, setRecording, loadError, aiTick, translationTick } =
     useLiveRecording(recordingId);
   const transcribed = recording?.status === "transcribed";
 
@@ -112,6 +122,42 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
   const byKind = Object.fromEntries(outputs.map((o) => [o.kind, o]));
   const onAiRequested = (o: (typeof outputs)[number]) =>
     setOutputs([...outputs.filter((x) => x.kind !== o.kind), o]);
+
+  const fetchTranslations = useCallback(async () => {
+    // Dependencias explícitas: avance de una traducción o cambio en la transcripción (una
+    // frase corregida deja su traducción desactualizada).
+    void translationTick;
+    if (!transcript) return [];
+    const { data } = await api.GET(
+      "/v1/recordings/{recording_id}/translations",
+      { params: { path: { recording_id: recordingId } } },
+    );
+    return data ?? [];
+  }, [recordingId, transcript, translationTick]);
+  const { data: translations = [], setData: setTranslations } =
+    useQuery(fetchTranslations);
+  // Idioma en que se lee la transcripción; null = original.
+  const [chosen, setChosen] = useState<Language | null>(null);
+  const language = chosen === transcript?.language ? null : chosen;
+  const translation = translations.find((t) => t.language === language);
+
+  const fetchTranslated = useCallback(async () => {
+    void translationTick;
+    if (!transcript || !language || !translation?.id) return null;
+    const { data } = await api.GET(
+      "/v1/recordings/{recording_id}/translations/{language}",
+      { params: { path: { recording_id: recordingId, language } } },
+    );
+    return data ?? null;
+  }, [recordingId, transcript, language, translation?.id, translationTick]);
+  const { data: translated } = useQuery(fetchTranslated);
+  // Mientras llega la del idioma recién elegido, `translated` es la anterior.
+  const translatedSegments: TranslatedSegments | null =
+    language &&
+    translated?.language === language &&
+    translated.transcript_id === transcript?.id
+      ? new Map(translated.segments.map((s) => [s.idx, s]))
+      : null;
 
   if (loadError)
     return <p className="alert error">{errorMessage(dict, loadError)}</p>;
@@ -189,10 +235,28 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
             <p className="alert error">{dict.recording.audioGapsDetected}</p>
           )}
           <StatusMessage dict={dict} recording={recording} />
+          {transcript && transcript.segments.length > 0 && (
+            <TranslationBar
+              dict={dict}
+              recordingId={recording.id}
+              original={transcript.language}
+              language={language}
+              translation={translation}
+              onLanguage={setChosen}
+              onRequested={(t: Translation) =>
+                setTranslations([
+                  ...translations.filter((x) => x.language !== t.language),
+                  t,
+                ])
+              }
+            />
+          )}
           {transcript && (
             <TranscriptView
               dict={dict}
               transcript={transcript}
+              translated={translatedSegments}
+              language={language}
               gaps={recording.audio_gaps}
               recordingId={recording.id}
               onUpdated={setTranscript}
@@ -209,7 +273,16 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
           )}
         </section>
 
-        {transcribed && <ExportPanel dict={dict} recordingId={recording.id} />}
+        {transcribed && (
+          <ExportPanel
+            dict={dict}
+            recordingId={recording.id}
+            original={transcript?.language ?? recording.language}
+            translations={translations
+              .filter((t) => t.status === "ready")
+              .map((t) => t.language)}
+          />
+        )}
 
         {transcript && (
           <SpeakersEditor
@@ -325,12 +398,17 @@ function GapMarker({ dict, gap }: { dict: Dictionary; gap: AudioGap }) {
 function TranscriptView({
   dict,
   transcript,
+  translated,
+  language,
   gaps,
   recordingId,
   onUpdated,
 }: {
   dict: Dictionary;
   transcript: Transcript;
+  /** Texto traducido por frase; null = se muestra el original. */
+  translated: TranslatedSegments | null;
+  language: Language | null;
   gaps: AudioGap[];
   recordingId: string;
   onUpdated: (t: Transcript) => void;
@@ -364,9 +442,20 @@ function TranscriptView({
       {transcript.segments.length === 0 ? (
         <p>{dict.detail.empty}</p>
       ) : (
-        <ol className="transcript" lang={transcript.language}>
+        <ol
+          className="transcript"
+          lang={translated && language ? language : transcript.language}
+        >
           {transcript.segments.map((s, i) => {
             const low = s.confidence !== null && s.confidence < LOW_CONFIDENCE;
+            const translation = translated?.get(s.idx);
+            const note = !translated
+              ? null
+              : !translation
+                ? dict.translation.untranslated
+                : translation.outdated
+                  ? dict.translation.outdated
+                  : null;
             // Cada hueco, antes de la primera frase que empieza después de él.
             const previous = i > 0 ? segments[i - 1].start_ms : -1;
             const before = gaps.filter(
@@ -414,7 +503,7 @@ function TranscriptView({
                       {formatDuration(s.start_ms)}
                     </time>
                   )}
-                  {editingIdx === s.idx ? (
+                  {editingIdx === s.idx && !translated ? (
                     <SegmentEditor
                       dict={dict}
                       recordingId={recordingId}
@@ -438,7 +527,16 @@ function TranscriptView({
                           :{" "}
                         </strong>
                       )}
-                      {s.text}
+                      <span
+                        lang={
+                          translated && !translation
+                            ? transcript.language
+                            : undefined
+                        }
+                      >
+                        {translation?.text ?? s.text}
+                      </span>
+                      {note && <span className="badge">{note}</span>}
                       {low && (
                         <span className="visually-hidden">
                           {" "}
@@ -447,7 +545,7 @@ function TranscriptView({
                       )}
                     </span>
                   )}
-                  {editingIdx !== s.idx && (
+                  {editingIdx !== s.idx && !translated && (
                     <button
                       type="button"
                       className="icon-link segment-edit"

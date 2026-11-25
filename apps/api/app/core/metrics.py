@@ -29,7 +29,14 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from app.auth.sessions import now
 from app.core.config import get_settings
 from app.db import get_sessionmaker
-from app.models import AiOutput, AiOutputStatus, Recording, RecordingStatus, UsageRecord
+from app.models import (
+    AiOutput,
+    AiOutputStatus,
+    Recording,
+    RecordingStatus,
+    TranscriptTranslation,
+    UsageRecord,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -152,7 +159,7 @@ class SystemCollector(Collector):
 
             ai = GaugeMetricFamily(
                 "metting_ai_outputs",
-                "Documentos de IA pendientes o fallidos (24 h)",
+                "Documentos de IA y traducciones pendientes o fallidos (24 h)",
                 labels=["status"],
             )
             pending = db.scalar(
@@ -164,8 +171,17 @@ class SystemCollector(Collector):
                     AiOutput.created_at > current - timedelta(hours=24),
                 )
             )
-            ai.add_metric(["pending"], pending or 0)
-            ai.add_metric(["failed_24h"], ai_failed or 0)
+            tr_pending = db.scalar(
+                select(func.count()).where(TranscriptTranslation.status == AiOutputStatus.PENDING)
+            )
+            tr_failed = db.scalar(
+                select(func.count()).where(
+                    TranscriptTranslation.status == AiOutputStatus.FAILED,
+                    TranscriptTranslation.updated_at > current - timedelta(hours=24),
+                )
+            )
+            ai.add_metric(["pending"], (pending or 0) + (tr_pending or 0))
+            ai.add_metric(["failed_24h"], (ai_failed or 0) + (tr_failed or 0))
             yield ai
 
             month_start = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)

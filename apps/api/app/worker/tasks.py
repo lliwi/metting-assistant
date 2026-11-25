@@ -8,6 +8,7 @@ from app.ai.asr import AsrError, get_asr_provider
 from app.ai.diarization import get_diarizer
 from app.ai.llm import LlmError, get_llm_provider
 from app.ai.service import mark_output_failed, outputs_after_transcription, run_output
+from app.ai.translation import mark_translation_failed, run_translation
 from app.core.config import TranscriptionEngine
 from app.core.rate_limit import get_redis
 from app.db import get_sessionmaker
@@ -150,6 +151,42 @@ def generate_ai_output_task(self: Any, output_id: str) -> None:
             get_redis().delete(requeues_key("ai_output", oid))
 
 
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name="app.worker.tasks.llm.translate_transcript", bind=True, max_retries=6
+)
+def translate_transcript_task(self: Any, translation_id: str) -> None:
+    """Traduce una transcripción. Lo ya traducido se conserva entre reintentos."""
+    tid = uuid.UUID(translation_id)
+    with (
+        exclusive(get_redis(), "translation", tid) as owned,
+        get_sessionmaker()() as db,
+    ):
+        if not owned:
+            return
+        try:
+            run_translation(db, get_llm_provider(), get_redis(), tid)
+        except LlmError as exc:
+            db.rollback()
+            if exc.transient and self.request.retries < self.max_retries:
+                log.warning("translation_retry", translation_id=translation_id, error=str(exc))
+                mark_queued(get_redis(), "translation", tid)
+                raise self.retry(exc=exc, countdown=min(600, 20 * 2**self.request.retries)) from exc
+            log.error("translation_failed", translation_id=translation_id, error=str(exc))
+            mark_translation_failed(db, get_redis(), tid, "translation_failed")
+        except Exception as exc:
+            db.rollback()
+            if self.request.retries < UNEXPECTED_RETRIES:
+                log.exception("translation_retry_unexpected", translation_id=translation_id)
+                mark_queued(get_redis(), "translation", tid)
+                raise self.retry(
+                    exc=exc, countdown=_unexpected_countdown(self.request.retries)
+                ) from exc
+            log.exception("translation_failed_unexpected", translation_id=translation_id)
+            mark_translation_failed(db, get_redis(), tid, "translation_failed")
+        else:
+            get_redis().delete(requeues_key("translation", tid))
+
+
 def enqueue_recording(recording_id: uuid.UUID) -> None:
     mark_queued(get_redis(), "recording", recording_id)
     process_recording_task.delay(str(recording_id))
@@ -158,6 +195,17 @@ def enqueue_recording(recording_id: uuid.UUID) -> None:
 def enqueue_ai_output(output_id: uuid.UUID) -> None:
     mark_queued(get_redis(), "ai_output", output_id)
     generate_ai_output_task.delay(str(output_id))
+
+
+def enqueue_translation(translation_id: uuid.UUID) -> None:
+    mark_queued(get_redis(), "translation", translation_id)
+    translate_transcript_task.delay(str(translation_id))
+
+
+def request_translation(translation_id: uuid.UUID) -> None:
+    """Petición de una persona: los reencolados de un intento anterior no cuentan."""
+    get_redis().delete(requeues_key("translation", translation_id))
+    enqueue_translation(translation_id)
 
 
 def _is_uuid(value: str) -> bool:
@@ -202,10 +250,10 @@ def purge_storage_prefix(prefix: str) -> int:
 
 
 @celery_app.task(name="app.worker.tasks.sweep_stuck_jobs")  # type: ignore[untyped-decorator]
-def sweep_stuck_jobs() -> tuple[int, int]:
+def sweep_stuck_jobs() -> tuple[int, int, int]:
     """Lo programa celery beat cada 10 minutos."""
     with get_sessionmaker()() as db:
-        return sweep(db, get_redis(), enqueue_recording, enqueue_ai_output)
+        return sweep(db, get_redis(), enqueue_recording, enqueue_ai_output, enqueue_translation)
 
 
 @celery_app.task(name="app.worker.tasks.apply_retention")  # type: ignore[untyped-decorator]
