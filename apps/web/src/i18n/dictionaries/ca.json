@@ -273,7 +273,13 @@
     "audioReady": "Àudio a punt",
     "import": "Importa",
     "filters": "Filtres",
-    "documents": "Documents"
+    "documents": "Documents",
+    "folders": "Organitzacions",
+    "folderEmpty": "Sense gravacions",
+    "folderOne": "1 gravació",
+    "folderMany": "{count} gravacions",
+    "folderLast": "Darrera: {date}",
+    "searchAll": "Resultats a totes les organitzacions"
   },
   "import": {
     "title": "Importa àudio o vídeo",
@@ -322,7 +328,7 @@
     "reprocessHint": "Crea una versió nova de la transcripció; l'actual es conserva. Els documents i les traduccions s'hauran de tornar a generar."
   },
   "translation": {
-    "label": "Idioma de la transcripció",
+    "label": "Idioma de lectura",
     "original": "Original ({language})",
     "translate": "Tradueix",
     "translating": "Traduint… {done} de {total} frases",
@@ -333,7 +339,10 @@
     "again": "Torna a traduir",
     "outdated": "L'original ha canviat",
     "untranslated": "Sense traduir",
-    "editOriginal": "Per corregir frases, torna a l'idioma original."
+    "editOriginal": "Per corregir frases, torna a l'idioma original.",
+    "documentPending": "{language}: aquest document encara no està traduït.",
+    "documentOutdated": "El document s'ha editat després de traduir-lo.",
+    "translatingDocument": "Traduint…"
   },
   "share": {
     "copy": "Copia",
@@ -443,7 +452,9 @@
       "vtt": "Subtítols VTT"
     },
     "subtitlesHint": "TXT, SRT i VTT només contenen la transcripció amb marques de temps.",
-    "language": "Idioma de la transcripció"
+    "language": "Idioma de la transcripció",
+    "transcriptNotTranslated": "La transcripció no està traduïda a aquest idioma: no s'hi inclou.",
+    "documentsHint": "Els documents sense traduir a aquest idioma s'exporten en l'original."
   },
   "edit": {
     "edit": "Edita",

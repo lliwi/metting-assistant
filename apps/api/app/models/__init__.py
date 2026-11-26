@@ -1,4 +1,10 @@
-from app.models.ai_output import AiOutput, AiOutputKind, AiOutputRevision, AiOutputStatus
+from app.models.ai_output import (
+    AiOutput,
+    AiOutputKind,
+    AiOutputRevision,
+    AiOutputStatus,
+    AiOutputTranslation,
+)
 from app.models.audit import AuditEvent, AuditResult
 from app.models.auth import MfaRecoveryCode, TokenPurpose, UserSession, UserToken
 from app.models.base import Base
@@ -25,6 +31,7 @@ __all__ = [
     "AiOutputKind",
     "AiOutputRevision",
     "AiOutputStatus",
+    "AiOutputTranslation",
     "AudioSegment",
     "AuditEvent",
     "AuditResult",

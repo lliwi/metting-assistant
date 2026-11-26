@@ -32,7 +32,12 @@ export async function waitTranscribed(page: Page) {
 /** Abre una grabación desde la lista por su título. */
 export async function openRecording(page: Page, title: string) {
   await page.goto("/es/recordings");
-  await page.getByRole("link", { name: title }).click();
+  // Con varias organizaciones la lista muestra carpetas: se busca por título en todas.
+  await page
+    .getByRole("searchbox", { name: "Buscar en las grabaciones" })
+    .fill(title);
+  await page.getByRole("button", { name: "Buscar" }).click();
+  await page.getByRole("link", { name: title, exact: true }).click();
   await expect(page).toHaveURL(/\/es\/recordings\/[0-9a-f-]{36}/);
   await expect(
     page.getByRole("heading", { level: 1, name: title }),

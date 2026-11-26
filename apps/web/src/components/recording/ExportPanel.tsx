@@ -19,20 +19,31 @@ export function ExportPanel({
   recordingId,
   documents,
   original,
-  translations,
+  transcriptLanguages,
+  documentLanguages,
 }: {
   dict: Dictionary;
   recordingId: string;
   /** Documentos de IA listos: solo se ofrecen esos. */
   documents: Schemas["AiOutputOut"]["kind"][];
-  /** Idioma de la transcripción y aquellos a los que está traducida. */
+  /** Idioma original y aquellos a los que están traducidos la transcripción o los documentos. */
   original: string;
-  translations: string[];
+  transcriptLanguages: string[];
+  documentLanguages: string[];
 }) {
-  const available: Part[] = ["transcript", ...documents];
+  const translations = [
+    ...new Set([...transcriptLanguages, ...documentLanguages]),
+  ].sort();
   const [excluded, setExcluded] = useState<Set<Part>>(new Set());
   const [choice, setChoice] = useState("");
   const language = translations.includes(choice) ? choice : "";
+  // La transcripción solo se exporta traducida si existe esa traducción.
+  const transcriptMissing =
+    language !== "" && !transcriptLanguages.includes(language);
+  const available: Part[] = [
+    ...(transcriptMissing ? [] : (["transcript"] as Part[])),
+    ...documents,
+  ];
 
   function toggle(part: Part) {
     setExcluded((current) => {
@@ -96,8 +107,16 @@ export function ExportPanel({
           </select>
         </div>
       )}
+      {language && (
+        <p className="hint">
+          {transcriptMissing && `${dict.export.transcriptNotTranslated} `}
+          {dict.export.documentsHint}
+        </p>
+      )}
       <div className="format-grid">
-        {FORMATS.map((fmt) => (
+        {FORMATS.filter(
+          (fmt) => !(transcriptMissing && TRANSCRIPT_ONLY.has(fmt)),
+        ).map((fmt) => (
           <a key={fmt} className="button" href={href(fmt)} download>
             <Download aria-hidden="true" size={16} /> {dict.export.formats[fmt]}
           </a>

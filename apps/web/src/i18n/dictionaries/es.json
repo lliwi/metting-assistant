@@ -273,7 +273,13 @@
     "audioReady": "Audio listo",
     "import": "Importar",
     "filters": "Filtros",
-    "documents": "Documentos"
+    "documents": "Documentos",
+    "folders": "Organizaciones",
+    "folderEmpty": "Sin grabaciones",
+    "folderOne": "1 grabación",
+    "folderMany": "{count} grabaciones",
+    "folderLast": "Última: {date}",
+    "searchAll": "Resultados en todas las organizaciones"
   },
   "import": {
     "title": "Importar audio o vídeo",
@@ -322,7 +328,7 @@
     "reprocessHint": "Crea una versión nueva de la transcripción; la actual se conserva. Los documentos y traducciones habrá que generarlos de nuevo."
   },
   "translation": {
-    "label": "Idioma de la transcripción",
+    "label": "Idioma de lectura",
     "original": "Original ({language})",
     "translate": "Traducir",
     "translating": "Traduciendo… {done} de {total} frases",
@@ -333,7 +339,10 @@
     "again": "Volver a traducir",
     "outdated": "El original ha cambiado",
     "untranslated": "Sin traducir",
-    "editOriginal": "Para corregir frases, vuelve al idioma original."
+    "editOriginal": "Para corregir frases, vuelve al idioma original.",
+    "documentPending": "{language}: este documento todavía no está traducido.",
+    "documentOutdated": "El documento se ha editado después de traducirlo.",
+    "translatingDocument": "Traduciendo…"
   },
   "share": {
     "copy": "Copiar",
@@ -443,7 +452,9 @@
       "vtt": "Subtítulos VTT"
     },
     "subtitlesHint": "TXT, SRT y VTT contienen solo la transcripción con marcas de tiempo.",
-    "language": "Idioma de la transcripción"
+    "language": "Idioma de la transcripción",
+    "transcriptNotTranslated": "La transcripción no está traducida a este idioma: no se incluye.",
+    "documentsHint": "Los documentos sin traducir a este idioma se exportan en el original."
   },
   "edit": {
     "edit": "Editar",

@@ -30,6 +30,9 @@ class OrganizationOut(BaseModel):
     role: Role
     is_preferred: bool = False
     created_at: datetime
+    # Solo en el listado: grabaciones de la organización y fecha de la más reciente.
+    recordings: int = 0
+    last_recording_at: datetime | None = None
 
 
 class MemberOut(BaseModel):

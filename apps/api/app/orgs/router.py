@@ -88,7 +88,20 @@ def list_organizations(user: CurrentUser, db: DbSession) -> list[OrganizationOut
         # La preferida primero: es la opción por defecto en los desplegables.
         .order_by(Membership.preferred.desc(), Organization.is_personal.desc(), Organization.name)
     ).all()
-    return [_org_out(org, role, preferred=preferred) for org, role, preferred in rows]
+    stats = {
+        org_id: (count, last)
+        for org_id, count, last in db.execute(
+            select(Recording.organization_id, func.count(), func.max(Recording.created_at))
+            .where(Recording.organization_id.in_([org.id for org, _, _ in rows]))
+            .group_by(Recording.organization_id)
+        )
+    }
+    out = []
+    for org, role, preferred in rows:
+        item = _org_out(org, role, preferred=preferred)
+        item.recordings, item.last_recording_at = stats.get(org.id, (0, None))
+        out.append(item)
+    return out
 
 
 @router.put("/organizations/{org_id}/preferred", status_code=status.HTTP_204_NO_CONTENT)

@@ -11,10 +11,13 @@ import { formatDuration } from "@/lib/recorder/useCapture";
 
 import { AiOutputEditor } from "./AiOutputEditor";
 import { documentText } from "./contentText";
+import { type Language } from "./SetupFields";
+import { LanguagePicker, languageName } from "./Translation";
 import { ShareActions } from "./ShareActions";
 import { usePlayer } from "./Player";
 
 type Output = Schemas["AiOutputOut"];
+export type DocumentTranslation = Schemas["DocumentTranslationOut"];
 type Kind = Output["kind"];
 type Ref = { idx: number; start_ms: number };
 type Item = {
@@ -324,7 +327,12 @@ export function DocumentPanel({
   output,
   recordingId,
   recordingTitle,
+  original,
+  language,
+  onLanguage,
+  translations,
   onRequested,
+  onTranslationRequested,
 }: {
   dict: Dictionary;
   lang: Locale;
@@ -332,9 +340,17 @@ export function DocumentPanel({
   output: Output | undefined;
   recordingId: string;
   recordingTitle: string;
+  /** Idioma del documento (el de la transcripción). */
+  original: string;
+  /** Idioma de lectura elegido; null = original. */
+  language: Language | null;
+  onLanguage: (language: Language | null) => void;
+  translations: DocumentTranslation[];
   onRequested: (o: Output) => void;
+  onTranslationRequested: (t: DocumentTranslation) => void;
 }) {
   const { pending, error, run } = useAction(dict);
+  const translating = useAction(dict);
   const [editing, setEditing] = useState(false);
   const generating = output?.status === "pending";
   const ready = output?.status === "ready";
@@ -375,6 +391,27 @@ export function DocumentPanel({
     );
   }
 
+  const translation = language
+    ? translations.find((t) => t.language === language)
+    : undefined;
+  const translated = translation?.status === "ready" ? translation : undefined;
+  const content = translated?.content ?? output.content;
+  const title = `${recordingTitle} · ${kindTitle(dict, kind)}${
+    translated ? ` (${languageName(dict, translated.language)})` : ""
+  }`;
+
+  async function translate() {
+    if (!language || !output) return;
+    const outputId = output.id;
+    const data = await translating.run(() =>
+      api.POST("/v1/ai-outputs/{output_id}/translations", {
+        params: { path: { output_id: outputId } },
+        body: { language },
+      }),
+    );
+    if (data) onTranslationRequested(data);
+  }
+
   return (
     <div className="stack">
       <div className="panel-toolbar">
@@ -384,18 +421,11 @@ export function DocumentPanel({
             {ready && (
               <ShareActions
                 dict={dict}
-                title={`${recordingTitle} · ${kindTitle(dict, kind)}`}
-                text={() =>
-                  documentText(
-                    dict,
-                    kind,
-                    `${recordingTitle} · ${kindTitle(dict, kind)}`,
-                    output.content,
-                  )
-                }
+                title={title}
+                text={() => documentText(dict, kind, title, content)}
               />
             )}
-            {ready && (
+            {ready && !translated && (
               <button
                 type="button"
                 className="button small ghost"
@@ -422,9 +452,85 @@ export function DocumentPanel({
                   : dict.ai.regenerate}
               </span>
             </button>
+            {ready && (
+              <LanguagePicker
+                dict={dict}
+                original={original}
+                language={language}
+                onLanguage={onLanguage}
+              />
+            )}
           </div>
         )}
       </div>
+
+      {ready && language && !editing && (
+        <div className="translation-status">
+          {!translation && (
+            <div className="row wrap inline-status">
+              <p className="hint">
+                {format(dict.translation.documentPending, {
+                  language: languageName(dict, language),
+                })}
+              </p>
+              <button
+                type="button"
+                className="button small primary"
+                onClick={translate}
+                disabled={translating.pending}
+              >
+                {dict.translation.translate}
+              </button>
+            </div>
+          )}
+          {translation?.status === "pending" && (
+            <p role="status">
+              {dict.translation.translatingDocument}{" "}
+              <progress aria-label={dict.translation.translatingDocument} />
+            </p>
+          )}
+          {translation?.status === "failed" && (
+            <div className="row wrap inline-status">
+              <p className="alert error">
+                {errorMessage(
+                  dict,
+                  translation.error_code ?? "translation_failed",
+                )}
+              </p>
+              <button
+                type="button"
+                className="button small primary"
+                onClick={translate}
+                disabled={translating.pending}
+              >
+                {dict.ai.retry}
+              </button>
+            </div>
+          )}
+          {translated?.outdated && (
+            <div className="row wrap inline-status">
+              <p className="hint">{dict.translation.documentOutdated}</p>
+              <button
+                type="button"
+                className="button small primary"
+                onClick={translate}
+                disabled={translating.pending}
+              >
+                {dict.translation.update}
+              </button>
+            </div>
+          )}
+          {translated && (
+            <p className="notice compact" role="note">
+              {dict.translation.notice}{" "}
+              {translated.model &&
+                format(dict.ai.generatedWith, { model: translated.model })}
+              {translated.outdated ? "" : `. ${dict.translation.editOriginal}`}
+            </p>
+          )}
+          <FormMessage error={translating.error} />
+        </div>
+      )}
 
       {output.status === "failed" && (
         <p className="alert error">
@@ -443,8 +549,11 @@ export function DocumentPanel({
         />
       )}
       {ready && !editing && (
-        <article className="document">
-          <Content dict={dict} kind={kind} content={output.content} />
+        <article
+          className="document"
+          lang={translated ? translated.language : undefined}
+        >
+          <Content dict={dict} kind={kind} content={content} />
         </article>
       )}
       <FormMessage error={error} />

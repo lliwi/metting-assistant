@@ -907,6 +907,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ai-outputs/{output_id}/translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Document Translations */
+        get: operations["list_document_translations_v1_ai_outputs__output_id__translations_get"];
+        put?: never;
+        /**
+         * Request Document Translation
+         * @description Traduce el documento (o lo vuelve a traducir si ya lo estaba).
+         */
+        post: operations["request_document_translation_v1_ai_outputs__output_id__translations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/translations": {
         parameters: {
             query?: never;
@@ -959,7 +980,8 @@ export interface paths {
         /**
          * Export Recording
          * @description Descarga la grabación en el formato indicado. Resumen, acta y apuntes se incluyen si
-         *     existen. `language`: transcripción traducida a ese idioma (debe existir la traducción).
+         *     existen. `language`: transcripción traducida a ese idioma (debe existir la traducción) y
+         *     los documentos que estén traducidos a él; los que no, en el idioma original.
          */
         get: operations["export_recording_v1_recordings__recording_id__exports__fmt__get"];
         put?: never;
@@ -1134,6 +1156,49 @@ export interface components {
         CsrfResponse: {
             /** Csrf Token */
             csrf_token: string;
+        };
+        /** DocumentTranslationOut */
+        DocumentTranslationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Output Id
+             * Format: uuid
+             */
+            output_id: string;
+            /** Language */
+            language: string;
+            status: components["schemas"]["AiOutputStatus"];
+            /** Provider */
+            provider: string | null;
+            /** Model */
+            model: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Outdated */
+            outdated: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Completed At */
+            completed_at: string | null;
+        };
+        /** DocumentTranslationRequest */
+        DocumentTranslationRequest: {
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "es" | "ca" | "en" | "it";
         };
         /** EmailRequest */
         EmailRequest: {
@@ -1313,6 +1378,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Recordings
+             * @default 0
+             */
+            recordings: number;
+            /** Last Recording At */
+            last_recording_at?: string | null;
         };
         /** OrganizationUpdate */
         OrganizationUpdate: {
@@ -4268,6 +4340,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiOutputRevisionOut"][];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_document_translations_v1_ai_outputs__output_id__translations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                output_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentTranslationOut"][];
+                };
+            };
+            /** @description Error de validación */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    request_document_translation_v1_ai_outputs__output_id__translations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                output_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentTranslationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentTranslationOut"];
                 };
             };
             /** @description Error de validación */

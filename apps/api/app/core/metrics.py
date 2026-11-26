@@ -32,6 +32,7 @@ from app.db import get_sessionmaker
 from app.models import (
     AiOutput,
     AiOutputStatus,
+    AiOutputTranslation,
     Recording,
     RecordingStatus,
     TranscriptTranslation,
@@ -180,8 +181,17 @@ class SystemCollector(Collector):
                     TranscriptTranslation.updated_at > current - timedelta(hours=24),
                 )
             )
-            ai.add_metric(["pending"], (pending or 0) + (tr_pending or 0))
-            ai.add_metric(["failed_24h"], (ai_failed or 0) + (tr_failed or 0))
+            doc_pending = db.scalar(
+                select(func.count()).where(AiOutputTranslation.status == AiOutputStatus.PENDING)
+            )
+            doc_failed = db.scalar(
+                select(func.count()).where(
+                    AiOutputTranslation.status == AiOutputStatus.FAILED,
+                    AiOutputTranslation.updated_at > current - timedelta(hours=24),
+                )
+            )
+            ai.add_metric(["pending"], (pending or 0) + (tr_pending or 0) + (doc_pending or 0))
+            ai.add_metric(["failed_24h"], (ai_failed or 0) + (tr_failed or 0) + (doc_failed or 0))
             yield ai
 
             month_start = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)

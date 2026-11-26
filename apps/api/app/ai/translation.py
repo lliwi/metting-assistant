@@ -63,8 +63,15 @@ SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
-SYSTEM = """Traduces a {target} la transcripción automática de una reunión o clase, cuyo idioma
-principal es {source} (puede mezclar otros).
+# Qué se traduce: la transcripción o un documento generado a partir de ella.
+TRANSCRIPT_SUBJECT = "la transcripción automática de una reunión o clase"
+DOCUMENT_SUBJECT = (
+    "un documento (resumen, acta o apuntes) redactado a partir de una reunión o clase; cada "
+    'elemento de "frases" es un título, un párrafo o un punto del documento'
+)
+
+SYSTEM = """Traduces a {target} {subject}, cuyo idioma principal es {source} (puede mezclar
+otros).
 
 Recibes un JSON con "contexto" (frases anteriores, solo para entender; no las traduzcas) y
 "frases", cada una con su número "n", quién habla si se sabe y el texto.
@@ -158,10 +165,13 @@ def translate(
     target: str,
     *,
     context_tokens: int,
+    subject: str = TRANSCRIPT_SUBJECT,
 ) -> Iterator[dict[int, str]]:
     """Cede las frases traducidas de cada bloque ({idx: texto})."""
     system = SYSTEM.format(
-        source=LANGUAGE_NAMES.get(source, source), target=LANGUAGE_NAMES.get(target, target)
+        source=LANGUAGE_NAMES.get(source, source),
+        target=LANGUAGE_NAMES.get(target, target),
+        subject=subject,
     )
     # Texto, su traducción y el formato JSON: cada uno, como mucho un tercio del contexto.
     budget = int(min(CHUNK_CHARS, max(1_000, (context_tokens - 1_500) * CHARS_PER_TOKEN / 3)))

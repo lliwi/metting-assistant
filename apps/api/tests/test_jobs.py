@@ -26,6 +26,10 @@ from app.worker.jobs import LOCK_TTL, exclusive, is_busy, mark_queued
 from app.worker.sweeper import MAX_REQUEUES, sweep
 
 
+def noop(_: object) -> None:
+    pass
+
+
 def test_exclusive_allows_a_single_runner() -> None:
     redis = fakeredis.FakeRedis()
     job = uuid.uuid4()
@@ -105,7 +109,7 @@ def test_sweeper_requeues_only_lost_jobs(db: Session, make_user: Callable[..., U
 
     requeued: list[uuid.UUID] = []
     outputs: list[uuid.UUID] = []
-    assert sweep(db, redis, requeued.append, outputs.append, lambda _: None) == (2, 1, 0)
+    assert sweep(db, redis, requeued.append, outputs.append, noop, noop) == (2, 1, 0, 0)
     assert set(requeued) == {lost.id, crashed.id}
     assert outputs == [output.id]
     assert recent.id not in requeued
@@ -163,10 +167,10 @@ def test_sweeper_gives_up_on_a_job_that_never_finishes(
 
     requeued: list[uuid.UUID] = []
     for _ in range(MAX_REQUEUES):
-        sweep(db, redis, requeued.append, lambda _: None, lambda _: None)
+        sweep(db, redis, requeued.append, noop, noop, noop)
     assert requeued == [rec.id] * MAX_REQUEUES
 
-    sweep(db, redis, requeued.append, lambda _: None, lambda _: None)
+    sweep(db, redis, requeued.append, noop, noop, noop)
     assert len(requeued) == MAX_REQUEUES
     db.expire_all()
     failed = db.get_one(Recording, rec.id)

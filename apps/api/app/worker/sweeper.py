@@ -9,6 +9,7 @@ from redis import Redis
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai.document_translation import mark_document_translation_failed
 from app.ai.service import mark_output_failed
 from app.ai.translation import mark_translation_failed
 from app.auth.sessions import now
@@ -16,6 +17,7 @@ from app.media.imports import mark_failed
 from app.models import (
     AiOutput,
     AiOutputStatus,
+    AiOutputTranslation,
     Recording,
     RecordingStatus,
     TranscriptTranslation,
@@ -37,7 +39,8 @@ def sweep(
     enqueue_recording: Callable[[uuid.UUID], None],
     enqueue_output: Callable[[uuid.UUID], None],
     enqueue_translation: Callable[[uuid.UUID], None],
-) -> tuple[int, int, int]:
+    enqueue_document_translation: Callable[[uuid.UUID], None],
+) -> tuple[int, int, int, int]:
     cutoff = now() - STALE_AFTER
     recordings = db.scalars(
         select(Recording.id).where(
@@ -54,6 +57,12 @@ def sweep(
         select(TranscriptTranslation.id).where(
             TranscriptTranslation.status == AiOutputStatus.PENDING,
             TranscriptTranslation.updated_at < cutoff,
+        )
+    ).all()
+    document_translations = db.scalars(
+        select(AiOutputTranslation.id).where(
+            AiOutputTranslation.status == AiOutputStatus.PENDING,
+            AiOutputTranslation.updated_at < cutoff,
         )
     ).all()
     db.rollback()
@@ -93,11 +102,28 @@ def sweep(
         requeued_translations.append(translation_id)
         enqueue_translation(translation_id)
 
-    if requeued_recordings or requeued_outputs or requeued_translations:
+    requeued_documents = []
+    for translation_id in document_translations:
+        if is_busy(redis, "document_translation", translation_id):
+            continue
+        if count_requeue(redis, "document_translation", translation_id) > MAX_REQUEUES:
+            log.error("document_translation_given_up", translation_id=str(translation_id))
+            mark_document_translation_failed(db, redis, translation_id, "translation_stuck")
+            continue
+        requeued_documents.append(translation_id)
+        enqueue_document_translation(translation_id)
+
+    if requeued_recordings or requeued_outputs or requeued_translations or requeued_documents:
         log.warning(
             "stuck_jobs_requeued",
             recordings=[str(r) for r in requeued_recordings],
             ai_outputs=[str(o) for o in requeued_outputs],
             translations=[str(t) for t in requeued_translations],
+            document_translations=[str(t) for t in requeued_documents],
         )
-    return len(requeued_recordings), len(requeued_outputs), len(requeued_translations)
+    return (
+        len(requeued_recordings),
+        len(requeued_outputs),
+        len(requeued_translations),
+        len(requeued_documents),
+    )

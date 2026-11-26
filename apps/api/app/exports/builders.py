@@ -91,16 +91,35 @@ class ExportContext:
     class_notes: dict[str, Any] | None = None
     # Idioma de la transcripción traducida; None = la original.
     translated_to: str | None = None
+    # Documentos (summary, minutes, class_notes) traducidos, y a qué idioma.
+    translated_documents: set[str] = field(default_factory=set)
+    documents_language: str | None = None
+
+    @property
+    def output_language(self) -> str | None:
+        """Idioma de lo traducido que lleva la exportación (para el nombre del archivo)."""
+        return self.translated_to or self.documents_language
 
     @property
     def labels(self) -> dict[str, str]:
         return LABELS.get(self.locale, LABELS["es"])
 
-    def translation_notice(self) -> str | None:
-        if not self.translated_to:
+    def translation_notice(self, kind: str = "transcript") -> str | None:
+        target = (
+            self.translated_to
+            if kind == "transcript"
+            else self.documents_language
+            if kind in self.translated_documents
+            else None
+        )
+        if not target:
             return None
-        language = self.labels.get(f"lang_{self.translated_to}", self.translated_to)
+        language = self.labels.get(f"lang_{target}", target)
         return self.labels["translated"].format(language=language)
+
+    def notices(self, kind: str) -> list["Block"]:
+        notice = self.translation_notice(kind)
+        return [Block("notice", notice)] if notice else []
 
     def speaker(self, label: str | None) -> str | None:
         if not label:
@@ -162,6 +181,7 @@ def blocks(ctx: ExportContext) -> list[Block]:
     ]
     if ctx.summary:
         out.append(Block("h2", lb["summary"]))
+        out += ctx.notices("summary")
         out += [Block("p", p) for p in str(ctx.summary.get("resumen", "")).split("\n") if p.strip()]
         out.append(Block("h3", lb["key_points"]))
         out += _items(ctx.summary.get("puntos_clave"), lambda i: i.get("texto", ""), lb)
@@ -169,6 +189,7 @@ def blocks(ctx: ExportContext) -> list[Block]:
     if ctx.minutes:
         m = ctx.minutes
         out.append(Block("h2", lb["minutes"]))
+        out += ctx.notices("minutes")
         if m.get("titulo"):
             out.append(Block("p", str(m["titulo"])))
         out.append(Block("h3", lb["attendees"]))
@@ -195,7 +216,7 @@ def blocks(ctx: ExportContext) -> list[Block]:
         out += _items(m.get("preguntas_abiertas"), lambda i: i.get("texto", ""), lb)
         out.append(Block("notice", lb["ai_notice"]))
     if ctx.class_notes:
-        out += _class_notes(ctx.class_notes, lb)
+        out += _class_notes(ctx.class_notes, lb, ctx.notices("class_notes"))
     if ctx.segments:
         out.append(Block("h2", lb["transcript"]))
         if notice := ctx.translation_notice():
@@ -215,8 +236,8 @@ def _paragraphs(text: Any, ref: str = "") -> list[Block]:
     return [Block("p", p, ref if i == len(parts) - 1 else "") for i, p in enumerate(parts)]
 
 
-def _class_notes(n: dict[str, Any], lb: dict[str, str]) -> list[Block]:
-    out = [Block("h2", lb["class_notes"])]
+def _class_notes(n: dict[str, Any], lb: dict[str, str], notices: list[Block]) -> list[Block]:
+    out = [Block("h2", lb["class_notes"]), *notices]
     if n.get("titulo"):
         out.append(Block("p", str(n["titulo"])))
     out += _paragraphs(n.get("introduccion"))

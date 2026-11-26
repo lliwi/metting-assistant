@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from sqlalchemy import select
 
+from app.ai.document_translation import ready_document_translations
 from app.ai.service import latest_transcript
 from app.ai.translation import find_translation, translated_text
 from app.audit import record_audit_event
@@ -49,7 +50,8 @@ def export_recording(
     language: Language | None = None,
 ) -> Response:
     """Descarga la grabación en el formato indicado. Resumen, acta y apuntes se incluyen si
-    existen. `language`: transcripción traducida a ese idioma (debe existir la traducción)."""
+    existen. `language`: transcripción traducida a ese idioma (debe existir la traducción) y
+    los documentos que estén traducidos a él; los que no, en el idioma original."""
     rec = load_recording(db, user, recording_id, Action.RECORDING_READ)
     limiter.hit(f"export:user:{user.id}", limit=60, window_seconds=3600)
 
@@ -75,6 +77,7 @@ def export_recording(
             for s in latest.segments
         ]
         ctx.gaps = located_gaps(rec.audio_gaps)
+    original_language = latest.language if latest else rec.language
     if fmt not in TRANSCRIPT_ONLY:
         documents: dict[AiOutputKind, AiOutput] = {}
         for output in db.scalars(
@@ -83,12 +86,21 @@ def export_recording(
             .order_by(AiOutput.created_at.desc())
         ):
             documents.setdefault(output.kind, output)
+        contents = {kind: o.content for kind, o in documents.items()}
+        if language and language != original_language:
+            translated = ready_document_translations(db, list(documents.values()), language)
+            for kind, output in documents.items():
+                if output.id in translated:
+                    contents[kind] = translated[output.id].content
+                    ctx.translated_documents.add(kind.value)
+            if ctx.translated_documents:
+                ctx.documents_language = language
         if summary and AiOutputKind.SUMMARY in documents:
-            ctx.summary = documents[AiOutputKind.SUMMARY].content
+            ctx.summary = contents[AiOutputKind.SUMMARY]
         if minutes and AiOutputKind.MINUTES in documents:
-            ctx.minutes = documents[AiOutputKind.MINUTES].content
+            ctx.minutes = contents[AiOutputKind.MINUTES]
         if class_notes and AiOutputKind.CLASS_NOTES in documents:
-            ctx.class_notes = documents[AiOutputKind.CLASS_NOTES].content
+            ctx.class_notes = contents[AiOutputKind.CLASS_NOTES]
 
     if not (ctx.segments or ctx.summary or ctx.minutes or ctx.class_notes):
         raise AppError("nothing_to_export", "No hay contenido para exportar", 409)
@@ -109,11 +121,11 @@ def export_recording(
             "summary": ctx.summary is not None,
             "minutes": ctx.minutes is not None,
             "class_notes": ctx.class_notes is not None,
-            **({"language": ctx.translated_to} if ctx.translated_to else {}),
+            **({"language": ctx.output_language} if ctx.output_language else {}),
         },
     )
     db.commit()
-    name = filename(f"{rec.title} {ctx.translated_to or ''}", fmt)
+    name = filename(f"{rec.title} {ctx.output_language or ''}", fmt)
     return Response(
         body,
         media_type=media_type,

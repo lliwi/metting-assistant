@@ -28,7 +28,12 @@ import { api, errorCode, type Schemas, type User } from "@/lib/api/client";
 import { useQuery } from "@/lib/api/useQuery";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
-import { DocumentPanel, KINDS, kindTab } from "./AiOutputs";
+import {
+  type DocumentTranslation,
+  DocumentPanel,
+  KINDS,
+  kindTab,
+} from "./AiOutputs";
 import { canDeleteRecording, DeleteRecording } from "./DeleteRecording";
 import { EditableTitle } from "./EditableTitle";
 import { ExportPanel } from "./ExportPanel";
@@ -216,6 +221,37 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
       ? new Map(translated.segments.map((s) => [s.idx, s]))
       : null;
 
+  // Traducciones de los documentos listos: {id del documento: traducciones}.
+  const readyIds = outputs
+    .filter((o) => o.status === "ready")
+    .map((o) => o.id)
+    .join(",");
+  const fetchDocumentTranslations = useCallback(async () => {
+    void translationTick;
+    if (!readyIds) return {};
+    const entries = await Promise.all(
+      readyIds.split(",").map(async (id) => {
+        const { data } = await api.GET("/v1/ai-outputs/{output_id}/translations", {
+          params: { path: { output_id: id } },
+        });
+        return [id, data ?? []] as const;
+      }),
+    );
+    return Object.fromEntries(entries) as Record<string, DocumentTranslation[]>;
+  }, [readyIds, translationTick]);
+  const { data: documentTranslations = {}, setData: setDocumentTranslations } =
+    useQuery(fetchDocumentTranslations);
+  const onDocumentTranslationRequested = (t: DocumentTranslation) =>
+    setDocumentTranslations({
+      ...documentTranslations,
+      [t.output_id]: [
+        ...(documentTranslations[t.output_id] ?? []).filter(
+          (x) => x.language !== t.language,
+        ),
+        t,
+      ],
+    });
+
   const { data: organizations = [] } = useQuery(fetchOrganizations);
 
   if (loadError)
@@ -277,7 +313,10 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
     >
       <div className="detail">
         <header className="detail-head">
-          <Link href={`/${lang}/recordings`} className="back-link">
+          <Link
+            href={`/${lang}/recordings?org=${recording.organization_id}`}
+            className="back-link"
+          >
             <ArrowLeft aria-hidden="true" size={18} /> {dict.recordings.title}
           </Link>
           <div className="detail-title">
@@ -381,7 +420,14 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
                   output={byKind[kind]}
                   recordingId={recording.id}
                   recordingTitle={recording.title}
+                  original={transcript?.language ?? recording.language}
+                  language={language}
+                  onLanguage={setChosen}
+                  translations={
+                    documentTranslations[byKind[kind]?.id ?? ""] ?? []
+                  }
                   onRequested={onAiRequested}
+                  onTranslationRequested={onDocumentTranslationRequested}
                 />
               </section>
             ))}
@@ -401,8 +447,12 @@ function Detail({ dict, lang, user }: Props & { user: User }) {
             recordingId={recording.id}
             documents={readyDocuments}
             original={transcript?.language ?? recording.language}
-            translations={translations
+            transcriptLanguages={translations
               .filter((t) => t.status === "ready")
+              .map((t) => t.language)}
+            documentLanguages={Object.values(documentTranslations)
+              .flat()
+              .filter((t) => t.status === "ready" && !t.outdated)
               .map((t) => t.language)}
           />
         )}

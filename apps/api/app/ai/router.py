@@ -5,7 +5,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
+from app.ai.document_translation import (
+    DOCUMENT_TRANSLATION_PROMPT_VERSION,
+    find_document_translation,
+    is_current,
+)
 from app.ai.documents import attach_references
 from app.ai.editing import validate_content
 from app.ai.service import create_outputs, latest_transcript
@@ -20,12 +26,14 @@ from app.models import (
     AiOutputKind,
     AiOutputRevision,
     AiOutputStatus,
+    AiOutputTranslation,
     RecordingStatus,
     Transcript,
     User,
 )
 from app.orgs.permissions import Action
 from app.recordings.router import load_recording
+from app.recordings.schemas import Language
 
 router = APIRouter(prefix="/v1", tags=["ai"], dependencies=[Depends(require_csrf)])
 
@@ -72,6 +80,11 @@ class TaskQueue:
         from app.worker.tasks import enqueue_ai_output
 
         enqueue_ai_output(output_id)
+
+    def translate_document(self, translation_id: uuid.UUID) -> None:
+        from app.worker.tasks import request_document_translation
+
+        request_document_translation(translation_id)
 
 
 def get_ai_task_queue() -> TaskQueue:
@@ -206,3 +219,116 @@ def ai_output_revisions(
         AiOutputRevisionOut(id=r.id, created_at=r.created_at, editor_name=name, content=r.content)
         for r, name in rows
     ]
+
+
+# --- Traducciones de documentos ------------------------------------------------------------
+
+
+class DocumentTranslationRequest(BaseModel):
+    language: Language
+
+
+class DocumentTranslationOut(BaseModel):
+    id: uuid.UUID
+    output_id: uuid.UUID
+    language: str
+    status: AiOutputStatus
+    provider: str | None
+    model: str | None
+    error_code: str | None
+    # Misma forma que el documento original, con los textos traducidos.
+    content: dict[str, Any]
+    # El documento se ha editado después de traducirlo.
+    outdated: bool
+    created_at: datetime
+    completed_at: datetime | None
+
+
+def _translation_out(t: AiOutputTranslation, output: AiOutput) -> DocumentTranslationOut:
+    return DocumentTranslationOut(
+        id=t.id,
+        output_id=t.output_id,
+        language=t.language,
+        status=t.status,
+        provider=t.provider,
+        model=t.model,
+        error_code=t.error_code,
+        content=t.content,
+        outdated=t.status is AiOutputStatus.READY and not is_current(t, output),
+        created_at=t.created_at,
+        completed_at=t.completed_at,
+    )
+
+
+@router.get("/ai-outputs/{output_id}/translations")
+def list_document_translations(
+    output_id: uuid.UUID, user: CurrentUser, db: DbSession
+) -> list[DocumentTranslationOut]:
+    output = _load_output(db, user, output_id, Action.RECORDING_READ)
+    rows = db.scalars(
+        select(AiOutputTranslation)
+        .where(AiOutputTranslation.output_id == output.id)
+        .order_by(AiOutputTranslation.language)
+    )
+    return [_translation_out(t, output) for t in rows]
+
+
+@router.post("/ai-outputs/{output_id}/translations", status_code=status.HTTP_202_ACCEPTED)
+def request_document_translation(
+    output_id: uuid.UUID,
+    body: DocumentTranslationRequest,
+    user: CurrentUser,
+    db: DbSession,
+    tasks: Tasks,
+    limiter: Limiter,
+    client: Client,
+) -> DocumentTranslationOut:
+    """Traduce el documento (o lo vuelve a traducir si ya lo estaba)."""
+    output = _load_output(db, user, output_id, Action.RECORDING_CREATE)
+    limiter.hit(f"translation:user:{user.id}", limit=30, window_seconds=3600)
+    if output.status is not AiOutputStatus.READY:
+        raise AppError("not_editable", "El documento aún no está listo", 409)
+    transcript = db.get_one(Transcript, output.transcript_id)
+    if body.language == transcript.language:
+        raise AppError("same_language", "El documento ya está en ese idioma", 422)
+
+    # Dos peticiones a la vez: solo una crea la fila; la otra la encuentra pendiente.
+    created = db.scalar(
+        insert(AiOutputTranslation)
+        .values(
+            id=uuid.uuid4(),
+            output_id=output.id,
+            language=body.language,
+            status=AiOutputStatus.PENDING,
+            prompt_version=DOCUMENT_TRANSLATION_PROMPT_VERSION,
+            content={},
+            requested_by_id=user.id,
+        )
+        .on_conflict_do_nothing(index_elements=["output_id", "language"])
+        .returning(AiOutputTranslation.id)
+    )
+    translation = find_document_translation(db, output.id, body.language, for_update=True)
+    assert translation is not None
+    if created is None:
+        if translation.status is AiOutputStatus.PENDING:
+            raise AppError("already_translating", "Ya se está traduciendo", 409)
+        translation.status = AiOutputStatus.PENDING
+        translation.error_code = None
+        translation.completed_at = None
+        translation.prompt_version = DOCUMENT_TRANSLATION_PROMPT_VERSION
+        translation.requested_by_id = user.id
+    rec = load_recording(db, user, output.recording_id, Action.RECORDING_READ)
+    record_audit_event(
+        db,
+        action="document_translation.requested",
+        client=client,
+        actor_id=user.id,
+        organization_id=rec.organization_id,
+        resource_type="ai_output_translation",
+        resource_id=translation.id,
+        metadata={"kind": output.kind.value, "language": body.language},
+    )
+    db.commit()
+    db.refresh(translation)
+    tasks.translate_document(translation.id)
+    return _translation_out(translation, output)

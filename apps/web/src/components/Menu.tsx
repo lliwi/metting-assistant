@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 export type MenuItem = {
@@ -7,20 +8,28 @@ export type MenuItem = {
   label: string;
   icon?: React.ReactNode;
   danger?: boolean;
+  /** Opción elegida, en menús de selección (idioma…). */
+  checked?: boolean;
 };
 
 /** Menú desplegable de acciones (patrón "menu button" de WAI-ARIA). */
 export function Menu({
   label,
   icon,
+  text,
+  buttonClassName = "button icon-button",
   items,
   onSelect,
 }: {
   label: string;
   icon: React.ReactNode;
+  /** Texto visible del botón (si no, solo el icono). */
+  text?: React.ReactNode;
+  buttonClassName?: string;
   items: MenuItem[];
   onSelect: (key: string) => void;
 }) {
+  const selectable = items.some((i) => i.checked !== undefined);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLUListElement>(null);
@@ -31,7 +40,10 @@ export function Menu({
 
   useEffect(() => {
     if (!open) return;
-    list.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    (
+      list.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]') ??
+      list.current?.querySelector<HTMLButtonElement>("button")
+    )?.focus();
     const outside = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -64,7 +76,7 @@ export function Menu({
     <div className="menu" ref={root}>
       <button
         type="button"
-        className="button icon-button"
+        className={buttonClassName}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -73,6 +85,7 @@ export function Menu({
         onClick={() => setOpen((o) => !o)}
       >
         {icon}
+        {text}
       </button>
       {open && (
         <ul
@@ -87,14 +100,23 @@ export function Menu({
             <li key={item.key} role="none">
               <button
                 type="button"
-                role="menuitem"
+                role={selectable ? "menuitemradio" : "menuitem"}
+                aria-checked={selectable ? Boolean(item.checked) : undefined}
                 className={item.danger ? "menu-item danger" : "menu-item"}
                 onClick={() => {
                   setOpen(false);
                   onSelect(item.key);
                 }}
               >
-                {item.icon}
+                {selectable ? (
+                  <Check
+                    aria-hidden="true"
+                    size={16}
+                    className={item.checked ? "menu-check" : "menu-check off"}
+                  />
+                ) : (
+                  item.icon
+                )}
                 {item.label}
               </button>
             </li>

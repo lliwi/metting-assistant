@@ -1,6 +1,8 @@
 "use client";
 
-import { Languages } from "lucide-react";
+import { ChevronDown, Languages } from "lucide-react";
+
+import { Menu } from "@/components/Menu";
 
 import { FormMessage, errorMessage, useAction } from "@/components/forms";
 import type { Dictionary } from "@/i18n/client";
@@ -18,6 +20,49 @@ export type TranslatedSegments = Map<
 export function languageName(dict: Dictionary, language: string): string {
   const names = dict.recording.languages as Record<string, string>;
   return names[language] ?? language;
+}
+
+/** Idioma de lectura (original o traducción): el mismo para todas las pestañas. */
+export function LanguagePicker({
+  dict,
+  original,
+  language,
+  onLanguage,
+}: {
+  dict: Dictionary;
+  original: string;
+  language: Language | null;
+  onLanguage: (language: Language | null) => void;
+}) {
+  const current = language ?? original;
+  return (
+    <Menu
+      label={`${dict.translation.label}: ${languageName(dict, current)}`}
+      icon={<Languages aria-hidden="true" size={16} />}
+      text={
+        <>
+          <span className="label-wide">{languageName(dict, current)}</span>
+          <ChevronDown aria-hidden="true" size={14} className="chevron" />
+        </>
+      }
+      buttonClassName="button small ghost language-button"
+      items={[
+        {
+          key: "",
+          label: format(dict.translation.original, {
+            language: languageName(dict, original),
+          }),
+          checked: language === null,
+        },
+        ...LANGUAGES.filter((l) => l !== original).map((l) => ({
+          key: l,
+          label: languageName(dict, l),
+          checked: language === l,
+        })),
+      ]}
+      onSelect={(key) => onLanguage((key || null) as Language | null)}
+    />
+  );
 }
 
 /** Idioma en que se muestra la transcripción y estado de su traducción. */
@@ -69,28 +114,15 @@ export function TranslationBar({
   return (
     <>
       <div className="row translation-select" aria-busy={translating}>
-        <label htmlFor="transcript-language" className="visually-hidden">
-          {t.label}
-        </label>
-        <Languages aria-hidden="true" size={18} className="muted-icon" />
-        <select
-          id="transcript-language"
-          className="transcript-language compact"
-          value={language ?? ""}
-          onChange={(e) => {
+        <LanguagePicker
+          dict={dict}
+          original={original}
+          language={language}
+          onLanguage={(l) => {
             setError(null);
-            onLanguage((e.target.value || null) as Language | null);
+            onLanguage(l);
           }}
-        >
-          <option value="">
-            {format(t.original, { language: languageName(dict, original) })}
-          </option>
-          {LANGUAGES.filter((l) => l !== original).map((l) => (
-            <option key={l} value={l}>
-              {languageName(dict, l)}
-            </option>
-          ))}
-        </select>
+        />
         {language && !translating && (
           <button
             type="button"

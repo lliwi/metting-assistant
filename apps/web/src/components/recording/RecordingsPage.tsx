@@ -1,9 +1,11 @@
 "use client";
 
 import {
+  ArrowLeft,
   AudioLines,
   ClipboardList,
   FileText,
+  Folder,
   GraduationCap,
   Mic,
   Search,
@@ -12,13 +14,14 @@ import {
   Upload,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { errorMessage, Field, FormMessage } from "@/components/forms";
 import type { Dictionary, Locale } from "@/i18n/client";
 import { format } from "@/i18n/format";
-import { api, type User } from "@/lib/api/client";
+import { api, type Schemas, type User } from "@/lib/api/client";
 import { useQuery } from "@/lib/api/useQuery";
 import { getRecorderQueue, tryComplete } from "@/lib/recorder";
 import { formatDuration } from "@/lib/recorder/useCapture";
@@ -30,24 +33,61 @@ import { UploadStatus } from "./UploadStatus";
 type Props = { dict: Dictionary; lang: Locale };
 
 export function RecordingsPage({ dict, lang }: Props) {
+  // Carpeta abierta (?org=…). Al cambiar de carpeta, la búsqueda empieza de cero.
+  const orgId = useSearchParams().get("org");
   return (
     <RequireAuth lang={lang} loadingLabel={dict.common.loading}>
-      {(user) => <List dict={dict} lang={lang} user={user} />}
+      {(user) => (
+        <List
+          key={orgId ?? "all"}
+          dict={dict}
+          lang={lang}
+          user={user}
+          orgId={orgId}
+        />
+      )}
     </RequireAuth>
   );
 }
 
-function List({ dict, lang, user }: Props & { user: User }) {
+type Organization = Schemas["OrganizationOut"];
+
+async function fetchOrganizations() {
+  return (await api.GET("/v1/organizations")).data ?? [];
+}
+
+function List({
+  dict,
+  lang,
+  user,
+  orgId,
+}: Props & { user: User; orgId: string | null }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const { data: organizations } = useQuery(fetchOrganizations);
+  const folder = organizations?.find((o) => o.id === orgId);
+  // Con una sola organización no hay carpetas: se ven sus grabaciones directamente.
+  const scope =
+    folder ?? (organizations?.length === 1 ? organizations[0] : undefined);
+  const searching = filters !== EMPTY_FILTERS;
+  const showFolders =
+    organizations !== undefined && !scope && !searching && organizations.length > 1;
+  const orgName = (o: Organization) =>
+    o.is_personal ? dict.orgs.personal : o.name;
+  const orgNames = Object.fromEntries(
+    (organizations ?? []).map((o) => [o.id, orgName(o)]),
+  );
+
   const fetchRecordings = useCallback(async () => {
+    if (organizations === undefined || showFolders) return [];
     const query = {
+      organization_id: scope?.id,
       q: filters.q || undefined,
       speaker: filters.speaker || undefined,
       date_from: filters.from ? `${filters.from}T00:00:00` : undefined,
       date_to: filters.to ? `${filters.to}T23:59:59` : undefined,
     };
     return (await api.GET("/v1/recordings", { params: { query } })).data ?? [];
-  }, [filters]);
+  }, [filters, organizations, showFolders, scope?.id]);
   const { data: recordings, reload } = useQuery(fetchRecordings);
   const stats = useUploaderStats();
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +95,7 @@ function List({ dict, lang, user }: Props & { user: User }) {
     dateStyle: "medium",
     timeStyle: "short",
   });
+  const shortDate = new Intl.DateTimeFormat(lang, { dateStyle: "medium" });
 
   async function finish(recordingId: string) {
     setError(null);
@@ -70,7 +111,17 @@ function List({ dict, lang, user }: Props & { user: User }) {
   return (
     <div className="stack-lg">
       <div className="page-head">
-        <h1>{dict.recordings.title}</h1>
+        {folder ? (
+          <div className="detail-head">
+            <Link href={`/${lang}/recordings`} className="back-link">
+              <ArrowLeft aria-hidden="true" size={18} />{" "}
+              {dict.recordings.title}
+            </Link>
+            <h1>{orgName(folder)}</h1>
+          </div>
+        ) : (
+          <h1>{dict.recordings.title}</h1>
+        )}
         <div className="row">
           <Link className="button" href={`/${lang}/import`}>
             <Upload aria-hidden="true" size={18} />
@@ -85,7 +136,43 @@ function List({ dict, lang, user }: Props & { user: User }) {
       <SearchForm dict={dict} onSearch={setFilters} />
       <FormMessage error={error} />
 
-      {recordings === undefined ? (
+      {showFolders ? (
+        <section aria-labelledby="folders-heading">
+          <h2 id="folders-heading" className="visually-hidden">
+            {dict.recordings.folders}
+          </h2>
+          <ul className="folder-grid">
+            {organizations.map((o) => (
+              <li key={o.id}>
+                <Link
+                  href={`/${lang}/recordings?org=${o.id}`}
+                  className="folder"
+                >
+                  <Folder
+                    aria-hidden="true"
+                    size={28}
+                    className="folder-icon"
+                  />
+                  <span className="folder-name">{orgName(o)}</span>
+                  <span className="hint">
+                    {o.recordings === 0
+                      ? dict.recordings.folderEmpty
+                      : o.recordings === 1
+                        ? dict.recordings.folderOne
+                        : format(dict.recordings.folderMany, {
+                            count: o.recordings,
+                          })}
+                    {o.last_recording_at &&
+                      ` · ${format(dict.recordings.folderLast, {
+                        date: shortDate.format(new Date(o.last_recording_at)),
+                      })}`}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : recordings === undefined ? (
         <p role="status">{dict.common.loading}</p>
       ) : recordings.length === 0 ? (
         <div className="card empty-state">
@@ -97,6 +184,10 @@ function List({ dict, lang, user }: Props & { user: User }) {
           </p>
         </div>
       ) : (
+        <>
+        {searching && !scope && (
+          <p className="hint">{dict.recordings.searchAll}</p>
+        )}
         <ul className="rec-list">
           {recordings.map((r) => {
             const local = stats?.localByRecording[r.id] ?? 0;
@@ -112,6 +203,12 @@ function List({ dict, lang, user }: Props & { user: User }) {
                   <p className="meta">
                     <span>{dateFormat.format(new Date(r.created_at))}</span>
                     <span>{formatDuration(r.duration_ms)}</span>
+                    {searching && !scope && orgNames[r.organization_id] && (
+                      <span className="org-tag">
+                        <Folder aria-hidden="true" size={13} />
+                        {orgNames[r.organization_id]}
+                      </span>
+                    )}
                     {r.status !== "transcribed" && (
                       <span className={`badge status-${r.status}`}>
                         {dict.recordings.status[r.status]}
@@ -200,6 +297,7 @@ function List({ dict, lang, user }: Props & { user: User }) {
             );
           })}
         </ul>
+        </>
       )}
     </div>
   );

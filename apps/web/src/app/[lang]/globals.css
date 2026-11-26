@@ -1085,6 +1085,61 @@ mark {
   color: var(--accent);
 }
 
+/* Carpetas: una por organización */
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.folder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  height: 100%;
+  padding: 1.125rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+
+.folder:hover {
+  border-color: var(--accent);
+}
+
+.folder-icon {
+  margin-bottom: 0.25rem;
+  color: var(--accent);
+}
+
+.folder-name {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.folder .hint {
+  margin: 0;
+}
+
+.org-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+.page-head .detail-head h1 {
+  margin: 0;
+}
+
 .rec-main .alert {
   font-size: 0.875rem;
 }
@@ -1463,6 +1518,30 @@ mark {
 
 .menu-item.danger {
   color: var(--danger);
+}
+
+.menu-check {
+  flex: none;
+  color: var(--accent);
+}
+
+.menu-check.off {
+  visibility: hidden;
+}
+
+/* Idioma de lectura: un botón discreto que abre el menú de idiomas */
+.language-button {
+  gap: 0.375rem;
+  color: var(--text-muted);
+}
+
+.language-button[aria-expanded="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.language-button .chevron {
+  opacity: 0.7;
 }
 
 /* --- Diálogo ---------------------------------------------------------------- */

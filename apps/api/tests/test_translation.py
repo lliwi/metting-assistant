@@ -31,6 +31,10 @@ from tests.conftest import ApiClient
 from tests.test_ai import ana, queue, transcribed  # noqa: F401 - fixtures
 
 
+def noop(_: object) -> None:
+    pass
+
+
 class Translator:
     """Traduce anteponiendo "[T] ". `skip`: frases que no devuelve nunca."""
 
@@ -381,8 +385,8 @@ def test_lost_translations_are_requeued_and_finally_given_up(
 
     requeued: list[uuid.UUID] = []
     for _ in range(MAX_REQUEUES):
-        assert sweep(db, redis, lambda _: None, lambda _: None, requeued.append)[2] == 1
+        assert sweep(db, redis, noop, noop, requeued.append, noop)[2] == 1
     assert requeued == [tid] * MAX_REQUEUES
-    assert sweep(db, redis, lambda _: None, lambda _: None, requeued.append)[2] == 0
+    assert sweep(db, redis, noop, noop, requeued.append, noop)[2] == 0
     failed = ana.get(f"/v1/recordings/{transcribed['id']}/translations").json()[0]
     assert (failed["status"], failed["error_code"]) == ("failed", "translation_stuck")

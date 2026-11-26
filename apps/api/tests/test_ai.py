@@ -263,6 +263,9 @@ def test_summary_and_minutes_after_transcription(
     # La lista enlaza directamente con los documentos listos.
     [listed] = ana.get("/v1/recordings").json()
     assert listed["documents"] == ["summary", "minutes"]
+    # Cada organización, con cuántas grabaciones tiene (carpetas de la lista).
+    [org] = ana.get("/v1/organizations").json()
+    assert (org["recordings"], org["last_recording_at"] is not None) == (1, True)
 
 
 def test_regenerate_on_demand(
