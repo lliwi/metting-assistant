@@ -37,7 +37,8 @@
     "or": "o",
     "remove": "Quitar",
     "role": "Rol",
-    "passwordHint": "Mínimo 12 caracteres. Una frase larga es más segura que una contraseña corta y compleja."
+    "passwordHint": "Mínimo 12 caracteres. Una frase larga es más segura que una contraseña corta y compleja.",
+    "close": "Cerrar"
   },
   "roles": {
     "owner": "Propietario",
@@ -269,7 +270,10 @@
     "localPending": "{count} segmentos en este dispositivo",
     "finishNow": "Finalizar captura",
     "failedReason": "Motivo: {reason}",
-    "audioReady": "Audio listo"
+    "audioReady": "Audio listo",
+    "import": "Importar",
+    "filters": "Filtros",
+    "documents": "Documentos"
   },
   "import": {
     "title": "Importar audio o vídeo",
@@ -309,7 +313,13 @@
     "deleteHeading": "Eliminar grabación",
     "delete": "Eliminar grabación",
     "deleteWarning": "Se eliminarán definitivamente el audio, las transcripciones, el historial de cambios, el resumen y el acta. No se puede deshacer.",
-    "deleteSubmit": "Eliminar definitivamente"
+    "deleteSubmit": "Eliminar definitivamente",
+    "export": "Exportar",
+    "more": "Más acciones",
+    "tabs": "Contenido de la grabación",
+    "move": "Mover a otra organización",
+    "failedHelp": "Puedes volver a intentarlo, con otro idioma o motor si hace falta.",
+    "reprocessHint": "Crea una versión nueva de la transcripción; la actual se conserva. Los documentos y traducciones habrá que generarlos de nuevo."
   },
   "translation": {
     "label": "Idioma de la transcripción",
@@ -324,6 +334,12 @@
     "outdated": "El original ha cambiado",
     "untranslated": "Sin traducir",
     "editOriginal": "Para corregir frases, vuelve al idioma original."
+  },
+  "share": {
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "share": "Compartir",
+    "copyFailed": "No se ha podido copiar."
   },
   "move": {
     "title": "Mover a otra organización",
@@ -358,7 +374,21 @@
     "concepts": "Conceptos clave",
     "examples": "Ejemplos",
     "review": "Para repasar",
-    "homework": "Deberes"
+    "homework": "Deberes",
+    "tabMinutes": "Acta",
+    "tabClassNotes": "Apuntes",
+    "emptySummary": "Aún no hay resumen",
+    "emptyMinutes": "Aún no hay acta",
+    "emptyClassNotes": "Aún no hay apuntes",
+    "describeSummary": "Un resumen ejecutivo con los puntos clave de la reunión.",
+    "describeMinutes": "Asistentes, temas tratados, decisiones, tareas con responsable y preguntas abiertas.",
+    "describeClassNotes": "Apuntes ordenados para estudiar: explicación, conceptos clave, ejemplos y preguntas de repaso.",
+    "generateSummary": "Generar resumen",
+    "generateMinutes": "Generar acta",
+    "generateClassNotes": "Generar apuntes",
+    "retry": "Reintentar",
+    "sourcesHint": "Las marcas de tiempo llevan al momento de la transcripción del que sale cada punto.",
+    "generatingHint": "Puedes seguir usando la página: aparecerá aquí en cuanto esté listo."
   },
   "speakers": {
     "duplicatesTitle": "¿La misma persona con varios nombres?",
@@ -376,7 +406,12 @@
     "rename": "Nombre de {label}",
     "save": "Guardar nombres",
     "saved": "Nombres guardados. Regenera el resumen y el acta para que los usen.",
-    "none": "No se han identificado hablantes en esta transcripción."
+    "none": "No se han identificado hablantes en esta transcripción.",
+    "hint": "Pulsa un nombre para cambiarlo.",
+    "renameAria": "Cambiar el nombre de {name}",
+    "placeholder": "Nombre de la persona",
+    "renamed": "Nombre guardado. Regenera los documentos para que lo usen.",
+    "findDuplicatesShort": "¿Repetidos?"
   },
   "player": {
     "label": "Audio de la grabación",

@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -17,12 +18,18 @@ type PlayerState = {
   /** Salta a ese instante, reproduce y lleva la vista a la frase. */
   seek: (ms: number, segmentIdx?: number) => void;
   available: boolean;
+  audio: React.RefObject<HTMLAudioElement | null>;
+  recordingId: string;
+  setCurrentMs: (ms: number) => void;
 };
 
 const PlayerContext = createContext<PlayerState>({
   currentMs: -1,
   seek: () => undefined,
   available: false,
+  audio: { current: null },
+  recordingId: "",
+  setCurrentMs: () => undefined,
 });
 
 export function usePlayer(): PlayerState {
@@ -36,20 +43,24 @@ export function scrollToSegment(idx: number) {
   history.replaceState(null, "", `#seg-${idx}`);
 }
 
-/** Reproductor de la grabación. El audio se sirve con Range: se puede saltar sin descargarlo. */
+/** Estado del reproductor. `reveal` muestra la transcripción antes de ir a una frase. */
 export function PlayerProvider({
-  dict,
   recordingId,
   available,
+  reveal,
   children,
 }: {
-  dict: Dictionary;
   recordingId: string;
   available: boolean;
+  reveal?: () => void;
   children: React.ReactNode;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [currentMs, setCurrentMs] = useState(-1);
+  const revealRef = useRef(reveal);
+  useEffect(() => {
+    revealRef.current = reveal;
+  });
 
   const seek = useCallback((ms: number, segmentIdx?: number) => {
     const el = audio.current;
@@ -57,31 +68,37 @@ export function PlayerProvider({
       el.currentTime = ms / 1000;
       void el.play().catch(() => undefined);
     }
-    if (segmentIdx !== undefined) scrollToSegment(segmentIdx);
+    if (segmentIdx !== undefined) {
+      revealRef.current?.();
+      // Tras mostrar la pestaña de la transcripción.
+      requestAnimationFrame(() => scrollToSegment(segmentIdx));
+    }
   }, []);
 
   const value = useMemo(
-    () => ({ currentMs, seek, available }),
-    [currentMs, seek, available],
+    () => ({ currentMs, seek, available, audio, recordingId, setCurrentMs }),
+    [currentMs, seek, available, recordingId],
   );
 
   return (
-    <PlayerContext.Provider value={value}>
-      {available && (
-        <div className="player">
-          <audio
-            ref={audio}
-            controls
-            preload="metadata"
-            src={`/api/v1/recordings/${recordingId}/audio`}
-            aria-label={dict.player.label}
-            onTimeUpdate={(e) =>
-              setCurrentMs(e.currentTarget.currentTime * 1000)
-            }
-          />
-        </div>
-      )}
-      {children}
-    </PlayerContext.Provider>
+    <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>
+  );
+}
+
+/** Reproductor fijo bajo la cabecera. El audio se sirve con Range: se salta sin descargarlo. */
+export function PlayerBar({ dict }: { dict: Dictionary }) {
+  const { available, audio, recordingId, setCurrentMs } = usePlayer();
+  if (!available) return null;
+  return (
+    <div className="player">
+      <audio
+        ref={audio}
+        controls
+        preload="metadata"
+        src={`/api/v1/recordings/${recordingId}/audio`}
+        aria-label={dict.player.label}
+        onTimeUpdate={(e) => setCurrentMs(e.currentTarget.currentTime * 1000)}
+      />
+    </div>
   );
 }

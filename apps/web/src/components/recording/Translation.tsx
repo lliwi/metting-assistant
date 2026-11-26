@@ -1,5 +1,7 @@
 "use client";
 
+import { Languages } from "lucide-react";
+
 import { FormMessage, errorMessage, useAction } from "@/components/forms";
 import type { Dictionary } from "@/i18n/client";
 import { format } from "@/i18n/format";
@@ -65,12 +67,15 @@ export function TranslationBar({
       : t.again;
 
   return (
-    <div className="stack" aria-busy={translating}>
-      <div className="row wrap">
-        <label htmlFor="transcript-language">{t.label}</label>
+    <>
+      <div className="row translation-select" aria-busy={translating}>
+        <label htmlFor="transcript-language" className="visually-hidden">
+          {t.label}
+        </label>
+        <Languages aria-hidden="true" size={18} className="muted-icon" />
         <select
           id="transcript-language"
-          className="transcript-language"
+          className="transcript-language compact"
           value={language ?? ""}
           onChange={(e) => {
             setError(null);
@@ -101,6 +106,7 @@ export function TranslationBar({
           </button>
         )}
       </div>
+      <div className="translation-status">
       {language && !translation && <p className="hint">{t.hint}</p>}
       {translating && (
         <p role="status">
@@ -124,7 +130,7 @@ export function TranslationBar({
         <p className="hint">{format(t.pendingLines, { count: stale })}</p>
       )}
       {translation?.status === "ready" && (
-        <p className="notice" role="note">
+        <p className="notice compact" role="note">
           {t.notice}{" "}
           {translation.model &&
             format(dict.ai.generatedWith, { model: translation.model })}
@@ -133,6 +139,7 @@ export function TranslationBar({
         </p>
       )}
       <FormMessage error={error} />
-    </div>
+      </div>
+    </>
   );
 }

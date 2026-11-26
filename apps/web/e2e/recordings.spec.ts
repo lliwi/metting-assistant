@@ -26,7 +26,7 @@ test.describe.serial("grabaciones", () => {
 
     await openRecording(page, title);
     await waitTranscribed(page);
-    const transcript = page.getByRole("region", { name: "Transcripción" });
+    const transcript = page.getByRole("tabpanel", { name: "Transcripción" });
     await expect(transcript).toContainText(/Marta/);
     await expect(page.locator("audio")).toBeVisible();
   });
@@ -53,7 +53,7 @@ test.describe.serial("grabaciones", () => {
     await text.fill(`${await text.inputValue()} (revisado)`);
     await page.getByRole("button", { name: "Guardar", exact: true }).click();
     await expect(
-      page.getByRole("region", { name: "Transcripción" }),
+      page.getByRole("tabpanel", { name: "Transcripción" }),
     ).toContainText("(revisado)");
     await page.getByText("Historial de cambios").click();
     await expect(page.locator(".history-item ins").first()).toContainText(
@@ -63,6 +63,7 @@ test.describe.serial("grabaciones", () => {
 
   test("exportar a Markdown y PDF", async ({ page }) => {
     await openRecording(page, title);
+    await page.getByRole("button", { name: "Exportar" }).click();
     const md = page.waitForEvent("download");
     await page.getByRole("link", { name: "Markdown" }).click();
     const mdFile = await md;
@@ -77,7 +78,8 @@ test.describe.serial("grabaciones", () => {
 
   test("eliminar la grabación", async ({ page }) => {
     await openRecording(page, title);
-    await page.getByRole("button", { name: "Eliminar grabación" }).click();
+    await page.getByRole("button", { name: "Más acciones" }).click();
+    await page.getByRole("menuitem", { name: "Eliminar grabación" }).click();
     await expect(page.getByText(/No se puede deshacer/)).toBeVisible();
     await page.getByRole("button", { name: "Eliminar definitivamente" }).click();
     await expect(page).toHaveURL(/\/es\/recordings$/);

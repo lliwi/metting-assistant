@@ -34,6 +34,9 @@ from app.media.containers import (
 )
 from app.media.gaps import located_gaps
 from app.models import (
+    AiOutput,
+    AiOutputKind,
+    AiOutputStatus,
     AudioSegment,
     Membership,
     Recording,
@@ -330,8 +333,23 @@ def list_recordings(
             found = matches.setdefault(recording_id, [])
             if len(found) < MATCHES_PER_RECORDING:
                 found.append(SearchMatch(idx=idx, start_ms=start_ms, highlighted=highlighted))
+    documents: dict[uuid.UUID, set[AiOutputKind]] = {}
+    if recordings:
+        for recording_id, kind in db.execute(
+            select(AiOutput.recording_id, AiOutput.kind)
+            .where(
+                AiOutput.recording_id.in_([r.id for r in recordings]),
+                AiOutput.status == AiOutputStatus.READY,
+            )
+            .distinct()
+        ):
+            documents.setdefault(recording_id, set()).add(kind)
     return [
-        RecordingListItem(**_recording_out(r).model_dump(), matches=matches.get(r.id, []))
+        RecordingListItem(
+            **_recording_out(r).model_dump(),
+            matches=matches.get(r.id, []),
+            documents=[k for k in AiOutputKind if k in documents.get(r.id, set())],
+        )
         for r in recordings
     ]
 

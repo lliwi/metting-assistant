@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, RefreshCw } from "lucide-react";
+import { Pencil, RefreshCw, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { errorMessage, FormMessage, useAction } from "@/components/forms";
@@ -10,6 +10,8 @@ import { api, type Schemas } from "@/lib/api/client";
 import { formatDuration } from "@/lib/recorder/useCapture";
 
 import { AiOutputEditor } from "./AiOutputEditor";
+import { documentText } from "./contentText";
+import { ShareActions } from "./ShareActions";
 import { usePlayer } from "./Player";
 
 type Output = Schemas["AiOutputOut"];
@@ -170,67 +172,6 @@ function Minutes({
 
 export const KINDS: Kind[] = ["summary", "minutes", "class_notes"];
 
-/** Un único botón para crear los documentos que aún no existen; el tipo se elige en la lista. */
-export function AiGenerate({
-  dict,
-  recordingId,
-  existing,
-  onRequested,
-}: {
-  dict: Dictionary;
-  recordingId: string;
-  existing: Kind[];
-  onRequested: (o: Output) => void;
-}) {
-  const { pending, error, run } = useAction(dict);
-  const missing = KINDS.filter((k) => !existing.includes(k));
-  const [choice, setChoice] = useState<Kind | null>(null);
-  // Si el elegido ya se ha generado, se pasa al siguiente que falte.
-  const kind = choice && missing.includes(choice) ? choice : missing[0];
-  if (!kind) return null;
-
-  async function generate(e: React.FormEvent) {
-    e.preventDefault();
-    const data = await run(() =>
-      api.POST("/v1/recordings/{recording_id}/ai-outputs", {
-        params: { path: { recording_id: recordingId } },
-        body: { kind },
-      }),
-    );
-    if (data) onRequested(data);
-  }
-
-  return (
-    <form
-      className="card stack"
-      aria-labelledby="ai-generate-heading"
-      onSubmit={generate}
-    >
-      <h2 id="ai-generate-heading">{dict.ai.generateHeading}</h2>
-      <div className="row ai-generate">
-        <label className="visually-hidden" htmlFor="ai-generate-kind">
-          {dict.ai.kind}
-        </label>
-        <select
-          id="ai-generate-kind"
-          value={kind}
-          onChange={(e) => setChoice(e.target.value as Kind)}
-        >
-          {missing.map((k) => (
-            <option key={k} value={k}>
-              {kindTitle(dict, k)}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button primary" disabled={pending}>
-          {dict.ai.generate}
-        </button>
-      </div>
-      <FormMessage error={error} />
-    </form>
-  );
-}
-
 function ClassNotes({
   dict,
   content,
@@ -341,30 +282,65 @@ export function kindTitle(dict: Dictionary, kind: Kind): string {
   }[kind];
 }
 
-export function AiOutputSection({
+/** Nombre corto para la pestaña. */
+export function kindTab(dict: Dictionary, kind: Kind): string {
+  return {
+    summary: dict.ai.summary,
+    minutes: dict.ai.tabMinutes,
+    class_notes: dict.ai.tabClassNotes,
+  }[kind];
+}
+
+const EMPTY: Record<
+  Kind,
+  {
+    title: keyof Dictionary["ai"];
+    text: keyof Dictionary["ai"];
+    action: keyof Dictionary["ai"];
+  }
+> = {
+  summary: {
+    title: "emptySummary",
+    text: "describeSummary",
+    action: "generateSummary",
+  },
+  minutes: {
+    title: "emptyMinutes",
+    text: "describeMinutes",
+    action: "generateMinutes",
+  },
+  class_notes: {
+    title: "emptyClassNotes",
+    text: "describeClassNotes",
+    action: "generateClassNotes",
+  },
+};
+
+/** Pestaña de un documento: vacío (con botón para generarlo), generándose, fallido o listo. */
+export function DocumentPanel({
   dict,
   lang,
   kind,
   output,
   recordingId,
-  canGenerate,
+  recordingTitle,
   onRequested,
 }: {
   dict: Dictionary;
   lang: Locale;
   kind: Kind;
-  output: Output;
+  output: Output | undefined;
   recordingId: string;
-  canGenerate: boolean;
+  recordingTitle: string;
   onRequested: (o: Output) => void;
 }) {
   const { pending, error, run } = useAction(dict);
   const [editing, setEditing] = useState(false);
-  const title = kindTitle(dict, kind);
-  const generating = output.status === "pending";
-  const ready = output.status === "ready";
+  const generating = output?.status === "pending";
+  const ready = output?.status === "ready";
+  const empty = EMPTY[kind];
 
-  async function regenerate() {
+  async function generate() {
     const data = await run(() =>
       api.POST("/v1/recordings/{recording_id}/ai-outputs", {
         params: { path: { recording_id: recordingId } },
@@ -374,46 +350,82 @@ export function AiOutputSection({
     if (data) onRequested(data);
   }
 
+  if (!output || generating) {
+    return (
+      <div className="empty-state" aria-busy={generating}>
+        <Sparkles aria-hidden="true" size={28} className="muted-icon" />
+        <h2>{generating ? dict.ai.generating : dict.ai[empty.title]}</h2>
+        <p className="hint">
+          {generating ? dict.ai.generatingHint : dict.ai[empty.text]}
+        </p>
+        {generating ? (
+          <progress aria-label={dict.ai.generating} />
+        ) : (
+          <button
+            type="button"
+            className="button primary"
+            onClick={generate}
+            disabled={pending}
+          >
+            <Sparkles aria-hidden="true" size={18} /> {dict.ai[empty.action]}
+          </button>
+        )}
+        <FormMessage error={error} />
+      </div>
+    );
+  }
+
   return (
-    <section
-      className="card stack"
-      aria-labelledby={`ai-${kind}`}
-      aria-busy={generating}
-    >
-      <div className="row spread">
-        <h2 id={`ai-${kind}`}>{title}</h2>
-        <div className="row">
-          {canGenerate && ready && !editing && (
+    <div className="stack">
+      <div className="panel-toolbar">
+        <h2 className="panel-title">{kindTitle(dict, kind)}</h2>
+        {!editing && (
+          <div className="row wrap toolbar-actions">
+            {ready && (
+              <ShareActions
+                dict={dict}
+                title={`${recordingTitle} · ${kindTitle(dict, kind)}`}
+                text={() =>
+                  documentText(
+                    dict,
+                    kind,
+                    `${recordingTitle} · ${kindTitle(dict, kind)}`,
+                    output.content,
+                  )
+                }
+              />
+            )}
+            {ready && (
+              <button
+                type="button"
+                className="button small ghost"
+                onClick={() => setEditing(true)}
+                title={dict.edit.edit}
+              >
+                <Pencil aria-hidden="true" size={16} />
+                <span className="label-wide">{dict.edit.edit}</span>
+              </button>
+            )}
             <button
               type="button"
-              className="icon-link"
-              onClick={() => setEditing(true)}
-              aria-label={dict.edit.edit}
-              title={dict.edit.edit}
-            >
-              <Pencil aria-hidden="true" size={18} />
-            </button>
-          )}
-          {canGenerate && !generating && !editing && (
-            <button
-              type="button"
-              className="icon-link"
-              onClick={regenerate}
+              className="button small ghost"
+              onClick={generate}
               disabled={pending}
-              aria-label={dict.ai.regenerate}
-              title={dict.ai.regenerate}
+              title={
+                output.status === "failed" ? dict.ai.retry : dict.ai.regenerate
+              }
             >
-              <RefreshCw aria-hidden="true" size={20} />
+              <RefreshCw aria-hidden="true" size={16} />
+              <span className="label-wide">
+                {output.status === "failed"
+                  ? dict.ai.retry
+                  : dict.ai.regenerate}
+              </span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {generating && (
-        <p role="status">
-          {dict.ai.generating} <progress aria-label={dict.ai.generating} />
-        </p>
-      )}
       {output.status === "failed" && (
         <p className="alert error">
           {errorMessage(dict, output.error_code ?? "generation_failed")}
@@ -431,27 +443,34 @@ export function AiOutputSection({
         />
       )}
       {ready && !editing && (
-        <Content dict={dict} kind={kind} content={output.content} />
-      )}
-      {ready && output.edited_at && (
-        <p className="hint">
-          {format(dict.edit.edited, {
-            date: dateTime(lang, output.edited_at),
-          })}
-        </p>
-      )}
-      {ready && output.edited_at && (
-        <Revisions dict={dict} lang={lang} kind={kind} outputId={output.id} />
-      )}
-      {output.status === "ready" && (
-        <p className="notice" role="note">
-          {dict.home.aiNotice}{" "}
-          {output.model &&
-            format(dict.ai.generatedWith, { model: output.model })}
-        </p>
+        <article className="document">
+          <Content dict={dict} kind={kind} content={output.content} />
+        </article>
       )}
       <FormMessage error={error} />
-    </section>
+      {ready && (
+        <footer className="panel-foot">
+          <p className="hint">
+            {dict.home.aiNotice}{" "}
+            {output.model &&
+              format(dict.ai.generatedWith, { model: output.model })}
+            {output.edited_at &&
+              ` · ${format(dict.edit.edited, {
+                date: dateTime(lang, output.edited_at),
+              })}`}
+          </p>
+          <p className="hint">{dict.ai.sourcesHint}</p>
+          {output.edited_at && (
+            <Revisions
+              dict={dict}
+              lang={lang}
+              kind={kind}
+              outputId={output.id}
+            />
+          )}
+        </footer>
+      )}
+    </div>
   );
 }
 

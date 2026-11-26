@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  AudioLines,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  Mic,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
@@ -13,6 +24,7 @@ import { getRecorderQueue, tryComplete } from "@/lib/recorder";
 import { formatDuration } from "@/lib/recorder/useCapture";
 import { useUploaderStats } from "@/lib/recorder/useUploaderStats";
 
+import { kindTab } from "./AiOutputs";
 import { UploadStatus } from "./UploadStatus";
 
 type Props = { dict: Dictionary; lang: Locale };
@@ -57,108 +69,147 @@ function List({ dict, lang, user }: Props & { user: User }) {
 
   return (
     <div className="stack-lg">
-      <div className="row spread">
+      <div className="page-head">
         <h1>{dict.recordings.title}</h1>
-        <Link className="button primary" href={`/${lang}/record`}>
-          {dict.nav.newRecording}
-        </Link>
+        <div className="row">
+          <Link className="button" href={`/${lang}/import`}>
+            <Upload aria-hidden="true" size={18} />
+            <span className="label-wide">{dict.recordings.import}</span>
+          </Link>
+          <Link className="button primary" href={`/${lang}/record`}>
+            <Mic aria-hidden="true" size={18} /> {dict.nav.newRecording}
+          </Link>
+        </div>
       </div>
       <UploadStatus dict={dict} />
       <SearchForm dict={dict} onSearch={setFilters} />
       <FormMessage error={error} />
 
-      <section className="card">
-        {recordings === undefined ? (
-          <p role="status">{dict.common.loading}</p>
-        ) : recordings.length === 0 ? (
-          <p className="hint">
+      {recordings === undefined ? (
+        <p role="status">{dict.common.loading}</p>
+      ) : recordings.length === 0 ? (
+        <div className="card empty-state">
+          <AudioLines aria-hidden="true" size={28} className="muted-icon" />
+          <p>
             {filters === EMPTY_FILTERS
               ? dict.recordings.empty
               : dict.search.noResults}
           </p>
-        ) : (
-          <ul className="list">
-            {recordings.map((r) => {
-              const local = stats?.localByRecording[r.id] ?? 0;
-              const resumable =
-                r.status === "uploading" && r.owner_id === user.id;
-              return (
-                <li key={r.id} className="list-row">
-                  <div>
-                    <div>
-                      <Link href={`/${lang}/recordings/${r.id}`}>
-                        <strong>{r.title}</strong>
-                      </Link>
-                    </div>
-                    {r.matches.length > 0 && (
-                      <ul className="matches">
-                        {r.matches.map((m) => (
-                          <li key={m.idx}>
-                            <Link
-                              href={`/${lang}/recordings/${r.id}#seg-${m.idx}`}
-                            >
-                              <span className="hint">
-                                {formatDuration(m.start_ms)}
-                              </span>{" "}
-                              <Highlighted text={m.highlighted} />
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+        </div>
+      ) : (
+        <ul className="rec-list">
+          {recordings.map((r) => {
+            const local = stats?.localByRecording[r.id] ?? 0;
+            const resumable =
+              r.status === "uploading" && r.owner_id === user.id;
+            const href = `/${lang}/recordings/${r.id}`;
+            return (
+              <li key={r.id} className="rec-card">
+                <div className="rec-main">
+                  <Link href={href} className="rec-title" id={`title-${r.id}`}>
+                    {r.title}
+                  </Link>
+                  <p className="meta">
+                    <span>{dateFormat.format(new Date(r.created_at))}</span>
+                    <span>{formatDuration(r.duration_ms)}</span>
+                    {r.status !== "transcribed" && (
+                      <span className={`badge status-${r.status}`}>
+                        {dict.recordings.status[r.status]}
+                      </span>
                     )}
-                    <div className="hint">
-                      {dateFormat.format(new Date(r.created_at))} ·{" "}
-                      {formatDuration(r.duration_ms)}
-                    </div>
-                    {r.status === "failed" && r.error_code && (
-                      <div className="alert error">
-                        {format(dict.recordings.failedReason, {
-                          reason: errorMessage(dict, r.error_code),
-                        })}
-                      </div>
-                    )}
-                    {local > 0 && (
-                      <div className="hint">
-                        {format(dict.recordings.localPending, { count: local })}
-                      </div>
-                    )}
-                  </div>
-                  <div className="row">
-                    <span className="badge">
-                      {dict.recordings.status[r.status]}
-                    </span>
                     {r.audio_ready && r.status === "pending" && (
                       <span className="badge ok">
                         {dict.recordings.audioReady}
                       </span>
                     )}
-                    {resumable && (
-                      <>
+                  </p>
+                  {r.status === "transcribed" && (
+                    <ul className="doc-links" aria-label={dict.recordings.documents}>
+                      <li>
                         <Link
-                          className="button small"
-                          href={`/${lang}/record?recording=${r.id}`}
+                          href={href}
+                          className="doc-link"
+                          aria-describedby={`title-${r.id}`}
                         >
-                          {dict.recording.continue}
+                          <FileText aria-hidden="true" size={15} />
+                          {dict.detail.transcript}
                         </Link>
-                        <button
-                          type="button"
-                          className="button small"
-                          onClick={() => void finish(r.id)}
-                        >
-                          {dict.recordings.finishNow}
-                        </button>
-                      </>
-                    )}
+                      </li>
+                      {r.documents.map((kind) => {
+                        const Icon = DOC_ICONS[kind];
+                        return (
+                          <li key={kind}>
+                            <Link
+                              href={`${href}?tab=${kind}`}
+                              className="doc-link"
+                              aria-describedby={`title-${r.id}`}
+                            >
+                              <Icon aria-hidden="true" size={15} />
+                              {kindTab(dict, kind)}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {r.matches.length > 0 && (
+                    <ul className="matches">
+                      {r.matches.map((m) => (
+                        <li key={m.idx}>
+                          <Link href={`${href}#seg-${m.idx}`}>
+                            <span className="timestamp">
+                              {formatDuration(m.start_ms)}
+                            </span>{" "}
+                            <Highlighted text={m.highlighted} />
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {r.status === "failed" && r.error_code && (
+                    <p className="alert error">
+                      {format(dict.recordings.failedReason, {
+                        reason: errorMessage(dict, r.error_code),
+                      })}
+                    </p>
+                  )}
+                  {local > 0 && (
+                    <p className="hint">
+                      {format(dict.recordings.localPending, { count: local })}
+                    </p>
+                  )}
+                </div>
+                {resumable && (
+                  <div className="row wrap">
+                    <Link
+                      className="button small"
+                      href={`/${lang}/record?recording=${r.id}`}
+                    >
+                      {dict.recording.continue}
+                    </Link>
+                    <button
+                      type="button"
+                      className="button small"
+                      onClick={() => void finish(r.id)}
+                    >
+                      {dict.recordings.finishNow}
+                    </button>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
+
+const DOC_ICONS = {
+  summary: Sparkles,
+  minutes: ClipboardList,
+  class_notes: GraduationCap,
+} as const;
 
 type Filters = { q: string; speaker: string; from: string; to: string };
 const EMPTY_FILTERS: Filters = { q: "", speaker: "", from: "", to: "" };
@@ -193,50 +244,66 @@ function SearchForm({
       setForm((f) => ({ ...f, [key]: e.target.value }));
   const empty = Object.values(form).every((v) => !v);
 
+  const filtered = Boolean(form.speaker || form.from || form.to);
+
   return (
     <form
       role="search"
       aria-label={dict.search.label}
-      className="card search"
+      className="search"
       onSubmit={(e) => {
         e.preventDefault();
         onSearch(empty ? EMPTY_FILTERS : { ...form });
       }}
     >
-      <Field
-        label={dict.search.label}
-        type="search"
-        placeholder={dict.search.placeholder}
-        maxLength={200}
-        value={form.q}
-        onChange={set("q")}
-      />
-      <Field
-        label={dict.search.speaker}
-        maxLength={100}
-        value={form.speaker}
-        onChange={set("speaker")}
-      />
-      <Field
-        label={dict.search.from}
-        type="date"
-        value={form.from}
-        onChange={set("from")}
-      />
-      <Field
-        label={dict.search.to}
-        type="date"
-        value={form.to}
-        onChange={set("to")}
-      />
-      <div className="row">
+      <div className="search-bar">
+        <Search aria-hidden="true" size={18} className="muted-icon" />
+        <label htmlFor="search-q" className="visually-hidden">
+          {dict.search.label}
+        </label>
+        <input
+          id="search-q"
+          type="search"
+          placeholder={dict.search.placeholder}
+          maxLength={200}
+          value={form.q}
+          onChange={set("q")}
+        />
         <button type="submit" className="button primary">
           {dict.search.submit}
         </button>
-        {!empty && (
+      </div>
+      <details className="filters" open={filtered || undefined}>
+        <summary>
+          <SlidersHorizontal aria-hidden="true" size={16} />{" "}
+          {dict.recordings.filters}
+        </summary>
+        <div className="filter-grid">
+          <Field
+            label={dict.search.speaker}
+            maxLength={100}
+            value={form.speaker}
+            onChange={set("speaker")}
+          />
+          <Field
+            label={dict.search.from}
+            type="date"
+            value={form.from}
+            onChange={set("from")}
+          />
+          <Field
+            label={dict.search.to}
+            type="date"
+            value={form.to}
+            onChange={set("to")}
+          />
+        </div>
+      </details>
+      {!empty && (
+        <div>
           <button
             type="button"
-            className="button"
+            className="link-button subtle"
             onClick={() => {
               setForm(EMPTY_FILTERS);
               onSearch(EMPTY_FILTERS);
@@ -244,8 +311,8 @@ function SearchForm({
           >
             {dict.search.clear}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </form>
   );
 }

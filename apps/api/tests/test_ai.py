@@ -260,6 +260,10 @@ def test_summary_and_minutes_after_transcription(
     assert task["responsable"] == "Laura"
     assert task["segmentos"] == [{"idx": 1, "start_ms": 3_500}]
 
+    # La lista enlaza directamente con los documentos listos.
+    [listed] = ana.get("/v1/recordings").json()
+    assert listed["documents"] == ["summary", "minutes"]
+
 
 def test_regenerate_on_demand(
     transcribed: dict[str, Any], ana: ApiClient, ai_queue: AiQueue, db: Session

@@ -1473,6 +1473,11 @@ export interface components {
              * @default []
              */
             matches: components["schemas"]["SearchMatch"][];
+            /**
+             * Documents
+             * @default []
+             */
+            documents: components["schemas"]["AiOutputKind"][];
         };
         /** RecordingMove */
         RecordingMove: {

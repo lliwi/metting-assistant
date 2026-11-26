@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.core.config import TranscriptionEngine
-from app.models import RecordingSource, RecordingStatus
+from app.models import AiOutputKind, RecordingSource, RecordingStatus
 
 Language = Literal["es", "ca", "en", "it"]
 
@@ -160,6 +160,8 @@ class SearchMatch(BaseModel):
 
 class RecordingListItem(RecordingOut):
     matches: list[SearchMatch] = []
+    # Documentos de IA listos (resumen, acta, apuntes): accesos directos en la lista.
+    documents: list[AiOutputKind] = []
 
 
 class RecordingUpdate(BaseModel):

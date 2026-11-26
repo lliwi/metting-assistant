@@ -86,17 +86,6 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
                   icon={UserRound}
                 />
               </li>
-              <li>
-                <button
-                  type="button"
-                  className="icon-link"
-                  onClick={handleLogout}
-                  aria-label={dict.nav.logout}
-                  title={dict.nav.logout}
-                >
-                  <LogOut aria-hidden="true" size={22} strokeWidth={2} />
-                </button>
-              </li>
             </ul>
           ) : (
             <ul>
@@ -119,6 +108,19 @@ export function SiteHeader({ dict, lang }: { dict: Dictionary; lang: Locale }) {
           <CurrentPathLocaleToggle lang={lang} />
         </Suspense>
       </nav>
+
+      {/* Cerrar sesión, siempre el último a la derecha. */}
+      {!loading && user && (
+        <button
+          type="button"
+          className="icon-link"
+          onClick={handleLogout}
+          aria-label={dict.nav.logout}
+          title={dict.nav.logout}
+        >
+          <LogOut aria-hidden="true" size={22} strokeWidth={2} />
+        </button>
+      )}
     </header>
   );
 }

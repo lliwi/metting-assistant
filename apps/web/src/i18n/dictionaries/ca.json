@@ -37,7 +37,8 @@
     "or": "o",
     "remove": "Treu",
     "role": "Rol",
-    "passwordHint": "Mínim 12 caràcters. Una frase llarga és més segura que una contrasenya curta i complexa."
+    "passwordHint": "Mínim 12 caràcters. Una frase llarga és més segura que una contrasenya curta i complexa.",
+    "close": "Tanca"
   },
   "roles": {
     "owner": "Propietari",
@@ -269,7 +270,10 @@
     "localPending": "{count} segments en aquest dispositiu",
     "finishNow": "Finalitza la captura",
     "failedReason": "Motiu: {reason}",
-    "audioReady": "Àudio a punt"
+    "audioReady": "Àudio a punt",
+    "import": "Importa",
+    "filters": "Filtres",
+    "documents": "Documents"
   },
   "import": {
     "title": "Importa àudio o vídeo",
@@ -309,7 +313,13 @@
     "deleteHeading": "Eliminar l'enregistrament",
     "delete": "Eliminar l'enregistrament",
     "deleteWarning": "S'eliminaran definitivament l'àudio, les transcripcions, l'historial de canvis, el resum i l'acta. No es pot desfer.",
-    "deleteSubmit": "Eliminar definitivament"
+    "deleteSubmit": "Eliminar definitivament",
+    "export": "Exporta",
+    "more": "Més accions",
+    "tabs": "Contingut de la gravació",
+    "move": "Mou a una altra organització",
+    "failedHelp": "Pots tornar-ho a provar, amb un altre idioma o motor si cal.",
+    "reprocessHint": "Crea una versió nova de la transcripció; l'actual es conserva. Els documents i les traduccions s'hauran de tornar a generar."
   },
   "translation": {
     "label": "Idioma de la transcripció",
@@ -324,6 +334,12 @@
     "outdated": "L'original ha canviat",
     "untranslated": "Sense traduir",
     "editOriginal": "Per corregir frases, torna a l'idioma original."
+  },
+  "share": {
+    "copy": "Copia",
+    "copied": "Copiat",
+    "share": "Comparteix",
+    "copyFailed": "No s'ha pogut copiar."
   },
   "move": {
     "title": "Moure a una altra organització",
@@ -358,7 +374,21 @@
     "concepts": "Conceptes clau",
     "examples": "Exemples",
     "review": "Per repassar",
-    "homework": "Deures"
+    "homework": "Deures",
+    "tabMinutes": "Acta",
+    "tabClassNotes": "Apunts",
+    "emptySummary": "Encara no hi ha resum",
+    "emptyMinutes": "Encara no hi ha acta",
+    "emptyClassNotes": "Encara no hi ha apunts",
+    "describeSummary": "Un resum executiu amb els punts clau de la reunió.",
+    "describeMinutes": "Assistents, temes tractats, decisions, tasques amb responsable i preguntes obertes.",
+    "describeClassNotes": "Apunts ordenats per estudiar: explicació, conceptes clau, exemples i preguntes de repàs.",
+    "generateSummary": "Genera el resum",
+    "generateMinutes": "Genera l'acta",
+    "generateClassNotes": "Genera els apunts",
+    "retry": "Torna-ho a provar",
+    "sourcesHint": "Les marques de temps porten al moment de la transcripció d'on surt cada punt.",
+    "generatingHint": "Pots continuar fent servir la pàgina: apareixerà aquí quan estigui llest."
   },
   "speakers": {
     "duplicatesTitle": "La mateixa persona amb diversos noms?",
@@ -376,7 +406,12 @@
     "rename": "Nom de {label}",
     "save": "Desa els noms",
     "saved": "Noms desats. Regenera el resum i l'acta perquè els facin servir.",
-    "none": "No s'han identificat parlants en aquesta transcripció."
+    "none": "No s'han identificat parlants en aquesta transcripció.",
+    "hint": "Prem un nom per canviar-lo.",
+    "renameAria": "Canvia el nom de {name}",
+    "placeholder": "Nom de la persona",
+    "renamed": "Nom desat. Regenera els documents perquè el facin servir.",
+    "findDuplicatesShort": "Repetits?"
   },
   "player": {
     "label": "Àudio de l'enregistrament",

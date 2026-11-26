@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 import { FormMessage, useAction } from "@/components/forms";
 import type { Dictionary, Locale } from "@/i18n/client";
@@ -18,19 +17,20 @@ export function canDeleteRecording(user: User, recording: Recording): boolean {
   return membership?.role === "owner" || membership?.role === "admin";
 }
 
-/** Borrado definitivo en dos pasos: el primer botón solo muestra la advertencia. */
+/** Confirmación del borrado definitivo (dentro de su diálogo). */
 export function DeleteRecording({
   dict,
   lang,
   recording,
+  onCancel,
 }: {
   dict: Dictionary;
   lang: Locale;
   recording: Recording;
+  onCancel: () => void;
 }) {
   const router = useRouter();
   const { pending, error, run } = useAction(dict);
-  const [open, setOpen] = useState(false);
 
   async function confirm() {
     const result = await run(() =>
@@ -43,44 +43,22 @@ export function DeleteRecording({
   }
 
   return (
-    <section
-      className="card stack danger-zone"
-      aria-labelledby="delete-recording-heading"
-    >
-      <h2 id="delete-recording-heading">{dict.detail.deleteHeading}</h2>
-      {!open ? (
-        <div>
-          <button
-            type="button"
-            className="button danger"
-            onClick={() => setOpen(true)}
-          >
-            {dict.detail.delete}
-          </button>
-        </div>
-      ) : (
-        <>
-          <p role="alert">{dict.detail.deleteWarning}</p>
-          <FormMessage error={error} />
-          <div className="row">
-            <button
-              type="button"
-              className="button danger"
-              disabled={pending}
-              onClick={confirm}
-            >
-              {dict.detail.deleteSubmit}
-            </button>
-            <button
-              type="button"
-              className="button"
-              onClick={() => setOpen(false)}
-            >
-              {dict.edit.cancel}
-            </button>
-          </div>
-        </>
-      )}
-    </section>
+    <div className="stack">
+      <p role="alert">{dict.detail.deleteWarning}</p>
+      <FormMessage error={error} />
+      <div className="row dialog-actions">
+        <button type="button" className="button" onClick={onCancel}>
+          {dict.edit.cancel}
+        </button>
+        <button
+          type="button"
+          className="button danger-solid"
+          disabled={pending}
+          onClick={confirm}
+        >
+          {dict.detail.deleteSubmit}
+        </button>
+      </div>
+    </div>
   );
 }
