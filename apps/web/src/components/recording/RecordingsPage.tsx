@@ -64,13 +64,12 @@ function List({
 }: Props & { user: User; orgId: string | null }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const { data: organizations } = useQuery(fetchOrganizations);
+  // Carpeta abierta: sus grabaciones. Sin carpeta: las organizaciones (o, al buscar, los
+  // resultados de todas).
   const folder = organizations?.find((o) => o.id === orgId);
-  // Con una sola organización no hay carpetas: se ven sus grabaciones directamente.
-  const scope =
-    folder ?? (organizations?.length === 1 ? organizations[0] : undefined);
+  const scope = folder;
   const searching = filters !== EMPTY_FILTERS;
-  const showFolders =
-    organizations !== undefined && !scope && !searching && organizations.length > 1;
+  const showFolders = organizations !== undefined && !scope && !searching;
   const orgName = (o: Organization) =>
     o.is_personal ? dict.orgs.personal : o.name;
   const orgNames = Object.fromEntries(
